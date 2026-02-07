@@ -1,0 +1,173 @@
+---
+title: Feature Flags
+description: Progressive rollouts, targeting rules, and kill switches. Ship continuously without breaking production.
+icon: ToggleRight
+---
+
+Roll out features gradually, target specific segments, and kill anything instantly. FeatureFlag entities are first-class Digital Objects with full event sourcing -- every toggle, every rollout percentage change, every rule update is an immutable event.
+
+```typescript
+import { FeatureFlag } from '@headlessly/experiments'
+
+await FeatureFlag.create({
+  key: 'new-onboarding',
+  description: 'Guided wizard onboarding flow',
+  enabled: false,
+  percentage: 0,
+})
+
+await FeatureFlag.enable({ key: 'new-onboarding' })
+await FeatureFlag.rollout({ key: 'new-onboarding', percentage: 25 })
+```
+
+## Create a Flag
+
+Every flag starts with a unique key, a description, and an initial state:
+
+```typescript
+import { FeatureFlag } from '@headlessly/experiments'
+
+const flag = await FeatureFlag.create({
+  key: 'ai-copilot',
+  description: 'AI copilot in the dashboard sidebar',
+  enabled: false,
+  percentage: 0,
+  rules: [],
+})
+// flag.$id -> 'flag_nW4xRtKm'
+// flag.enabled -> false
+```
+
+The `key` is unique and indexed -- it is the identifier your application code checks at runtime.
+
+## Enable and Disable
+
+The simplest operation: turn a flag on or off for everyone.
+
+```typescript
+import { FeatureFlag } from '@headlessly/experiments'
+
+// Turn it on
+await FeatureFlag.enable({ key: 'ai-copilot' })
+
+// Turn it off (kill switch)
+await FeatureFlag.disable({ key: 'ai-copilot' })
+```
+
+### Verb Conjugation
+
+Every verb has a full lifecycle -- execute, BEFORE hook, AFTER hook:
+
+```typescript
+import { FeatureFlag } from '@headlessly/experiments'
+
+// Execute
+await FeatureFlag.enable({ key: 'ai-copilot' })
+
+// BEFORE hook -- validate or block
+FeatureFlag.enabling(flag => {
+  if (flag.key === 'payments-v2' && !process.env.STRIPE_V2_KEY) {
+    throw new Error('Cannot enable payments-v2 without Stripe v2 API key')
+  }
+})
+
+// AFTER hook -- react to the event
+FeatureFlag.enabled(flag => {
+  console.log(`${flag.key} is now live for ${flag.percentage}% of traffic`)
+})
+```
+
+## Percentage Rollouts
+
+Ramp a feature from 0% to 100% in stages. Each `rollout` call emits a `RolledOut` event:
+
+```typescript
+import { FeatureFlag } from '@headlessly/experiments'
+
+await FeatureFlag.rollout({ key: 'ai-copilot', percentage: 5 })   // internal team
+await FeatureFlag.rollout({ key: 'ai-copilot', percentage: 25 })  // early adopters
+await FeatureFlag.rollout({ key: 'ai-copilot', percentage: 50 })  // half of users
+await FeatureFlag.rollout({ key: 'ai-copilot', percentage: 100 }) // general availability
+```
+
+Traffic assignment is sticky -- a contact assigned to the 25% cohort stays in that cohort as you ramp to 50%.
+
+## Targeting Rules
+
+Rules let you control which contacts see the feature based on properties, segments, or explicit overrides:
+
+```typescript
+import { FeatureFlag } from '@headlessly/experiments'
+
+await FeatureFlag.create({
+  key: 'enterprise-billing',
+  description: 'Enterprise billing dashboard',
+  enabled: true,
+  percentage: 0,
+  rules: [
+    { type: 'segment', value: 'enterprise', enabled: true },
+    { type: 'contact', value: 'contact_fX9bL5nRd', enabled: true },
+    { type: 'property', field: 'plan', operator: 'eq', value: 'enterprise', enabled: true },
+  ],
+})
+```
+
+Rules are evaluated in order. The first match wins. Rule types: `segment` (match contacts in a marketing segment), `contact` (explicit allow/deny for a specific contact ID), `property` (match on any contact field).
+
+## Check a Flag at Runtime
+
+The `check` method evaluates rules, percentage, and enabled state in a single call. Results are cached and invalidated by `RolledOut`, `Enabled`, and `Disabled` events:
+
+```typescript
+import { FeatureFlag } from '@headlessly/experiments'
+
+const isEnabled = await FeatureFlag.check({
+  key: 'ai-copilot',
+  contact: 'contact_fX9bL5nRd',
+})
+
+if (isEnabled) {
+  renderCopilot()
+}
+```
+
+## MCP Tools
+
+Search for all enabled flags:
+
+```json title="headless.ly/mcp#search"
+{ "type": "FeatureFlag", "filter": { "enabled": true } }
+```
+
+Fetch a specific flag with its rules:
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "FeatureFlag", "id": "flag_nW4xRtKm" }
+```
+
+Roll out a feature via the `do` tool:
+
+```ts title="headless.ly/mcp#do"
+await $.FeatureFlag.rollout({ key: 'ai-copilot', percentage: 50 })
+return await $.FeatureFlag.find({ enabled: true })
+```
+
+## Event-Driven Automation
+
+Connect flag changes to other parts of the system:
+
+```typescript
+import { FeatureFlag } from '@headlessly/experiments'
+
+FeatureFlag.rolledOut((flag, $) => {
+  if (flag.percentage === 100) {
+    $.Event.create({
+      name: 'feature.ga',
+      type: 'Track',
+      source: 'experiments',
+      properties: { key: flag.key },
+    })
+  }
+})
+```
+

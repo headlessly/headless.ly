@@ -1,0 +1,173 @@
+---
+title: Landing Pages
+description: Build, publish, and A/B test landing pages with the Content entity.
+icon: PanelTop
+---
+
+Landing pages are Content entities with `type: 'LandingPage'`. They get strongly-typed props -- headline, subheadline, CTA, features, testimonials -- that render automatically through mdxui. No CMS to configure, no template to pick. Create it, publish it, measure it.
+
+```typescript
+import { Content } from '@headlessly/content'
+
+const page = await Content.create({
+  title: 'Ship AI Products 10x Faster',
+  slug: 'launch',
+  type: 'LandingPage',
+  status: 'Draft',
+  props: {
+    headline: 'Ship AI Products 10x Faster',
+    subheadline: 'The operating system for agent-first startups',
+    cta: { text: 'Get Started', href: '/signup' },
+    features: [
+      { title: 'CRM', description: 'Every contact, deal, and company in one graph' },
+      { title: 'Billing', description: 'Stripe-backed subscriptions from day one' },
+      { title: 'Analytics', description: 'Events, funnels, and goals without setup' },
+    ],
+  },
+})
+
+await Content.publish({ id: page.$id })
+```
+
+## Create a Landing Page
+
+The `type: 'LandingPage'` discriminator unlocks structured props that mdxui renders into a complete page:
+
+```typescript
+import { Content } from '@headlessly/content'
+
+await Content.create({
+  title: 'Pricing',
+  slug: 'pricing',
+  type: 'LandingPage',
+  status: 'Draft',
+  props: {
+    headline: 'Simple, transparent pricing',
+    subheadline: 'One plan. Everything included.',
+    cta: { text: 'Start Free', href: '/signup' },
+    features: [
+      { title: 'Unlimited contacts', description: 'No per-seat pricing' },
+      { title: '32 entities', description: 'CRM, billing, projects, and more' },
+    ],
+    testimonials: [
+      { quote: 'We replaced 6 SaaS tools on day one.', author: 'Jamie, Founder' },
+    ],
+  },
+})
+```
+
+### Other Page Types
+
+Not every launch page is a `LandingPage`. Use `Page` for simpler static content:
+
+```typescript
+import { Content } from '@headlessly/content'
+
+await Content.create({
+  title: 'About',
+  slug: 'about',
+  type: 'Page',
+  body: '# About Us\n\nWe build the operating system for agent-first startups.',
+  status: 'Draft',
+})
+```
+
+## Publish and Unpublish
+
+Content has three verbs for lifecycle management:
+
+```typescript
+import { Content } from '@headlessly/content'
+
+// Publish a draft
+await Content.publish({ id: 'content_nR7kTfYxQ' })
+
+// Return to draft
+await Content.draft({ id: 'content_nR7kTfYxQ' })
+
+// Remove from public view
+await Content.archive({ id: 'content_nR7kTfYxQ' })
+```
+
+React to publish events to trigger downstream workflows:
+
+```typescript
+import { Content } from '@headlessly/content'
+import { Event } from '@headlessly/analytics'
+
+Content.published((content) => {
+  Event.track({
+    name: 'page_published',
+    properties: { slug: content.slug, type: content.type },
+  })
+})
+```
+
+## A/B Test Landing Pages
+
+Create two variants of a page and use an Experiment to split traffic:
+
+```typescript
+import { Content } from '@headlessly/content'
+import { Experiment } from '@headlessly/experiments'
+
+const variantA = await Content.create({
+  title: 'Launch - Variant A',
+  slug: 'launch',
+  type: 'LandingPage',
+  status: 'Published',
+  props: {
+    headline: 'Ship AI Products 10x Faster',
+    cta: { text: 'Get Started Free', href: '/signup' },
+  },
+})
+
+const variantB = await Content.create({
+  title: 'Launch - Variant B',
+  slug: 'launch-b',
+  type: 'LandingPage',
+  status: 'Published',
+  props: {
+    headline: 'The OS for AI Startups',
+    cta: { text: 'Start Building', href: '/signup' },
+  },
+})
+
+await Experiment.create({
+  name: 'Landing Page Headline Test',
+  type: 'ABTest',
+  variants: [
+    { id: 'a', content: variantA.$id, weight: 50 },
+    { id: 'b', content: variantB.$id, weight: 50 },
+  ],
+  goal: 'signup_completed',
+})
+```
+
+## MCP
+
+```json title="headless.ly/mcp#search"
+{ "type": "Content", "filter": { "type": "LandingPage", "status": "Published" } }
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Content", "id": "content_nR7kTfYxQ" }
+```
+
+```ts title="headless.ly/mcp#do"
+await $.Content.publish({ id: 'content_nR7kTfYxQ' })
+```
+
+## CLI
+
+```bash
+npx @headlessly/cli Content.create --title "Launch" --slug launch --type LandingPage --status Draft
+npx @headlessly/cli do Content.publish content_nR7kTfYxQ
+npx @headlessly/cli Content.find --type LandingPage --status Published
+```
+
+## What's Next
+
+- [Launch Campaigns](/docs/launch/campaigns) -- drive traffic to your landing pages
+- [Lead Capture Forms](/docs/launch/forms) -- embed forms on your pages to capture leads
+- [Content Reference](/docs/reference/entities/content) -- full Content entity definition with all types

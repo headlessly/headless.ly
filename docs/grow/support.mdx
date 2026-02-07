@@ -1,0 +1,246 @@
+---
+title: Customer Support
+description: Tickets, knowledge base, auto-routing, SLA tracking -- support that agents can operate.
+icon: LifeBuoy
+---
+
+Resolve customer issues through Tickets. Knowledge base articles are Content with `type: 'Article'`. Replies are Messages that flow across any channel. Agents auto-triage, humans handle the edge cases.
+
+```typescript
+import { Ticket } from '@headlessly/support'
+import { Agent } from '@headlessly/platform'
+
+// Create a ticket from an inbound email
+await Ticket.create({
+  subject: 'Cannot access billing portal',
+  body: 'I keep getting a 403 error when I try to update my payment method.',
+  priority: 'High',
+  contact: 'contact_uLoSfycy',
+})
+
+// Auto-route high-priority tickets to an agent
+Ticket.created(ticket => {
+  if (ticket.priority === 'High' || ticket.priority === 'Urgent') {
+    Agent.deploy('support-bot', { ticket: ticket.$id })
+  }
+})
+```
+
+## Ticket Lifecycle
+
+Tickets move through four states: `Open`, `Waiting`, `Resolved`, `Closed`. Each transition is a verb with full lifecycle hooks:
+
+```typescript
+import { Ticket } from '@headlessly/support'
+
+// Assign to a team member
+await Ticket.assign({ id: 'ticket_pQ8xNfKm', assignee: 'user_Qw3nLpFd' })
+
+// Escalate to a higher tier
+await Ticket.escalate({ id: 'ticket_pQ8xNfKm' })
+
+// Resolve the ticket
+await Ticket.resolve({ id: 'ticket_pQ8xNfKm' })
+
+// Close after confirmation
+await Ticket.close({ id: 'ticket_pQ8xNfKm' })
+
+// Reopen if the issue recurs
+await Ticket.reopen({ id: 'ticket_pQ8xNfKm' })
+```
+
+### Ticket Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `assign` | `Assigned` | Assign to a team member |
+| `escalate` | `Escalated` | Escalate to a higher support tier |
+| `resolve` | `Resolved` | Mark the issue as resolved |
+| `close` | `Closed` | Close the ticket |
+| `reopen` | `Reopened` | Reopen after resolution |
+
+### Verb Conjugation
+
+Every verb supports BEFORE and AFTER hooks:
+
+```typescript
+import { Ticket } from '@headlessly/support'
+
+// BEFORE -- validate before escalation
+Ticket.escalating(ticket => {
+  if (ticket.priority === 'Low') {
+    throw new Error('Low-priority tickets cannot be escalated')
+  }
+})
+
+// Execute
+await Ticket.escalate({ id: 'ticket_pQ8xNfKm' })
+
+// AFTER -- notify the team
+Ticket.escalated((ticket, $) => {
+  $.Message.create({
+    body: `Ticket escalated: ${ticket.subject}`,
+    channel: 'Slack',
+    direction: 'Internal',
+    ticket: ticket.$id,
+  })
+})
+```
+
+## Cross-Channel Messages
+
+Replies to tickets are Messages -- the universal communication primitive. A single thread can span email, Slack, web chat, and SMS:
+
+```typescript
+import { Message } from '@headlessly/sdk'
+
+// Customer replies via email
+await Message.create({
+  body: 'I tried clearing my cache but the error persists.',
+  channel: 'Email',
+  direction: 'Inbound',
+  from: 'contact_uLoSfycy',
+  ticket: 'ticket_pQ8xNfKm',
+  thread: 'thread_Xr4nKwPm',
+})
+
+// Support agent replies via web chat
+await Message.create({
+  body: 'I have reset your session. Please try again.',
+  channel: 'Web',
+  direction: 'Outbound',
+  to: 'contact_uLoSfycy',
+  ticket: 'ticket_pQ8xNfKm',
+  thread: 'thread_Xr4nKwPm',
+})
+```
+
+## Auto-Routing
+
+Route tickets automatically based on priority, content, or contact attributes:
+
+```typescript
+import { Ticket } from '@headlessly/support'
+import { Agent } from '@headlessly/platform'
+
+Ticket.created((ticket, $) => {
+  // Urgent tickets go to the on-call engineer
+  if (ticket.priority === 'Urgent') {
+    $.Ticket.assign({ id: ticket.$id, assignee: 'user_Rm6nTxKw' })
+    $.Message.create({
+      body: `Urgent ticket: ${ticket.subject}`,
+      channel: 'Slack',
+      direction: 'Internal',
+      ticket: ticket.$id,
+    })
+    return
+  }
+
+  // All other tickets get triaged by an AI agent
+  Agent.deploy('triage-bot', { ticket: ticket.$id })
+})
+```
+
+## Knowledge Base
+
+Knowledge base articles are Content with `type: 'Article'`. When a ticket matches an existing article, suggest it automatically:
+
+```typescript
+import { Ticket } from '@headlessly/support'
+
+Ticket.created(async (ticket, $) => {
+  // Search for matching knowledge base articles
+  const articles = await $.Content.find({
+    type: 'Article',
+    $text: ticket.subject,
+  })
+
+  if (articles.length > 0) {
+    $.Message.create({
+      body: `This might help: ${articles[0].title} -- ${articles[0].url}`,
+      channel: 'InApp',
+      direction: 'Outbound',
+      to: ticket.contact,
+      ticket: ticket.$id,
+    })
+  }
+})
+```
+
+```json title="headless.ly/mcp#search"
+{ "type": "Content", "filter": { "type": "Article" }, "query": "billing portal access" }
+```
+
+## SLA Tracking
+
+Track response and resolution times with events and metrics:
+
+```typescript
+import { Ticket } from '@headlessly/support'
+import { Metric } from '@headlessly/analytics'
+
+Ticket.assigned(ticket => {
+  const responseTime = Date.now() - new Date(ticket.createdAt).getTime()
+  Metric.record({
+    name: 'first_response_time',
+    type: 'Histogram',
+    value: responseTime,
+    dimensions: { priority: ticket.priority },
+  })
+})
+
+Ticket.resolved(ticket => {
+  const resolutionTime = Date.now() - new Date(ticket.createdAt).getTime()
+  Metric.record({
+    name: 'resolution_time',
+    type: 'Histogram',
+    value: resolutionTime,
+    dimensions: { priority: ticket.priority },
+  })
+})
+```
+
+Set goals for SLA compliance:
+
+```typescript
+import { Goal } from '@headlessly/analytics'
+
+await Goal.create({
+  name: 'P1 Response Time < 1 Hour',
+  target: 95,
+  metric: 'metric_p1_response_sla',
+  deadline: '2026-03-31T00:00:00Z',
+})
+```
+
+## MCP: Agent-Operated Support
+
+An AI agent can manage the full support workflow through MCP:
+
+```ts title="headless.ly/mcp#do"
+// Find unassigned tickets older than 2 hours
+const unassigned = await $.Ticket.find({
+  status: 'Open',
+  assignee: null,
+  createdAt: { $lt: new Date(Date.now() - 2 * 3600000) },
+})
+
+for (const ticket of unassigned) {
+  await $.Ticket.assign({ id: ticket.$id, assignee: 'user_Qw3nLpFd' })
+}
+return { assigned: unassigned.length }
+```
+
+## CLI
+
+```bash
+npx @headlessly/cli Ticket.find --status Open --priority Urgent
+npx @headlessly/cli do Ticket.resolve ticket_pQ8xNfKm
+npx @headlessly/cli Ticket.find --assignee user_Qw3nLpFd --status Open
+```
+
+## Next Steps
+
+- [CRM Pipeline](/docs/grow/crm) -- the contacts who create these tickets
+- [Business Analytics](/docs/grow/analytics) -- SLA metrics and support dashboards
+- [Support Entity Reference](/docs/reference/entities/support) -- full Noun definitions and relationships

@@ -1,0 +1,252 @@
+---
+title: Business Analytics
+description: Track events, measure metrics, build funnels, and set goals -- all from real data.
+icon: BarChart3
+---
+
+Events flow in from the browser SDK, API calls, Stripe webhooks, and GitHub events. Financial metrics derive from real Stripe data. Funnels track conversions. Goals track progress. Everything lands in an Iceberg R2 lakehouse for long-term analysis.
+
+```typescript
+import { Event, Metric, Funnel, Goal } from '@headlessly/analytics'
+
+// Track a custom event
+await Event.create({
+  name: 'feature_activated',
+  type: 'Track',
+  source: 'api',
+  properties: { feature: 'workflows', plan: 'pro' },
+  contact: 'contact_uLoSfycy',
+})
+
+// Read real MRR from Stripe
+const mrr = await Metric.get('mrr')
+
+// Check goal progress
+const goal = await Goal.get('goal_Tn7xRwKm')
+```
+
+## Event Tracking
+
+Events are immutable, append-only records. Every tracked action -- pageviews, API calls, sign-ups, CRM interactions, Stripe webhooks -- is an Event:
+
+```typescript
+import { Event } from '@headlessly/analytics'
+
+await Event.create({
+  name: 'signup_completed',
+  type: 'Track',
+  source: 'api',
+  properties: { plan: 'free', referrer: 'producthunt' },
+  contact: 'contact_hR7dNcPwL',
+})
+```
+
+### Event Sources
+
+| Source | Description |
+|--------|-------------|
+| `browser` | Client-side SDK (pageviews, clicks, sessions) |
+| `api` | Server-side API calls |
+| `crm` | CRM interactions (qualification, deal stage changes) |
+| `stripe` | Stripe webhook events (payment, subscription changes) |
+| `github` | GitHub webhook events (pushes, PRs, issues) |
+| `agent` | AI agent actions |
+
+### Browser SDK
+
+One script tag captures all client events:
+
+```html
+<script src="https://js.headless.ly/v1" data-tenant="my-startup" />
+```
+
+Events forward to your existing analytics providers (Google Analytics, Sentry, PostHog) and simultaneously write to your Iceberg R2 lakehouse. No data loss, no vendor lock-in.
+
+### Event Search
+
+```json title="headless.ly/mcp#search"
+{ "type": "Event", "filter": { "name": "signup_completed", "source": "api" } }
+```
+
+## Metrics
+
+Real values computed from real data. Financial metrics auto-derive from Stripe -- no manual input required:
+
+```typescript
+import { Metric } from '@headlessly/analytics'
+
+// Built-in financial metrics from Stripe
+const mrr = await Metric.get('mrr')       // Monthly recurring revenue
+const arr = await Metric.get('arr')       // Annual recurring revenue
+const churn = await Metric.get('churn')   // Churn rate
+const nrr = await Metric.get('nrr')       // Net revenue retention
+const ltv = await Metric.get('ltv')       // Customer lifetime value
+
+// Custom metrics
+await Metric.record({
+  name: 'dau',
+  type: 'Gauge',
+  value: 1_247,
+  unit: 'users',
+})
+
+await Metric.record({
+  name: 'api_calls',
+  type: 'Counter',
+  value: 1,
+  dimensions: { endpoint: '/api/contacts', method: 'GET' },
+})
+```
+
+### Metric Types
+
+| Type | Description |
+|------|-------------|
+| `Counter` | Monotonically increasing value (API calls, signups) |
+| `Gauge` | Point-in-time value (DAU, active subscriptions) |
+| `Histogram` | Distribution of values (response times, deal sizes) |
+| `Rate` | Ratio over time (churn rate, conversion rate) |
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Metric", "id": "mrr" }
+```
+
+## Funnels
+
+Track conversion flows from first touch to revenue:
+
+```typescript
+import { Funnel } from '@headlessly/analytics'
+
+const funnel = await Funnel.create({
+  name: 'Signup to Paid',
+  steps: [
+    { event: 'page_viewed', filter: { path: '/pricing' } },
+    { event: 'signup_completed' },
+    { event: 'feature_activated' },
+    { event: 'subscription_created' },
+  ],
+})
+
+// Analyze conversion rates between steps
+await Funnel.analyze({ id: funnel.$id })
+```
+
+The `analyze` verb computes drop-off rates between each step, time-to-convert, and segment breakdowns:
+
+```typescript
+import { Funnel } from '@headlessly/analytics'
+
+Funnel.analyzed(funnel => {
+  console.log(`Overall conversion: ${funnel.conversionRate}%`)
+  for (const step of funnel.steps) {
+    console.log(`  ${step.event}: ${step.dropoff}% drop-off`)
+  }
+})
+```
+
+```json title="headless.ly/mcp#search"
+{ "type": "Funnel", "filter": { "name": "Signup to Paid" } }
+```
+
+## Goals
+
+Set business objectives and track progress against real metrics:
+
+```typescript
+import { Goal } from '@headlessly/analytics'
+
+// Revenue target
+await Goal.create({
+  name: 'Q1 MRR Target',
+  target: 50_000,
+  metric: 'metric_mrr',
+  deadline: '2026-03-31T00:00:00Z',
+})
+
+// User growth target
+await Goal.create({
+  name: '1000 Active Users',
+  target: 1_000,
+  metric: 'metric_dau',
+  deadline: '2026-06-30T00:00:00Z',
+})
+
+// Check progress
+await Goal.check({ id: 'goal_Tn7xRwKm' })
+```
+
+### Goal Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `check` | `Checked` | Evaluate current progress against target |
+| `complete` | `Completed` | Mark as achieved (auto-fires when target met) |
+| `miss` | `Missed` | Mark as missed (auto-fires at deadline) |
+| `reset` | `Reset` | Reset progress and start over |
+
+React to goal completion:
+
+```typescript
+import { Goal } from '@headlessly/analytics'
+
+Goal.completed((goal, $) => {
+  $.Message.create({
+    body: `Goal achieved: ${goal.name} -- ${goal.current}/${goal.target}`,
+    channel: 'Slack',
+    direction: 'Internal',
+  })
+})
+```
+
+## Lakehouse Architecture
+
+Events flow through a progressive pipeline. External tools handle analytics on day 1, while the lakehouse grows alongside:
+
+```
+Browser SDK / API / Webhooks
+        |
+    Event.create()
+        |
+  +-----+-----+
+  |             |
+Forward to    Store in Iceberg R2
+GA/Sentry/    lakehouse (Parquet)
+PostHog
+```
+
+The lakehouse uses Apache Iceberg on Cloudflare R2 -- schema evolution, time travel, partition pruning. Query your entire event history with SQL, feed it into any BI tool, or let agents analyze trends through MCP.
+
+## MCP: Agent-Driven Analytics
+
+Agents can query metrics, analyze funnels, and set goals:
+
+```ts title="headless.ly/mcp#do"
+// Weekly business health check
+const mrr = await $.Metric.get('mrr')
+const churn = await $.Metric.get('churn')
+const leads = await $.Contact.count({ stage: 'Lead' })
+const deals = await $.Deal.count({ stage: 'Negotiation' })
+
+return {
+  mrr: mrr.value,
+  churn: churn.value,
+  pipeline: { leads, activeDeals: deals },
+}
+```
+
+## Dashboard Integration
+
+headless.ly is headless -- connect any BI tool to the unified metrics API:
+
+```bash
+GET /~my-startup/metrics
+```
+
+One connection covers CRM + billing + projects + support + analytics + marketing. Works with Numerics, Grafana, Retool, spreadsheets, or any tool that speaks HTTP.
+
+## Next Steps
+
+- [CRM Pipeline](/docs/grow/crm) -- track the pipeline that generates these metrics
+- [Billing and Subscriptions](/docs/grow/billing) -- the Stripe data behind financial metrics
+- [Analytics Entity Reference](/docs/reference/entities/analytics) -- full Noun definitions and relationships

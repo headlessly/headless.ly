@@ -1,0 +1,151 @@
+---
+title: Launch Campaigns
+description: Coordinate your go-to-market with Campaign entities -- create, target, launch, and measure.
+icon: Megaphone
+---
+
+A Campaign is a coordinated marketing push -- a Product Hunt launch, a drip sequence, a content blitz. headless.ly treats campaigns as first-class entities with typed statuses, audience targeting via Segments, and full verb conjugation so agents can orchestrate every phase.
+
+```typescript
+import { Campaign, Segment } from '@headlessly/marketing'
+
+const segment = await Segment.create({
+  name: 'Early Adopters',
+  as: 'Technical Founders',
+  at: 'seed-stage startups',
+  are: 'building AI products',
+  using: 'LLM APIs and vector databases',
+  to: 'ship faster without hiring',
+})
+
+const campaign = await Campaign.create({
+  name: 'Product Hunt Launch',
+  type: 'Event',
+  status: 'Draft',
+  segment: segment.$id,
+  startDate: '2025-03-15T09:00:00Z',
+})
+
+await Campaign.launch({ id: campaign.$id })
+```
+
+## Create a Campaign
+
+Every campaign starts as a Draft. Provide a name, a type, and optionally link it to a Segment for targeting:
+
+```typescript
+import { Campaign } from '@headlessly/marketing'
+
+const campaign = await Campaign.create({
+  name: 'Developer Newsletter #1',
+  type: 'Email',
+  status: 'Draft',
+  startDate: '2025-04-01T08:00:00Z',
+  endDate: '2025-04-01T12:00:00Z',
+})
+```
+
+Campaign types map to distribution channels:
+
+| Type | Use Case |
+|------|----------|
+| `Email` | Drip sequences, newsletters, announcements |
+| `Social` | Twitter/X threads, LinkedIn posts |
+| `Content` | Blog series, documentation pushes |
+| `Paid` | Ad campaigns across platforms |
+| `Event` | Product Hunt launches, webinars, conferences |
+
+## Target a Segment
+
+Link a campaign to a Segment to define who sees it:
+
+```typescript
+import { Campaign, Segment } from '@headlessly/marketing'
+
+const segment = await Segment.create({
+  name: 'AI Builders',
+  filters: { source: 'github', stage: 'Lead' },
+})
+
+await Campaign.update({
+  id: 'campaign_fX9bL5nRd',
+  segment: segment.$id,
+})
+```
+
+## Verb Conjugation
+
+Campaigns have three custom verbs -- `launch`, `pause`, and `complete` -- each with the full lifecycle:
+
+```typescript
+import { Campaign } from '@headlessly/marketing'
+
+// Execute
+await Campaign.launch({ id: 'campaign_fX9bL5nRd' })
+await Campaign.pause({ id: 'campaign_fX9bL5nRd' })
+await Campaign.complete({ id: 'campaign_fX9bL5nRd' })
+
+// BEFORE hooks
+Campaign.launching(campaign => {
+  console.log(`About to launch: ${campaign.name}`)
+})
+
+// AFTER hooks
+Campaign.launched(campaign => {
+  console.log(`Campaign live: ${campaign.name}`)
+})
+```
+
+## Track Campaign Performance
+
+React to campaign events to wire up attribution and analytics:
+
+```typescript
+import { Campaign } from '@headlessly/marketing'
+import { Event } from '@headlessly/analytics'
+
+Campaign.launched((campaign) => {
+  Event.track({
+    name: 'campaign_launched',
+    properties: { campaign: campaign.$id, type: campaign.type },
+  })
+})
+
+Campaign.completed((campaign) => {
+  Event.track({
+    name: 'campaign_completed',
+    properties: { campaign: campaign.$id },
+  })
+})
+```
+
+## MCP
+
+Search for active campaigns or launch one via MCP tools:
+
+```json title="headless.ly/mcp#search"
+{ "type": "Campaign", "filter": { "status": "Active" } }
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Campaign", "id": "campaign_fX9bL5nRd", "include": ["segment"] }
+```
+
+```ts title="headless.ly/mcp#do"
+await $.Campaign.launch({ id: 'campaign_fX9bL5nRd' })
+```
+
+## CLI
+
+```bash
+npx @headlessly/cli Campaign.create --name "Launch Day" --type Event --status Draft
+npx @headlessly/cli do Campaign.launch campaign_fX9bL5nRd
+npx @headlessly/cli Campaign.find --status Active
+```
+
+## What's Next
+
+- [Landing Pages](/docs/launch/pages) -- build the pages your campaigns drive traffic to
+- [Lead Capture Forms](/docs/launch/forms) -- capture leads from campaign traffic
+- [Audience Segments](/docs/launch/segments) -- define who your campaigns target
+- [Marketing Reference](/docs/reference/entities/marketing) -- full Campaign entity definition

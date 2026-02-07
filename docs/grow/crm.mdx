@@ -1,0 +1,201 @@
+---
+title: CRM Pipeline
+description: Capture leads, qualify contacts, close deals -- the full sales pipeline in code.
+icon: Users
+---
+
+Track every relationship from first touch to closed deal. Contact, Company, and Deal form a connected graph that agents and humans operate through the same verbs.
+
+```typescript
+import { Contact, Company, Deal } from '@headlessly/crm'
+
+// Capture a lead from a form submission
+const contact = await Contact.create({
+  name: 'Alice Chen',
+  email: 'alice@acme.dev',
+  stage: 'Lead',
+  source: 'website',
+})
+
+// Link to a company
+const company = await Company.create({
+  name: 'Acme Dev',
+  domain: 'acme.dev',
+  industry: 'Software',
+})
+await Contact.update(contact.$id, { company: company.$id })
+
+// Qualify the lead
+await Contact.qualify({ id: contact.$id })
+
+// Create a deal
+await Deal.create({
+  name: 'Acme Enterprise',
+  value: 48_000,
+  contact: contact.$id,
+  company: company.$id,
+  stage: 'Discovery',
+})
+```
+
+## Lead Capture
+
+Contacts enter the system from forms, API calls, agent actions, or manual import. The `capture` verb records the source:
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+await Contact.capture({
+  name: 'Bob Rivera',
+  email: 'bob@startup.io',
+  source: 'demo-request-form',
+})
+```
+
+```json title="headless.ly/mcp#search"
+{ "type": "Contact", "filter": { "stage": "Lead", "source": "demo-request-form" } }
+```
+
+Every capture emits a `Captured` event. React to new leads in real time:
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+Contact.captured(contact => {
+  console.log(`New lead: ${contact.name} from ${contact.source}`)
+})
+```
+
+## Qualification
+
+Move a lead from `Lead` to `Qualified` when they meet your criteria. The full verb lifecycle:
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+// BEFORE hook -- validate or enrich before qualification
+Contact.qualifying(contact => {
+  if (!contact.email) throw new Error('Email required for qualification')
+})
+
+// Execute -- qualify the contact
+await Contact.qualify({ id: 'contact_uLoSfycy' })
+
+// AFTER hook -- trigger downstream actions
+Contact.qualified((contact, $) => {
+  $.Deal.create({
+    name: `${contact.name} - Inbound`,
+    value: 12_000,
+    contact: contact.$id,
+    stage: 'Discovery',
+  })
+})
+```
+
+## Company Enrichment
+
+Enrich companies with external data to build a complete picture:
+
+```typescript
+import { Company } from '@headlessly/crm'
+
+await Company.enrich({ id: 'company_Nw8rTxJv' })
+
+Company.enriched(company => {
+  console.log(`${company.name}: ${company.size} employees, ${company.industry}`)
+})
+```
+
+## Deal Pipeline
+
+Deals move through stages: `Discovery`, `Proposal`, `Negotiation`, `Closed`, `Lost`. Each transition is a verb:
+
+```typescript
+import { Deal } from '@headlessly/crm'
+
+// Advance through pipeline stages
+await Deal.advance({ id: 'deal_k7TmPvQx', stage: 'Proposal' })
+await Deal.advance({ id: 'deal_k7TmPvQx', stage: 'Negotiation' })
+
+// Close the deal
+await Deal.close({ id: 'deal_k7TmPvQx' })
+```
+
+```json title="headless.ly/mcp#search"
+{ "type": "Deal", "filter": { "stage": "Negotiation" }, "sort": { "value": "desc" } }
+```
+
+### Deal Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `advance` | `Advanced` | Move to the next pipeline stage |
+| `close` | `Closed` | Mark the deal as won |
+| `lose` | `Lost` | Mark the deal as lost |
+| `reopen` | `Reopened` | Reopen a closed or lost deal |
+
+## Close-to-Subscribe Automation
+
+The real power is connecting deal close to subscription creation. When a deal closes, the contact becomes a paying customer:
+
+```typescript
+import { Deal } from '@headlessly/crm'
+
+Deal.closed((deal, $) => {
+  // Create a billing customer linked to the contact
+  const customer = $.Customer.create({ contact: deal.contact })
+
+  // Start a subscription
+  $.Subscription.create({
+    price: 'price_Rm4xKvNt',
+    customer: customer.$id,
+  })
+
+  // Update the contact stage
+  $.Contact.update(deal.contact, { stage: 'Customer' })
+})
+```
+
+## Contact Assignment
+
+Assign contacts to team members for follow-up:
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+await Contact.assign({ id: 'contact_uLoSfycy', assignee: 'user_Qw3nLpFd' })
+
+Contact.assigned(contact => {
+  console.log(`${contact.name} assigned to ${contact.assignee}`)
+})
+```
+
+## MCP: Agent-Driven Sales
+
+An AI agent can operate the entire pipeline through MCP:
+
+```ts title="headless.ly/mcp#do"
+// Find unqualified leads older than 7 days and qualify them
+const staleLeads = await $.Contact.find({
+  stage: 'Lead',
+  createdAt: { $lt: new Date(Date.now() - 7 * 86400000) },
+})
+for (const lead of staleLeads) {
+  await $.Contact.qualify(lead.$id)
+}
+return { qualified: staleLeads.length }
+```
+
+## CLI
+
+```bash
+npx @headlessly/cli Contact.create --name "Alice Chen" --email "alice@acme.dev" --stage Lead
+npx @headlessly/cli do Contact.qualify contact_uLoSfycy
+npx @headlessly/cli Deal.find --stage Negotiation --sort value:desc
+```
+
+## Next Steps
+
+- [Billing and Subscriptions](/docs/grow/billing) -- turn closed deals into recurring revenue
+- [Business Analytics](/docs/grow/analytics) -- track pipeline metrics and conversion rates
+- [CRM Entity Reference](/docs/reference/entities/crm) -- full Noun definitions and relationships

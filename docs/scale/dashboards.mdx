@@ -1,0 +1,176 @@
+---
+title: Dashboards
+description: One system, one API, one connection -- your entire business at a glance for agents and humans.
+icon: LayoutDashboard
+---
+
+headless.ly is headless -- no built-in UI dashboards. Instead, one unified metrics API exposes your entire business. One connection to one data source replaces wiring together 10 different tools.
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+const state = await $.status()
+// {
+//   revenue:    { mrr: 12_500, churn: 2.1, nrr: 108, ltv: 5_950 },
+//   pipeline:   { leads: 47, qualified: 12, deals_open: 8, deal_value: 340_000 },
+//   product:    { tasks_open: 23, blocked: 2, closed_7d: 15 },
+//   support:    { tickets_open: 5, p0: 1, avg_response: '2h', csat: 94 },
+//   marketing:  { campaigns_active: 3, signups_7d: 89, conversion: 4.2 },
+//   engagement: { dau: 230, mau: 1_200, events_24h: 15_400 },
+//   goals:      { active: 3, completed: 7, missed: 1 },
+//   alerts:     [{ type: 'churn_spike', value: 2.1, threshold: 2.0 }],
+// }
+```
+
+## The Metrics API
+
+One endpoint. Every dimension. Complete business view.
+
+```
+GET /~my-startup/metrics
+```
+
+```json
+{
+  "revenue":    { "mrr": 12500, "arr": 150000, "churn": 2.1, "nrr": 108, "ltv": 5950, "arpu": 49 },
+  "pipeline":   { "leads": 47, "qualified": 12, "deals_open": 8, "deal_value": 340000 },
+  "product":    { "issues_open": 23, "issues_closed_7d": 15, "blocked": 2 },
+  "support":    { "tickets_open": 5, "avg_response": "2h", "csat": 94, "p0": 1 },
+  "marketing":  { "campaigns_active": 3, "signups_7d": 89, "conversion": 4.2 },
+  "engagement": { "dau": 230, "mau": 1200, "events_24h": 15400 }
+}
+```
+
+This is not an aggregation of different APIs. CRM, billing, projects, support, marketing, and analytics are all the same system -- so one API call covers everything.
+
+## Agent Dashboards
+
+Agents don't look at charts. They call `$.status()` and reason about the data:
+
+```typescript
+import { $ } from '@headlessly/sdk'
+import { Agent } from '@headlessly/platform'
+import { Campaign } from '@headlessly/marketing'
+
+const state = await $.status()
+
+// Triage based on business state
+if (state.support.p0 > 0) {
+  await Agent.deploy('support-bot', { priority: 'urgent' })
+}
+
+if (state.revenue.churn > 3) {
+  await Campaign.create({ name: 'Win-back', type: 'Email', segment: 'churned_30d' })
+}
+
+if (state.pipeline.qualified > 10 && state.pipeline.deals_open < 3) {
+  await Agent.deploy('sales-bot', { action: 'create-deals' })
+}
+```
+
+## Numerics (iOS/Mac)
+
+Real-time KPI widgets on your phone and desktop. Point Numerics at the metrics API:
+
+```
+URL:    https://db.headless.ly/~my-startup/metrics
+Path:   $.revenue.mrr
+Label:  MRR
+Format: Currency
+```
+
+One connection covers every metric -- revenue, pipeline, support, engagement. No Stripe widget + Intercom widget + GitHub widget. One widget source.
+
+## Grafana
+
+Time-series dashboards over the Iceberg R2 lakehouse. Query the metrics API for current values and the lakehouse for historical trends:
+
+```
+Data Source: JSON API
+URL:         https://db.headless.ly/~my-startup/metrics
+```
+
+## Retool / Appsmith
+
+Build custom internal tools against the full REST API. OpenAPI spec at `/openapi` for automatic resource generation:
+
+```
+Base URL:  https://db.headless.ly/~my-startup
+Auth:      Bearer token
+
+GET  /metrics              → Dashboard overview
+GET  /Contact              → CRM contacts
+GET  /Subscription         → Active subscriptions
+POST /Contact/:id/qualify  → Qualify a lead
+```
+
+## Google Sheets
+
+Live connection via the REST API, or export to CSV/JSON:
+
+```bash
+curl https://db.headless.ly/~my-startup/export/Metric -o metrics.json
+curl https://db.headless.ly/~my-startup/export/Metric?format=csv -o metrics.csv
+```
+
+## Custom Dashboards
+
+The metrics API returns standard JSON. Build anything:
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+// Periodic health check
+setInterval(async () => {
+  const state = await $.status()
+
+  // Post to Slack
+  await fetch(process.env.SLACK_WEBHOOK, {
+    method: 'POST',
+    body: JSON.stringify({
+      text: [
+        `MRR: $${state.revenue.mrr.toLocaleString()}`,
+        `Churn: ${state.revenue.churn}%`,
+        `Open tickets: ${state.support.tickets_open}`,
+        `DAU: ${state.engagement.dau}`,
+      ].join(' | '),
+    }),
+  })
+}, 1000 * 60 * 60) // hourly
+```
+
+## MCP Access
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "status" }
+```
+
+```ts title="headless.ly/mcp#do"
+const state = await $.status()
+const summary = Object.entries(state.revenue)
+  .map(([k, v]) => `${k}: ${v}`)
+  .join(', ')
+```
+
+## Why One System Matters
+
+Traditional stack requires connecting separate data sources to your dashboard:
+
+| Dimension | Traditional | headless.ly |
+|-----------|------------|-------------|
+| Revenue | Stripe dashboard | `state.revenue` |
+| Pipeline | HubSpot / Salesforce | `state.pipeline` |
+| Product | Jira / Linear | `state.product` |
+| Support | Zendesk / Intercom | `state.support` |
+| Marketing | Mailchimp / ActiveCampaign | `state.marketing` |
+| Engagement | Mixpanel / Amplitude | `state.engagement` |
+
+Six tools, six integrations, six API keys, six billing accounts. Or one system with one API call.
+
+## CLI
+
+```bash
+npx @headlessly/cli status
+npx @headlessly/cli Metric.dashboard
+npx @headlessly/cli Metric.get mrr
+```

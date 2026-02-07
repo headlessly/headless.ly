@@ -1,0 +1,224 @@
+---
+title: Integrations
+description: Connect Stripe, GitHub, webhooks, and external services as typed entities with event forwarding.
+icon: Plug
+---
+
+Integrations are not plugins. They are entities with verbs, events, and lifecycle management. Connect an external service, and headless.ly maps its data to your entity graph bidirectionally.
+
+```typescript
+import { Integration } from '@headlessly/platform'
+
+await Integration.connect({ provider: 'stripe', apiKey: process.env.STRIPE_KEY })
+await Integration.connect({ provider: 'github', token: process.env.GITHUB_TOKEN })
+await Integration.connect({ provider: 'slack', webhook: process.env.SLACK_WEBHOOK })
+
+// All three are now typed entities with status, events, and sync
+const active = await Integration.find({ status: 'Active' })
+```
+
+## Connect a Provider
+
+The `connect` verb creates the integration, validates credentials, and starts the initial sync:
+
+```typescript
+import { Integration } from '@headlessly/platform'
+
+const stripe = await Integration.connect({
+  provider: 'stripe',
+  apiKey: process.env.STRIPE_KEY,
+})
+// stripe.$id = 'integration_hV6nRxWm'
+```
+
+Once connected, Stripe data flows into Billing entities automatically. Products, Prices, Subscriptions, Invoices, and Payments are bidirectionally synced. Financial metrics (MRR, churn, NRR, LTV) compute from real Stripe data.
+
+## Verb Conjugation
+
+Integrations support the full verb lifecycle:
+
+```typescript
+import { Integration } from '@headlessly/platform'
+
+// Execute: connect, disconnect, sync
+await Integration.connect({ provider: 'stripe', apiKey: process.env.STRIPE_KEY })
+await Integration.disconnect({ id: 'integration_hV6nRxWm' })
+await Integration.sync({ id: 'integration_hV6nRxWm' })
+
+// Before hook: runs before the connection is established
+Integration.connecting(integration => {
+  console.log(`Connecting to ${integration.provider}...`)
+})
+
+// After hook: runs after successful connection
+Integration.connected(integration => {
+  console.log(`${integration.provider} connected -- initial sync starting`)
+})
+
+// Sync lifecycle
+Integration.syncing(integration => {
+  console.log(`Syncing ${integration.provider}...`)
+})
+
+Integration.synced((integration, $) => {
+  $.Event.create({
+    type: 'integration_synced',
+    provider: integration.provider,
+    entities: integration.lastSyncCount,
+  })
+})
+```
+
+### All Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `connect` | `Connected` | Establish the connection and start initial sync |
+| `disconnect` | `Disconnected` | Tear down the connection |
+| `sync` | `Synced` | Force a manual sync |
+
+## Stripe
+
+Stripe is the truth source for all Billing entities. See the [Stripe reference](/docs/reference/integrations/stripe) for entity mapping and webhook events.
+
+```typescript
+import { Integration } from '@headlessly/platform'
+import { Subscription } from '@headlessly/billing'
+
+await Integration.connect({ provider: 'stripe', apiKey: process.env.STRIPE_KEY })
+
+// Now Billing entities are Stripe-backed
+await Subscription.create({ plan: 'pro', contact: 'contact_fX9bL5nRd' })
+// This creates a real Stripe subscription
+
+Subscription.cancelled((sub, $) => {
+  $.Contact.update(sub.contact, { stage: 'Churned' })
+  $.Campaign.add('campaign_nR4wLxKp', { contact: sub.contact })
+})
+```
+
+## GitHub
+
+GitHub is the truth source for all Projects entities. See the [GitHub reference](/docs/reference/integrations/github) for entity mapping and webhook events.
+
+```typescript
+import { Integration } from '@headlessly/platform'
+import { Issue } from '@headlessly/projects'
+
+await Integration.connect({ provider: 'github', token: process.env.GITHUB_TOKEN })
+
+// Now Projects entities sync with GitHub
+await Issue.create({ title: 'Add dark mode', project: 'project_e5JhLzXc' })
+// This creates a real GitHub issue
+
+Issue.completed((issue, $) => {
+  $.Event.create({ type: 'issue_closed', project: issue.project })
+})
+```
+
+## Webhooks
+
+Send events to any external URL. Webhooks are integrations with `type: 'webhook'`:
+
+```typescript
+import { Integration } from '@headlessly/platform'
+
+await Integration.connect({
+  provider: 'webhook',
+  url: 'https://example.com/hooks/headlessly',
+  events: ['Deal.Closed', 'Subscription.Created', 'Ticket.Escalated'],
+  secret: process.env.WEBHOOK_SECRET,
+})
+```
+
+Every matched event sends a POST with the event payload and an HMAC signature header for verification:
+
+```json
+{
+  "event": "Deal.Closed",
+  "timestamp": "2025-09-15T14:32:00Z",
+  "data": {
+    "$id": "deal_k7TmPvQx",
+    "name": "Enterprise",
+    "value": 50000,
+    "contact": "contact_fX9bL5nRd"
+  }
+}
+```
+
+## Event Forwarding
+
+The browser SDK captures client events and forwards them to external analytics providers while storing a copy in your Iceberg R2 lakehouse:
+
+```html
+<script src="https://js.headless.ly/v1" data-tenant="my-startup" />
+```
+
+Configure forwarding destinations as integrations:
+
+```typescript
+import { Integration } from '@headlessly/platform'
+
+await Integration.connect({
+  provider: 'analytics',
+  destinations: {
+    ga: { measurementId: process.env.GA_ID },
+    sentry: { dsn: process.env.SENTRY_DSN },
+    posthog: { apiKey: process.env.POSTHOG_KEY },
+  },
+})
+```
+
+Events flow to all configured destinations simultaneously. The lakehouse copy grows over time, enabling you to phase out external tools as headless.ly's analytics capabilities expand.
+
+## Sync Status
+
+Check the health of all integrations:
+
+```typescript
+import { Integration } from '@headlessly/platform'
+
+const integrations = await Integration.find({ status: 'Active' })
+for (const i of integrations) {
+  console.log(`${i.provider}: ${i.status} -- last sync ${i.lastSyncAt}`)
+}
+
+// React to errors
+Integration.errored((integration, $) => {
+  $.Agent.notify('agent_pR7xMwKn', {
+    message: `Integration ${integration.provider} failed: ${integration.error}`,
+  })
+})
+```
+
+## MCP
+
+Connect an integration via MCP:
+
+```ts title="headless.ly/mcp#do"
+await $.Integration.connect({
+  provider: 'stripe',
+  apiKey: process.env.STRIPE_KEY,
+})
+```
+
+List active integrations:
+
+```json title="headless.ly/mcp#search"
+{ "type": "Integration", "filter": { "status": "Active" } }
+```
+
+Force a sync:
+
+```ts title="headless.ly/mcp#do"
+await $.Integration.sync({ id: 'integration_hV6nRxWm' })
+```
+
+## CLI
+
+```bash
+npx @headlessly/cli Integration.connect --provider stripe --apiKey $STRIPE_KEY
+npx @headlessly/cli Integration.connect --provider github --token $GITHUB_TOKEN
+npx @headlessly/cli Integration.sync integration_hV6nRxWm
+npx @headlessly/cli Integration.disconnect integration_hV6nRxWm
+```

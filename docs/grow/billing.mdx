@@ -1,0 +1,209 @@
+---
+title: Billing and Subscriptions
+description: Stripe-backed billing -- products, prices, subscriptions, invoices, and revenue metrics.
+icon: CreditCard
+---
+
+Every billing entity is Stripe-backed. Creating a Subscription in headless.ly creates a Stripe subscription. Webhooks flow back as events. Financial metrics compute from real data, not estimates.
+
+```typescript
+import { Customer, Product, Price, Subscription } from '@headlessly/billing'
+
+// Create a product with pricing
+const product = await Product.create({ name: 'Pro Plan', type: 'Software' })
+const price = await Price.create({
+  name: 'Pro Monthly',
+  amount: 49_00,
+  interval: 'Monthly',
+  product: product.$id,
+})
+
+// Subscribe a customer
+const customer = await Customer.create({ contact: 'contact_uLoSfycy' })
+await Subscription.create({
+  price: price.$id,
+  customer: customer.$id,
+})
+```
+
+## Products and Prices
+
+Products define what you sell. Prices define how much and how often. This maps directly to Stripe's model:
+
+```typescript
+import { Product, Price } from '@headlessly/billing'
+
+const product = await Product.create({
+  name: 'headless.ly',
+  description: 'The operating system for agent-first startups',
+  type: 'Software',
+})
+
+// Multiple prices per product
+await Price.create({ name: 'Free', amount: 0, interval: 'Monthly', product: product.$id })
+await Price.create({ name: 'Pro Monthly', amount: 49_00, interval: 'Monthly', product: product.$id })
+await Price.create({ name: 'Pro Annual', amount: 468_00, interval: 'Annual', product: product.$id })
+await Price.create({ name: 'Enterprise', amount: 0, interval: 'Usage', product: product.$id })
+```
+
+| Interval | Description |
+|----------|-------------|
+| `Monthly` | Recurring monthly charge |
+| `Annual` | Recurring yearly charge |
+| `OneTime` | Single purchase |
+| `Usage` | Metered billing based on consumption |
+
+## Subscription Lifecycle
+
+Subscriptions move through a clear state machine: `Active`, `Paused`, `Cancelled`, `Trialing`, `PastDue`.
+
+```typescript
+import { Subscription } from '@headlessly/billing'
+
+// Create
+await Subscription.create({
+  price: 'price_Rm4xKvNt',
+  customer: 'customer_Jw6pLxMr',
+})
+
+// Upgrade to a higher-value price
+await Subscription.upgrade({ id: 'sub_Vn9tRwKx', price: 'price_Hk3mNwQr' })
+
+// Pause temporarily
+await Subscription.pause({ id: 'sub_Vn9tRwKx' })
+
+// Resume
+await Subscription.resume({ id: 'sub_Vn9tRwKx' })
+
+// Cancel
+await Subscription.cancel({ id: 'sub_Vn9tRwKx' })
+```
+
+### Subscription Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `upgrade` | `Upgraded` | Move to a higher-value Price |
+| `downgrade` | `Downgraded` | Move to a lower-value Price |
+| `cancel` | `Cancelled` | End the subscription |
+| `pause` | `Paused` | Temporarily suspend billing |
+| `resume` | `Resumed` | Restart a paused subscription |
+
+### React to Subscription Events
+
+```typescript
+import { Subscription } from '@headlessly/billing'
+
+Subscription.cancelled((sub, $) => {
+  // Send a win-back message
+  const customer = await $.Customer.get(sub.customer)
+  $.Message.create({
+    body: 'We are sorry to see you go. Reply if there is anything we can do.',
+    channel: 'Email',
+    direction: 'Outbound',
+    to: customer.contact,
+  })
+})
+
+Subscription.upgraded(sub => {
+  console.log(`Subscription ${sub.$id} upgraded to ${sub.price}`)
+})
+```
+
+## Invoices and Payments
+
+Invoices are generated automatically by Stripe. Payments are immutable ledger entries:
+
+```typescript
+import { Invoice, Payment } from '@headlessly/billing'
+
+// Pay an open invoice
+await Invoice.pay({ id: 'inv_Wx5nRtKm' })
+
+// Refund an invoice
+await Invoice.refund({ id: 'inv_Wx5nRtKm' })
+
+// Void a draft invoice
+await Invoice.void({ id: 'inv_Qr8mLpNx' })
+```
+
+```json title="headless.ly/mcp#search"
+{ "type": "Invoice", "filter": { "status": "Open" }, "sort": { "dueDate": "asc" } }
+```
+
+Payment is immutable -- no update, no delete. The ledger is append-only:
+
+```typescript
+import { Payment } from '@headlessly/billing'
+
+Payment.captured(payment => {
+  console.log(`Payment of $${payment.amount / 100} captured`)
+})
+```
+
+## Revenue Metrics from Stripe
+
+Financial metrics derive from real Stripe data. No manual calculations, no spreadsheets:
+
+```typescript
+import { Metric } from '@headlessly/analytics'
+
+const mrr = await Metric.get('mrr')           // Monthly recurring revenue
+const churn = await Metric.get('churn')        // Churn rate percentage
+const nrr = await Metric.get('nrr')            // Net revenue retention
+const ltv = await Metric.get('ltv')            // Lifetime value
+const arr = await Metric.get('arr')            // Annual recurring revenue
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Metric", "id": "mrr" }
+```
+
+## Deal-to-Subscription Pipeline
+
+Connect CRM to billing. When a deal closes, a subscription starts automatically:
+
+```typescript
+import { Deal } from '@headlessly/crm'
+
+Deal.closed((deal, $) => {
+  const customer = $.Customer.create({ contact: deal.contact })
+  $.Subscription.create({
+    price: 'price_Rm4xKvNt',
+    customer: customer.$id,
+  })
+})
+```
+
+## MCP: Agent-Managed Billing
+
+Agents can manage the full billing lifecycle:
+
+```ts title="headless.ly/mcp#do"
+// Find past-due subscriptions and send reminders
+const pastDue = await $.Subscription.find({ status: 'PastDue' })
+for (const sub of pastDue) {
+  const customer = await $.Customer.get(sub.customer)
+  await $.Message.create({
+    body: 'Your payment is past due. Please update your billing information.',
+    channel: 'Email',
+    direction: 'Outbound',
+    to: customer.contact,
+  })
+}
+return { reminded: pastDue.length }
+```
+
+## CLI
+
+```bash
+npx @headlessly/cli Subscription.find --status Active
+npx @headlessly/cli do Subscription.cancel sub_Vn9tRwKx
+npx @headlessly/cli Metric.get mrr
+```
+
+## Next Steps
+
+- [CRM Pipeline](/docs/grow/crm) -- manage the sales pipeline that feeds billing
+- [Business Analytics](/docs/grow/analytics) -- track revenue trends and forecasts
+- [Billing Entity Reference](/docs/reference/entities/billing) -- full Noun definitions and relationships

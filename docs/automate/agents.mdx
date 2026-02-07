@@ -1,0 +1,202 @@
+---
+title: AI Agents
+description: Define, deploy, and orchestrate autonomous agents that operate the business.
+icon: Bot
+---
+
+Agents are entities that do work. They handle support tickets, write content, qualify leads, close deals -- anything you would hire a human to do, except they run 24/7 and scale to thousands.
+
+```typescript
+import { Agent } from '@headlessly/platform'
+
+const support = await Agent.create({
+  name: 'Support Bot',
+  role: 'Support Engineer',
+  mode: 'Autonomous',
+  model: 'claude-sonnet-4-5-20250929',
+  triggers: ['Ticket.Created'],
+  capabilities: ['Ticket.assign', 'Ticket.solve', 'Ticket.escalate', 'Message.send'],
+})
+// support.$id = 'agent_pR7xMwKn'
+```
+
+## Create an Agent
+
+Every agent needs a name, a role, and a mode. Capabilities define what verbs the agent can execute:
+
+```typescript
+import { Agent } from '@headlessly/platform'
+
+await Agent.create({
+  name: 'Lead Qualifier',
+  role: 'Sales Development Rep',
+  mode: 'Supervised',
+  model: 'claude-sonnet-4-5-20250929',
+  triggers: ['Contact.Created'],
+  capabilities: ['Contact.enrich', 'Contact.qualify', 'Deal.create', 'Activity.create'],
+  system: 'You qualify inbound leads. Enrich the contact, score them, and create a deal if they match ICP.',
+})
+```
+
+## Modes
+
+| Mode | Behavior | Use when |
+|------|----------|----------|
+| `Autonomous` | Acts independently, escalates only when stuck | Repetitive, well-defined workflows |
+| `Supervised` | Proposes actions, waits for human approval | High-stakes decisions, new workflows |
+| `Manual` | Provides recommendations, human executes | Learning phase, compliance-sensitive |
+
+```typescript
+import { Agent } from '@headlessly/platform'
+
+// Start supervised, graduate to autonomous
+await Agent.create({
+  name: 'Billing Agent',
+  role: 'Billing Manager',
+  mode: 'Supervised',
+  triggers: ['Invoice.Overdue'],
+  capabilities: ['Invoice.send', 'Contact.notify', 'Subscription.pause'],
+})
+
+// After 30 days of accurate decisions, upgrade
+await Agent.update('agent_kW3vNxRt', { mode: 'Autonomous' })
+```
+
+## Agent-to-Agent Communication
+
+Agents delegate work to other agents using the `delegate` verb. When an agent hits a task outside its capabilities, it hands off to a specialist:
+
+```typescript
+import { Agent } from '@headlessly/platform'
+
+await Agent.create({
+  name: 'Triage Bot',
+  role: 'Support Triage',
+  mode: 'Autonomous',
+  triggers: ['Ticket.Created'],
+  capabilities: [
+    'Ticket.assign',
+    'Agent.delegate',
+    'Agent.escalate',
+  ],
+  system: `Classify incoming tickets. Route billing issues to agent_kW3vNxRt,
+    technical issues to agent_mT8nQwLx, and escalate anything you cannot classify.`,
+})
+```
+
+When the triage bot encounters a billing question:
+
+```typescript
+import { Agent } from '@headlessly/platform'
+
+// The triage bot delegates to the billing agent
+await Agent.delegate({
+  id: 'agent_pR7xMwKn',
+  to: 'agent_kW3vNxRt',
+  task: 'Resolve billing dispute',
+  context: { ticket: 'ticket_jN5rPxWm' },
+})
+```
+
+## Progressive Capability Tiers
+
+Agents connect via MCP and progressively unlock capabilities as trust grows:
+
+| Level | Access | Rate Limit | Auth |
+|-------|--------|------------|------|
+| **L0** | Read-only -- search, fetch | 30/min | None |
+| **L1** | Sandboxed writes -- try, do | 100/min | Session token |
+| **L2** | Persistent writes, webhooks | 1,000/min | GitHub claim |
+| **L3** | Production -- Stripe live, external actions | 10,000/min | Billing method |
+
+An agent starts at L0 and upgrades within the same MCP conversation. See [Agent Onboarding](/docs/build/agent-onboarding) for the full flow.
+
+## Verb Conjugation
+
+Agents support a rich verb set for autonomy and observability:
+
+### Core Verbs
+
+```typescript
+import { Agent } from '@headlessly/platform'
+
+await Agent.do({ id: 'agent_pR7xMwKn', task: 'Resolve ticket_jN5rPxWm' })
+await Agent.ask({ id: 'agent_pR7xMwKn', question: 'Should we refund this customer?' })
+await Agent.decide({ id: 'agent_pR7xMwKn', options: ['refund', 'credit', 'deny'] })
+await Agent.escalate({ id: 'agent_pR7xMwKn', reason: 'Customer threatening legal action' })
+```
+
+### Lifecycle Verbs
+
+```typescript
+import { Agent } from '@headlessly/platform'
+
+// Deploy, pause, stop
+await Agent.deploy({ id: 'agent_pR7xMwKn' })
+await Agent.pause({ id: 'agent_pR7xMwKn' })
+await Agent.stop({ id: 'agent_pR7xMwKn' })
+
+// React to lifecycle events
+Agent.deployed(agent => {
+  console.log(`${agent.name} is live`)
+})
+
+Agent.escalated((agent, $) => {
+  $.Event.create({ type: 'agent_escalation', agent: agent.$id, reason: agent.lastEscalation })
+})
+```
+
+### Learning Verbs
+
+Agents improve over time by recording insights and self-analyzing:
+
+```typescript
+import { Agent } from '@headlessly/platform'
+
+// Record an insight from a resolved ticket
+await Agent.learn({
+  id: 'agent_pR7xMwKn',
+  category: 'knowledge',
+  insight: 'Billing disputes about annual plans require manager approval',
+})
+
+// Trigger self-reflection after a batch of interactions
+await Agent.reflect({ id: 'agent_pR7xMwKn' })
+
+Agent.learned(agent => {
+  console.log(`${agent.name} recorded a new insight`)
+})
+```
+
+## MCP
+
+Deploy an agent via MCP:
+
+```ts title="headless.ly/mcp#do"
+await $.Agent.create({
+  name: 'Content Writer',
+  role: 'Marketing',
+  mode: 'Autonomous',
+  triggers: ['Campaign.Launched'],
+  capabilities: ['Content.create', 'Content.publish'],
+})
+```
+
+Check agent status:
+
+```json title="headless.ly/mcp#search"
+{ "type": "Agent", "filter": { "status": "Acting" } }
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Agent", "id": "agent_pR7xMwKn", "include": ["actions", "learning"] }
+```
+
+## CLI
+
+```bash
+npx @headlessly/cli Agent.create --name "Support Bot" --role "Support" --mode Autonomous
+npx @headlessly/cli Agent.deploy agent_pR7xMwKn
+npx @headlessly/cli Agent.pause agent_pR7xMwKn
+npx @headlessly/cli Agent.stop agent_pR7xMwKn
+```

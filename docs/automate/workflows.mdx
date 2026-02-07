@@ -1,0 +1,188 @@
+---
+title: Workflows
+description: Event-driven business process automation with triggers, conditions, and cross-entity actions.
+icon: Workflow
+---
+
+Define automation rules as code-as-data. A workflow connects an event to an action -- when something happens, do something else. No drag-and-drop builder, no YAML pipelines. Just typed functions that react to your business.
+
+```typescript
+import { Workflow } from '@headlessly/platform'
+import { Deal } from '@headlessly/crm'
+import { Subscription } from '@headlessly/billing'
+import { Campaign } from '@headlessly/marketing'
+
+await Workflow.create({
+  name: 'Deal Won Pipeline',
+  trigger: 'Deal.Closed',
+  conditions: [{ field: 'value', op: '$gte', value: 10_000 }],
+  action: async (deal, $) => {
+    await $.Subscription.create({ plan: 'enterprise', contact: deal.contact })
+    await $.Contact.update(deal.contact, { stage: 'Customer' })
+    await $.Campaign.add('campaign_nR4wLxKp', { contact: deal.contact })
+  },
+})
+```
+
+## Create a Workflow
+
+Every workflow needs a name, a trigger event, and an action:
+
+```typescript
+import { Workflow } from '@headlessly/platform'
+
+const workflow = await Workflow.create({
+  name: 'New Lead Enrichment',
+  trigger: 'Contact.Created',
+  action: async (contact, $) => {
+    await $.Contact.enrich({ id: contact.$id })
+    await $.Activity.create({
+      type: 'Note',
+      contact: contact.$id,
+      body: `Lead captured: ${contact.email}`,
+    })
+  },
+})
+// workflow.$id = 'workflow_e5JhLzXc'
+```
+
+## Triggers
+
+Triggers are entity events -- any verb on any entity. CRUD events are always available. Custom verbs emit events automatically.
+
+| Trigger | Fires when |
+|---------|------------|
+| `Contact.Created` | A new contact is created |
+| `Deal.Closed` | A deal is closed-won |
+| `Ticket.Escalated` | A ticket is escalated to a higher tier |
+| `Subscription.Cancelled` | A subscription is cancelled |
+| `Invoice.Paid` | An invoice is paid |
+| `Issue.Completed` | An issue is marked done |
+
+## Conditions
+
+Add conditions to filter which events fire the action. Conditions use the same MongoDB-style operators as queries:
+
+```typescript
+import { Workflow } from '@headlessly/platform'
+
+await Workflow.create({
+  name: 'High-Value Deal Alert',
+  trigger: 'Deal.Closed',
+  conditions: [
+    { field: 'value', op: '$gte', value: 25_000 },
+    { field: 'stage', op: '$eq', value: 'Won' },
+  ],
+  action: async (deal, $) => {
+    await $.Agent.notify('agent_pR7xMwKn', {
+      message: `High-value deal closed: $${deal.value}`,
+    })
+  },
+})
+```
+
+## Cross-Entity Workflows
+
+The `$` context gives the action access to every entity across every domain. This is where headless.ly's unified graph shines -- one workflow can touch CRM, Billing, Marketing, and Analytics:
+
+```typescript
+import { Workflow } from '@headlessly/platform'
+
+await Workflow.create({
+  name: 'Customer Lifecycle',
+  trigger: 'Deal.Closed',
+  action: async (deal, $) => {
+    // Billing: create subscription
+    const sub = await $.Subscription.create({
+      plan: 'pro',
+      contact: deal.contact,
+    })
+
+    // CRM: update contact stage
+    await $.Contact.update(deal.contact, { stage: 'Customer' })
+
+    // Marketing: add to onboarding campaign
+    await $.Campaign.add('campaign_nR4wLxKp', { contact: deal.contact })
+
+    // Analytics: track revenue event
+    await $.Event.create({
+      type: 'revenue',
+      amount: deal.value,
+      contact: deal.contact,
+    })
+  },
+})
+```
+
+## Verb Conjugation
+
+Workflows support the full verb lifecycle -- execute, before hook, after hook:
+
+```typescript
+import { Workflow } from '@headlessly/platform'
+
+// Execute: trigger a workflow manually
+await Workflow.trigger({ id: 'workflow_e5JhLzXc' })
+
+// Before hook: runs before the trigger fires
+Workflow.triggering(workflow => {
+  console.log(`Workflow ${workflow.name} is about to fire`)
+})
+
+// After hook: runs after the trigger completes
+Workflow.triggered(workflow => {
+  console.log(`Workflow ${workflow.name} executed successfully`)
+})
+```
+
+### Lifecycle Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `activate` | `Activated` | Enable the workflow |
+| `pause` | `Paused` | Temporarily disable |
+| `trigger` | `Triggered` | Execute the workflow manually |
+
+```typescript
+import { Workflow } from '@headlessly/platform'
+
+await Workflow.activate({ id: 'workflow_e5JhLzXc' })
+await Workflow.pause({ id: 'workflow_e5JhLzXc' })
+```
+
+## MCP
+
+List all active workflows:
+
+```json title="headless.ly/mcp#search"
+{ "type": "Workflow", "filter": { "status": "Active" } }
+```
+
+Trigger a workflow via MCP:
+
+```ts title="headless.ly/mcp#do"
+await $.Workflow.trigger({ id: 'workflow_e5JhLzXc' })
+```
+
+Create a workflow via MCP:
+
+```ts title="headless.ly/mcp#do"
+await $.Workflow.create({
+  name: 'SLA Breach Escalation',
+  trigger: 'Ticket.SLABreached',
+  action: async (ticket, $) => {
+    await $.Ticket.escalate({ id: ticket.$id })
+    await $.Agent.notify('agent_pR7xMwKn', {
+      message: `SLA breach: ${ticket.subject}`,
+    })
+  },
+})
+```
+
+## CLI
+
+```bash
+npx @headlessly/cli Workflow.create --name "Deal Won" --trigger "Deal.Closed"
+npx @headlessly/cli Workflow.trigger workflow_e5JhLzXc
+npx @headlessly/cli Workflow.pause workflow_e5JhLzXc
+```

@@ -1,0 +1,184 @@
+---
+title: Goals and OKRs
+description: Set business objectives, link them to real metrics, and let agents track progress automatically.
+icon: Target
+---
+
+Goals connect ambition to data. Every goal links to a real metric, so progress is never self-reported -- it computes from the same Stripe, CRM, and event data that powers everything else.
+
+```typescript
+import { Goal, Metric } from '@headlessly/analytics'
+
+// Revenue goal
+await Goal.create({
+  name: '$100K MRR',
+  metric: 'mrr',
+  target: 100_000,
+  deadline: '2026-06-30',
+})
+
+// Growth goal
+await Goal.create({
+  name: '1K DAU',
+  metric: 'dau',
+  target: 1_000,
+  deadline: '2026-03-31',
+})
+
+// Retention goal -- direction: below means lower is better
+await Goal.create({
+  name: '<2% Churn',
+  metric: 'churn_rate',
+  target: 2.0,
+  direction: 'below',
+  deadline: '2026-06-30',
+})
+```
+
+## The Goal Entity
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Goal = Noun('Goal', {
+  name: 'string!',
+  target: 'number!',
+  current: 'number?',
+  metric: '-> Metric?',
+  deadline: 'datetime?',
+  status: 'Active | Completed | Missed',
+  complete: 'Completed',
+  miss:     'Missed',
+  reset:    'Reset',
+})
+```
+
+Goal statuses:
+
+- **Active** -- tracking in progress, current value updating automatically
+- **Completed** -- target reached (or surpassed in the correct direction)
+- **Missed** -- deadline passed without reaching target
+
+## Check Progress
+
+```typescript
+import { Goal } from '@headlessly/analytics'
+
+const goals = await Goal.find({ status: 'Active' })
+// [
+//   { $id: 'goal_hR5tLnYm', name: '$100K MRR', current: 12_500, target: 100_000, progress: 12.5 },
+//   { $id: 'goal_qW4kNjVx', name: '1K DAU', current: 230, target: 1_000, progress: 23.0 },
+//   { $id: 'goal_rT7mXpBc', name: '<2% Churn', current: 2.1, target: 2.0, progress: 95.0 },
+// ]
+```
+
+Progress is a percentage. For `direction: 'below'`, progress inverts -- 2.1% toward a 2.0% target is 95% there, not 105% over.
+
+## Verb Conjugation
+
+Goals support the full verb lifecycle -- execute, BEFORE hook, AFTER hook:
+
+```typescript
+import { Goal } from '@headlessly/analytics'
+
+// Execute verbs
+await Goal.complete({ id: 'goal_hR5tLnYm' })
+await Goal.miss({ id: 'goal_qW4kNjVx' })
+await Goal.reset({ id: 'goal_rT7mXpBc' })
+
+// BEFORE hook -- runs before completion
+Goal.completing((goal) => {
+  console.log(`About to complete: ${goal.name}`)
+})
+
+// AFTER hook -- react to completion
+Goal.completed((goal, $) => {
+  $.Event.create({ name: 'goal_achieved', type: 'Track', properties: { goal: goal.name } })
+})
+
+// React to missed goals -- reset and extend deadline
+Goal.missed((goal, $) => {
+  $.Goal.reset({ id: goal.$id })
+  $.Goal.update(goal.$id, { deadline: '2026-09-30' })
+})
+```
+
+## Automated Goal Tracking
+
+Goals linked to metrics update automatically. When a metric changes, every goal referencing it recomputes:
+
+```typescript
+import { Goal, Metric } from '@headlessly/analytics'
+import { Agent } from '@headlessly/platform'
+
+// Auto-complete when target is reached
+Metric.recorded((metric, $) => {
+  if (metric.name === 'mrr' && metric.value >= 100_000) {
+    $.Goal.complete({ id: 'goal_hR5tLnYm' })
+  }
+})
+
+// Agent celebrates milestones
+Goal.completed((goal) => {
+  Agent.deploy('milestone-bot', {
+    message: `Goal achieved: ${goal.name}`,
+    channel: 'slack',
+  })
+})
+```
+
+## OKR Structure
+
+Model OKRs as a parent objective with linked key results:
+
+```typescript
+import { Goal } from '@headlessly/analytics'
+
+// Objective
+const okr = await Goal.create({ name: 'Achieve Product-Market Fit', target: 100, deadline: '2026-Q2' })
+
+// Key Results -- each linked to a real metric
+await Goal.create({ name: '$50K MRR', metric: 'mrr', target: 50_000, parent: okr.$id })
+await Goal.create({ name: 'NPS > 50', metric: 'nps_score', target: 50, parent: okr.$id })
+await Goal.create({ name: '<3% Churn', metric: 'churn_rate', target: 3.0, direction: 'below', parent: okr.$id })
+```
+
+Parent goal progress computes as the average of its key results.
+
+## MCP Access
+
+```json title="headless.ly/mcp#search"
+{ "type": "Goal", "filter": { "status": "Active" } }
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Goal", "id": "goal_hR5tLnYm", "include": ["metric"] }
+```
+
+```ts title="headless.ly/mcp#do"
+const goals = await $.Goal.find({ status: 'Active' })
+for (const goal of goals) {
+  if (goal.progress >= 100) {
+    await $.Goal.complete({ id: goal.$id })
+  }
+}
+```
+
+## REST API
+
+```bash
+GET  /~my-startup/Goal                             # All goals
+GET  /~my-startup/Goal?filter=status:Active         # Active goals
+GET  /~my-startup/Goal/goal_hR5tLnYm                # Single goal
+POST /~my-startup/Goal                              # Create goal
+POST /~my-startup/Goal/goal_hR5tLnYm/complete       # Complete goal
+POST /~my-startup/Goal/goal_hR5tLnYm/reset          # Reset goal
+```
+
+## CLI
+
+```bash
+npx @headlessly/cli Goal.find --status Active
+npx @headlessly/cli Goal.create --name '$100K MRR' --metric mrr --target 100000
+npx @headlessly/cli Goal.complete goal_hR5tLnYm
+```

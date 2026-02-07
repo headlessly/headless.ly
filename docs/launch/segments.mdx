@@ -1,0 +1,193 @@
+---
+title: Audience Segments
+description: Define target audiences with filter rules and the ICP sentence pattern.
+icon: UsersRound
+---
+
+A Segment defines who you are targeting -- by behavior, source, stage, or ideal customer profile. Segments connect to Campaigns for targeting and to Forms for attribution. The ICP sentence pattern lets you describe your audience in plain language that maps to structured ontology data.
+
+```typescript
+import { Segment } from '@headlessly/marketing'
+
+const segment = await Segment.create({
+  name: 'Technical Founders',
+  as: 'Technical Founders',
+  at: 'seed-stage AI startups',
+  are: 'building autonomous agents',
+  using: 'LLM APIs and open-source frameworks',
+  to: 'replace manual operations with AI',
+})
+```
+
+## Create a Segment with Filters
+
+The simplest segment uses filter rules to match contacts by their properties:
+
+```typescript
+import { Segment } from '@headlessly/marketing'
+
+await Segment.create({
+  name: 'Product Hunt Leads',
+  filters: {
+    source: 'product-hunt',
+    stage: 'Lead',
+  },
+})
+```
+
+Filters support the same MongoDB-style operators as the query API:
+
+```typescript
+import { Segment } from '@headlessly/marketing'
+
+await Segment.create({
+  name: 'High-Value Prospects',
+  filters: {
+    stage: { $in: ['Qualified', 'Customer'] },
+    'deals.value': { $gte: 10000 },
+  },
+})
+```
+
+## The ICP Sentence Pattern
+
+Segments have five special fields -- `as`, `at`, `are`, `using`, `to` -- that compose into a natural-language Ideal Customer Profile sentence:
+
+> **{as}** at **{at}** are **{are}** using **{using}** to **{to}**
+
+```typescript
+import { Segment } from '@headlessly/marketing'
+
+await Segment.create({
+  name: 'DevTools Founders',
+  as: 'Solo Founders',
+  at: 'pre-seed developer tools startups',
+  are: 'building CLI and SDK products',
+  using: 'TypeScript and Cloudflare Workers',
+  to: 'ship production infrastructure without a team',
+})
+
+// Reads as:
+// "Solo Founders at pre-seed developer tools startups are building CLI and SDK products
+//  using TypeScript and Cloudflare Workers to ship production infrastructure without a team"
+```
+
+Each field fuzzy-matches against ontology data:
+
+| Field | Maps To | Ontology Source |
+|-------|---------|-----------------|
+| `as` | Occupation | O*NET occupations |
+| `at` | Industry | NAICS industries |
+| `are` | Process | APQC processes |
+| `using` | Technology | O*NET technology skills |
+| `to` | Goal | Business outcome |
+
+This gives you structured segmentation from unstructured input. Write a sentence, get a queryable audience.
+
+## Link Segments to Campaigns
+
+A Campaign targets a Segment. When you launch a campaign, its segment determines who receives it:
+
+```typescript
+import { Campaign, Segment } from '@headlessly/marketing'
+
+const segment = await Segment.create({
+  name: 'AI Builders',
+  as: 'Software Engineers',
+  at: 'AI startups',
+  are: 'building agent systems',
+  using: 'LLMs and vector databases',
+  to: 'automate business operations',
+})
+
+await Campaign.create({
+  name: 'Agent-First Architecture Guide',
+  type: 'Content',
+  status: 'Draft',
+  segment: segment.$id,
+})
+```
+
+## Refresh and Resize
+
+Segment membership is dynamic. Call `refresh` to recalculate the member count:
+
+```typescript
+import { Segment } from '@headlessly/marketing'
+
+await Segment.refresh({ id: 'segment_mK4pLxTvR' })
+
+const segment = await Segment.get({ id: 'segment_mK4pLxTvR' })
+console.log(`Segment size: ${segment.size}`)
+```
+
+## Verb Conjugation
+
+Segments have `refresh` and `archive` verbs:
+
+```typescript
+import { Segment } from '@headlessly/marketing'
+
+// Execute
+await Segment.refresh({ id: 'segment_mK4pLxTvR' })
+await Segment.archive({ id: 'segment_mK4pLxTvR' })
+
+// BEFORE hooks
+Segment.refreshing(segment => {
+  console.log(`Recalculating: ${segment.name}`)
+})
+
+// AFTER hooks
+Segment.refreshed(segment => {
+  console.log(`${segment.name} now has ${segment.size} members`)
+})
+
+Segment.archived(segment => {
+  console.log(`Segment archived: ${segment.name}`)
+})
+```
+
+## Event-Driven Segmentation
+
+Combine segment events with other entities to build reactive pipelines:
+
+```typescript
+import { Segment } from '@headlessly/marketing'
+import { Contact } from '@headlessly/crm'
+
+// When a contact is captured, refresh all segments
+Contact.captured((contact, $) => {
+  const segments = $.Segment.find({ status: 'Active' })
+  for (const segment of segments) {
+    $.Segment.refresh({ id: segment.$id })
+  }
+})
+```
+
+## MCP
+
+```json title="headless.ly/mcp#search"
+{ "type": "Segment", "filter": { "as": "Technical Founders" } }
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Segment", "id": "segment_mK4pLxTvR" }
+```
+
+```ts title="headless.ly/mcp#do"
+await $.Segment.refresh({ id: 'segment_mK4pLxTvR' })
+```
+
+## CLI
+
+```bash
+npx @headlessly/cli Segment.create --name "AI Builders" --as "Engineers" --at "AI startups"
+npx @headlessly/cli do Segment.refresh segment_mK4pLxTvR
+npx @headlessly/cli Segment.find --status Active
+```
+
+## What's Next
+
+- [Launch Campaigns](/docs/launch/campaigns) -- target campaigns at your segments
+- [Lead Capture Forms](/docs/launch/forms) -- link forms to segments for attribution
+- [Marketing Reference](/docs/reference/entities/marketing) -- full Segment entity definition with ICP fields

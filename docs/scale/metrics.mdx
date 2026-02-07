@@ -1,0 +1,176 @@
+---
+title: Business Metrics
+description: Track MRR, churn, NRR, LTV, and every KPI across your business with real Stripe data.
+icon: Activity
+---
+
+Real numbers, not placeholders. Financial metrics derive from Stripe. Pipeline metrics derive from CRM. Product metrics derive from GitHub. Everything flows through the immutable event log.
+
+```typescript
+import { Metric } from '@headlessly/analytics'
+
+// Financial metrics -- real Stripe data
+const mrr = await Metric.get('mrr')           // $12,500
+const churn = await Metric.get('churn_rate')   // 2.1%
+const nrr = await Metric.get('nrr')            // 108%
+const ltv = await Metric.get('ltv')             // $5,950
+const arpu = await Metric.get('arpu')           // $49
+
+// Pipeline metrics -- real CRM data
+const leads = await Metric.get('leads')         // 47
+const qualified = await Metric.get('qualified') // 12
+const pipeline = await Metric.get('pipeline_value') // $340,000
+```
+
+## How Metrics Work
+
+Metrics are not manually entered. They compute from the entities that already exist in your system:
+
+| Metric | Source | Derivation |
+|--------|--------|------------|
+| **MRR** | Stripe subscriptions | Sum of active amounts, normalized monthly |
+| **ARR** | MRR | MRR x 12 |
+| **Churn Rate** | Stripe events | Cancellations / total subscriptions |
+| **NRR** | Stripe events | Including expansions and contractions |
+| **LTV** | Stripe history | Revenue per customer / churn rate |
+| **ARPU** | MRR / subscribers | Average revenue per unit |
+| **Pipeline** | CRM deals | Sum of open deal values |
+| **Leads** | CRM contacts | Count of contacts with stage = Lead |
+| **DAU/MAU** | Browser events | Unique users per day/month |
+
+## The Metric Entity
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Metric = Noun('Metric', {
+  name: 'string!#',
+  type: 'Counter | Gauge | Histogram | Rate',
+  value: 'number!',
+  unit: 'string?',
+  dimensions: 'json?',
+  record: 'Recorded',
+  reset:  'Reset',
+})
+```
+
+Metric types map to how values behave over time:
+
+- **Counter** -- monotonically increasing (total revenue, total signups)
+- **Gauge** -- point-in-time snapshot (MRR, open tickets, DAU)
+- **Histogram** -- distribution (response times, deal sizes)
+- **Rate** -- ratio over time (churn rate, conversion rate)
+
+## Full Dashboard Snapshot
+
+```typescript
+import { Metric } from '@headlessly/analytics'
+
+const metrics = await Metric.dashboard()
+// {
+//   mrr: 12_500, arr: 150_000, churn: 2.1, nrr: 108,
+//   ltv: 5_950, arpu: 49, leads: 47, qualified: 12,
+//   pipeline_value: 340_000, dau: 230, mau: 1_200
+// }
+```
+
+Or use the universal status method for a cross-domain snapshot:
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+const state = await $.status()
+// state.revenue  = { mrr: 12_500, churn: 2.1, nrr: 108, ltv: 5_950 }
+// state.pipeline = { leads: 47, qualified: 12, deals_open: 8 }
+// state.product  = { tasks_open: 23, blocked: 2 }
+// state.support  = { tickets_open: 5, p0: 1, avg_response: '2h' }
+```
+
+## Record Custom Metrics
+
+Financial metrics auto-derive. Custom metrics you record yourself:
+
+```typescript
+import { Metric } from '@headlessly/analytics'
+
+await Metric.create({
+  name: 'nps_score',
+  type: 'Gauge',
+  value: 72,
+  unit: 'score',
+})
+
+await Metric.record({ id: 'metric_vN3xRfLp', value: 74 })
+```
+
+## Watch Metrics
+
+React to metric changes in real time:
+
+```typescript
+import { Metric } from '@headlessly/analytics'
+import { Agent } from '@headlessly/platform'
+
+// Alert when churn spikes above threshold
+Metric.recorded((metric) => {
+  if (metric.name === 'churn_rate' && metric.value > 3.0) {
+    Agent.deploy('churn-alert', { churn: metric.value })
+  }
+})
+
+// Cross-domain reaction via $ context
+Metric.recorded((metric, $) => {
+  if (metric.name === 'churn_rate' && metric.value > 5.0) {
+    $.Campaign.create({ name: 'Win-back', type: 'Email', segment: 'churned_30d' })
+  }
+})
+```
+
+## Metric History
+
+Every `Metric.record()` appends to the immutable event log. Query historical values for trend analysis:
+
+```typescript
+import { Metric } from '@headlessly/analytics'
+
+const history = await Metric.find({
+  name: 'mrr',
+  dimensions: { period: 'monthly' },
+})
+// [{ value: 8_200, timestamp: '2025-09' }, { value: 10_100, timestamp: '2025-10' }, ...]
+```
+
+## MCP Access
+
+```json title="headless.ly/mcp#search"
+{ "type": "Metric", "filter": { "type": "Gauge" } }
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Metric", "id": "mrr" }
+```
+
+```ts title="headless.ly/mcp#do"
+const state = await $.status()
+if (state.revenue.churn > 3) {
+  await $.Campaign.create({ name: 'Win-back', type: 'Email' })
+}
+```
+
+## REST API
+
+```bash
+GET  /~my-startup/metrics                    # Full dashboard snapshot
+GET  /~my-startup/Metric                     # All metric entities
+GET  /~my-startup/Metric/metric_vN3xRfLp     # Single metric
+POST /~my-startup/Metric/metric_vN3xRfLp/record  { "value": 74 }
+```
+
+## CLI
+
+```bash
+npx @headlessly/cli Metric.dashboard
+npx @headlessly/cli Metric.get mrr
+npx @headlessly/cli Metric.record metric_vN3xRfLp --value 74
+npx @headlessly/cli status
+```

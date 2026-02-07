@@ -1,0 +1,176 @@
+---
+title: Lead Capture Forms
+description: Capture leads with Form entities that auto-create Contacts on submission.
+icon: TextCursorInput
+---
+
+A Form is a data collection endpoint -- waitlist, sign-up, contact-us, demo request. When a form is submitted, headless.ly can automatically create a Contact in your CRM, attribute it to a Campaign, and fire analytics events. One entity, zero glue code.
+
+```typescript
+import { Form } from '@headlessly/marketing'
+import { Contact } from '@headlessly/crm'
+
+const form = await Form.create({
+  name: 'Waitlist',
+  fields: [
+    { name: 'name', type: 'text', required: true },
+    { name: 'email', type: 'email', required: true },
+    { name: 'company', type: 'text', required: false },
+  ],
+  status: 'Active',
+})
+
+// Auto-create contacts on every submission
+Form.submitted((submission, $) => {
+  $.Contact.create({
+    name: submission.data.name,
+    email: submission.data.email,
+    stage: 'Lead',
+    source: 'waitlist',
+  })
+})
+```
+
+## Create a Form
+
+Define the fields your form collects. Each field has a name, type, and required flag:
+
+```typescript
+import { Form } from '@headlessly/marketing'
+
+const form = await Form.create({
+  name: 'Demo Request',
+  fields: [
+    { name: 'name', type: 'text', required: true },
+    { name: 'email', type: 'email', required: true },
+    { name: 'company', type: 'text', required: true },
+    { name: 'role', type: 'select', options: ['Founder', 'Engineer', 'Product', 'Other'], required: false },
+    { name: 'message', type: 'textarea', required: false },
+  ],
+  status: 'Draft',
+})
+```
+
+### Publish a Form
+
+Forms start as Draft. Publish them when ready to accept submissions:
+
+```typescript
+import { Form } from '@headlessly/marketing'
+
+await Form.publish({ id: 'form_qW3xNhKmR' })
+```
+
+## Handle Submissions
+
+The `submitted` event fires on every valid submission. Use it to create contacts, track events, or trigger workflows:
+
+```typescript
+import { Form } from '@headlessly/marketing'
+import { Contact } from '@headlessly/crm'
+import { Event } from '@headlessly/analytics'
+
+Form.submitted((submission, $) => {
+  // Create a CRM contact
+  const contact = $.Contact.create({
+    name: submission.data.name,
+    email: submission.data.email,
+    stage: 'Lead',
+    source: submission.form.name,
+  })
+
+  // Track the conversion
+  $.Event.track({
+    name: 'form_submitted',
+    properties: {
+      form: submission.form.$id,
+      contact: contact.$id,
+    },
+  })
+})
+```
+
+## Link Forms to Campaigns
+
+Attribute form submissions to a campaign by linking the form to a Segment:
+
+```typescript
+import { Form, Segment, Campaign } from '@headlessly/marketing'
+
+const segment = await Segment.create({
+  name: 'Product Hunt Signups',
+  filters: { source: 'product-hunt' },
+})
+
+await Form.update({
+  id: 'form_qW3xNhKmR',
+  segment: segment.$id,
+})
+
+await Campaign.create({
+  name: 'Product Hunt Launch',
+  type: 'Event',
+  status: 'Draft',
+  segment: segment.$id,
+})
+```
+
+Now every submission through this form is automatically attributed to the Product Hunt segment and its associated campaigns.
+
+## Verb Conjugation
+
+Forms have `publish` and `archive` verbs with the full lifecycle:
+
+```typescript
+import { Form } from '@headlessly/marketing'
+
+// Execute
+await Form.publish({ id: 'form_qW3xNhKmR' })
+await Form.archive({ id: 'form_qW3xNhKmR' })
+
+// BEFORE hooks
+Form.publishing(form => {
+  console.log(`About to publish: ${form.name}`)
+})
+
+// AFTER hooks
+Form.published(form => {
+  console.log(`Form live: ${form.name}`)
+})
+
+Form.archived(form => {
+  console.log(`Form archived: ${form.name}`)
+})
+```
+
+## MCP
+
+Search for forms or submit data via MCP:
+
+```json title="headless.ly/mcp#search"
+{ "type": "Form", "filter": { "status": "Active" } }
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Form", "id": "form_qW3xNhKmR" }
+```
+
+```ts title="headless.ly/mcp#do"
+await $.Form.publish({ id: 'form_qW3xNhKmR' })
+```
+
+## CLI
+
+```bash
+npx @headlessly/cli Form.create --name "Waitlist" --status Draft
+npx @headlessly/cli do Form.publish form_qW3xNhKmR
+npx @headlessly/cli Form.find --status Active
+```
+
+## What's Next
+
+- [Landing Pages](/docs/launch/pages) -- embed forms on your launch pages
+- [Launch Campaigns](/docs/launch/campaigns) -- attribute form submissions to campaigns
+- [Audience Segments](/docs/launch/segments) -- group form respondents into targetable segments
+- [CRM Reference](/docs/reference/entities/crm) -- full Contact entity definition
+- [Marketing Reference](/docs/reference/entities/marketing) -- full Form entity definition

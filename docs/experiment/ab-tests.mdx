@@ -1,0 +1,165 @@
+---
+title: A/B Tests
+description: Split test pricing, onboarding, and features. Measure with real Stripe revenue, not pageviews.
+icon: FlaskConical
+---
+
+Create an experiment, define variants, assign traffic, and measure outcomes against real revenue data. headless.ly connects Experiment entities directly to Stripe billing -- so you test business impact, not vanity metrics.
+
+```typescript
+import { Experiment } from '@headlessly/experiments'
+
+const experiment = await Experiment.create({
+  name: 'Pricing Page v2',
+  type: 'ABTest',
+  hypothesis: 'Higher anchor price increases average revenue per user',
+  variants: [
+    { name: 'control', value: { price: 29 }, weight: 50 },
+    { name: 'high-anchor', value: { price: 49 }, weight: 50 },
+  ],
+  metric: 'mrr',
+})
+
+await Experiment.start({ id: experiment.$id })
+```
+
+## Create an Experiment
+
+Every experiment starts as a `Draft`. Define what you are testing, the variants, and which metric determines the winner:
+
+```typescript
+import { Experiment } from '@headlessly/experiments'
+
+const experiment = await Experiment.create({
+  name: 'Onboarding Flow',
+  type: 'ABTest',
+  hypothesis: 'Guided onboarding reduces time-to-activate by 40%',
+  variants: [
+    { name: 'control', value: { flow: 'self-serve' }, weight: 50 },
+    { name: 'guided', value: { flow: 'wizard' }, weight: 50 },
+  ],
+  metric: 'activation_rate',
+})
+// experiment.$id -> 'exp_qR7wNxBt'
+// experiment.status -> 'Draft'
+```
+
+The `weight` on each variant controls traffic allocation. Weights are relative -- `50/50` splits evenly, `80/20` sends 80% to control.
+
+## Start the Experiment
+
+The `start` verb transitions the experiment from `Draft` to `Running` and begins assigning traffic:
+
+```typescript
+import { Experiment } from '@headlessly/experiments'
+
+await Experiment.start({ id: 'exp_qR7wNxBt' })
+```
+
+### Verb Conjugation
+
+Every verb has a full lifecycle -- execute, BEFORE hook, AFTER hook:
+
+```typescript
+import { Experiment } from '@headlessly/experiments'
+
+// Execute
+await Experiment.start({ id: 'exp_qR7wNxBt' })
+
+// BEFORE hook -- validate or block
+Experiment.starting(experiment => {
+  if (!experiment.variants || experiment.variants.length < 2) {
+    throw new Error('Experiment needs at least two variants')
+  }
+})
+
+// AFTER hook -- react to the event
+Experiment.started(experiment => {
+  console.log(`${experiment.name} is now running with ${experiment.variants.length} variants`)
+})
+```
+
+## Measure with Real Revenue
+
+Most experimentation tools measure clicks. headless.ly measures actual Stripe revenue because Experiment and Subscription live in the same graph:
+
+```typescript
+import { Experiment } from '@headlessly/experiments'
+
+const result = await Experiment.analyze({ id: 'exp_qR7wNxBt' })
+// {
+//   variants: [
+//     { name: 'control', conversions: 45, mrr_impact: 1305 },
+//     { name: 'high-anchor', conversions: 31, mrr_impact: 1519 },
+//   ],
+//   winner: 'high-anchor',
+//   confidence: 0.94,
+// }
+```
+
+The `mrr_impact` is not estimated -- it is computed from real Stripe subscriptions created during the experiment window.
+
+## Conclude the Experiment
+
+When you have statistical significance, conclude the experiment and apply the winner:
+
+```typescript
+import { Experiment } from '@headlessly/experiments'
+
+await Experiment.conclude({ id: 'exp_qR7wNxBt', winner: 'high-anchor' })
+
+Experiment.concluded((experiment) => {
+  console.log(`${experiment.name} concluded -- winner: ${experiment.results.winner}`)
+})
+```
+
+Concluding transitions the status from `Running` to `Completed` and emits a `Concluded` event. All traffic is routed to the winning variant.
+
+## MCP Tools
+
+Search for running experiments:
+
+```json title="headless.ly/mcp#search"
+{ "type": "Experiment", "filter": { "status": "Running" } }
+```
+
+Fetch a specific experiment with its results:
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Experiment", "id": "exp_qR7wNxBt" }
+```
+
+Start an experiment via the `do` tool:
+
+```ts title="headless.ly/mcp#do"
+await $.Experiment.start({ id: 'exp_qR7wNxBt' })
+const result = await $.Experiment.analyze({ id: 'exp_qR7wNxBt' })
+return result
+```
+
+## Event-Driven Automation
+
+React to experiment lifecycle events across your system:
+
+```typescript
+import { Experiment } from '@headlessly/experiments'
+import { Campaign } from '@headlessly/marketing'
+
+Experiment.concluded((experiment, $) => {
+  if (experiment.results.winner && experiment.results.confidence > 0.95) {
+    $.Campaign.create({
+      name: `Rollout: ${experiment.name}`,
+      type: 'Automated',
+      segment: 'all-users',
+    })
+  }
+})
+```
+
+## Experiment Types
+
+| Type | Use Case | Example |
+|------|----------|---------|
+| `ABTest` | Compare two or three variants | Pricing page, CTA color |
+| `Multivariate` | Test multiple variables at once | Form length + button color |
+| `Hypothesis` | Validate a business assumption | "Enterprise ICP converts at 2x" |

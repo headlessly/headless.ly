@@ -1,0 +1,184 @@
+---
+title: Conversion Funnels
+description: Track visitor to paid conversion paths. Measure drop-off at every step. Optimize with real revenue data.
+icon: Filter
+---
+
+Define your conversion funnel, measure drop-off at each step, and connect the output to real Stripe revenue. One system tracks the full path from first visit to first payment.
+
+```typescript
+import { Funnel } from '@headlessly/analytics'
+
+const funnel = await Funnel.create({
+  name: 'Signup to Paid',
+  steps: [
+    { name: 'visit', event: 'page.view', filter: { path: '/' } },
+    { name: 'signup', event: 'user.signup' },
+    { name: 'activate', event: 'user.activate' },
+    { name: 'trial', event: 'subscription.trial_start' },
+    { name: 'paid', event: 'subscription.created' },
+  ],
+})
+
+const result = await Funnel.analyze({ id: funnel.$id })
+// visit -> signup -> activate -> trial -> paid
+// 10,000 -> 890 -> 340 -> 120 -> 45
+```
+
+## Create a Funnel
+
+A funnel is an ordered sequence of steps. Each step matches an event name with an optional filter. Steps are evaluated in order -- a contact must complete step N before step N+1 counts:
+
+```typescript
+import { Funnel } from '@headlessly/analytics'
+
+const funnel = await Funnel.create({
+  name: 'Onboarding Completion',
+  steps: [
+    { name: 'signup', event: 'user.signup' },
+    { name: 'profile', event: 'onboarding.profile_complete' },
+    { name: 'connect-stripe', event: 'integration.connected', filter: { provider: 'stripe' } },
+    { name: 'first-contact', event: 'contact.created' },
+    { name: 'activated', event: 'user.activate' },
+  ],
+})
+// funnel.$id -> 'funnel_pK3xMwDv'
+```
+
+## Analyze the Funnel
+
+The `analyze` verb computes conversion rates and drop-off for each step:
+
+```typescript
+import { Funnel } from '@headlessly/analytics'
+
+const result = await Funnel.analyze({ id: 'funnel_pK3xMwDv' })
+// steps:
+//   signup          890  100%  --
+//   profile         620   70%  30% drop
+//   connect-stripe  310   35%  50% drop  <-- bottleneck
+//   first-contact   270   30%  13% drop
+//   activated       210   24%  22% drop
+// conversionRate: 0.24
+```
+
+The `rate` is relative to the first step. The `dropOff` is the percentage lost between consecutive steps -- the number you optimize.
+
+### Verb Conjugation
+
+Every verb has a full lifecycle -- execute, BEFORE hook, AFTER hook:
+
+```typescript
+import { Funnel } from '@headlessly/analytics'
+
+await Funnel.analyze({ id: 'funnel_pK3xMwDv' })                 // execute
+
+Funnel.analyzing(funnel => {                                      // BEFORE hook
+  console.log(`Analyzing ${funnel.name}`)
+})
+
+Funnel.analyzed(funnel => {                                       // AFTER hook
+  const worstStep = funnel.steps.reduce((worst, step) =>
+    step.dropOff > worst.dropOff ? step : worst
+  )
+  console.log(`Biggest drop-off: ${worstStep.name} (${(worstStep.dropOff * 100).toFixed(0)}%)`)
+})
+```
+
+## Measure Drop-Off
+
+The biggest drop-off is where you focus:
+
+```typescript
+import { Funnel } from '@headlessly/analytics'
+
+const result = await Funnel.analyze({ id: 'funnel_pK3xMwDv' })
+
+for (const step of result.steps) {
+  if (step.dropOff > 0.4) {
+    console.log(`WARNING: ${step.name} loses ${(step.dropOff * 100).toFixed(0)}% of users`)
+  }
+}
+// WARNING: connect-stripe loses 50% of users
+```
+
+Half of users who complete their profile never connect Stripe. That is the bottleneck -- run an A/B test on the fix.
+
+## Compare by Variant
+
+Filter funnel analysis by experiment variant to see which version converts better:
+
+```typescript
+import { Funnel } from '@headlessly/analytics'
+
+const control = await Funnel.analyze({
+  id: 'funnel_pK3xMwDv',
+  filter: { experiment: 'exp_qR7wNxBt', variant: 'control' },
+})
+const guided = await Funnel.analyze({
+  id: 'funnel_pK3xMwDv',
+  filter: { experiment: 'exp_qR7wNxBt', variant: 'guided' },
+})
+// control.conversionRate -> 0.24
+// guided.conversionRate  -> 0.38
+```
+
+## MCP Tools
+
+```json title="headless.ly/mcp#search"
+{ "type": "Funnel" }
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Funnel", "id": "funnel_pK3xMwDv" }
+```
+
+```ts title="headless.ly/mcp#do"
+const result = await $.Funnel.analyze({ id: 'funnel_pK3xMwDv' })
+const bottleneck = result.steps.reduce((worst, step) =>
+  step.dropOff > worst.dropOff ? step : worst
+)
+return { conversionRate: result.conversionRate, bottleneck: bottleneck.name }
+```
+
+## Event-Driven Automation
+
+React to funnel analysis results to trigger actions across the system:
+
+```typescript
+import { Funnel } from '@headlessly/analytics'
+
+Funnel.analyzed((funnel, $) => {
+  if (funnel.conversionRate < 0.01) {
+    $.Ticket.create({
+      subject: `Conversion alert: ${funnel.name} at ${(funnel.conversionRate * 100).toFixed(2)}%`,
+      priority: 'High',
+    })
+  }
+})
+```
+
+## Funnels, Experiments, and Flags
+
+The three experiment-phase entities work together. Identify the bottleneck with a Funnel, A/B test a fix with an Experiment, and roll out the winner with a FeatureFlag:
+
+```typescript
+import { Funnel } from '@headlessly/analytics'
+import { Experiment, FeatureFlag } from '@headlessly/experiments'
+
+const result = await Funnel.analyze({ id: 'funnel_pK3xMwDv' })
+// connect-stripe step has 50% drop-off -- test a fix
+
+await Experiment.create({
+  name: 'Stripe Connect UX',
+  type: 'ABTest',
+  variants: [
+    { name: 'control', value: { ux: 'form' }, weight: 50 },
+    { name: 'one-click', value: { ux: 'oauth' }, weight: 50 },
+  ],
+  metric: 'stripe_connect_rate',
+})
+
+// After the experiment concludes, roll out the winner
+await FeatureFlag.create({ key: 'stripe-one-click', enabled: true, percentage: 100 })
+```
