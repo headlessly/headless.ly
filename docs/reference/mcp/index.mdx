@@ -1,0 +1,150 @@
+---
+title: MCP Reference
+description: 'Complete reference for the three MCP tools -- search, fetch, do.'
+icon: Bot
+---
+
+```json
+{
+  "mcpServers": {
+    "headlessly": {
+      "url": "https://crm.headless.ly/mcp",
+      "headers": { "Authorization": "Bearer hly_sk_..." }
+    }
+  }
+}
+```
+
+headless.ly exposes exactly three MCP tools: `search`, `fetch`, and `do`. They cover all 32 entity types, all CRUD operations, all custom verbs, across all 52 composable systems. No tool selection problem, no token bloat, no routing confusion.
+
+## Why Three Tools
+
+Every SaaS MCP integration ships dozens or hundreds of tools. An agent connecting to a CRM gets `search_contacts`, `get_contact`, `create_contact`, `update_contact`, `delete_contact` -- times every entity type. The combinatorial explosion lands in the tool namespace, forcing the model to read thousands of tokens of tool definitions before it can act.
+
+headless.ly pushes the combinatorics into the argument space instead. Three tool definitions total ~480 tokens. A conventional 200-tool server burns ~40,000 tokens on definitions alone.
+
+The three primitives map to the three things agents do with data:
+
+| Tool | Purpose | When to Use |
+|------|---------|-------------|
+| `search` | Find entities matching filters | "Show me all leads from this week" |
+| `fetch` | Get a specific entity, schema, metric, or business status | "Get contact details" or "What's our MRR?" |
+| `do` | Execute TypeScript in a secure sandbox | Any mutation, multi-step logic, aggregation |
+
+## Connection Setup
+
+Point any MCP-compatible client at your tenant's endpoint:
+
+```json
+{
+  "mcpServers": {
+    "headlessly": {
+      "url": "https://headless.ly/mcp",
+      "headers": {
+        "Authorization": "Bearer hly_sk_your_api_key"
+      }
+    }
+  }
+}
+```
+
+Or use the CLI to start a local MCP bridge:
+
+```bash
+npx @headlessly/cli mcp --context crm
+npx @headlessly/cli mcp --context billing
+npx @headlessly/cli mcp --context healthcare
+```
+
+The `--context` flag sets the default system scope without changing the available tools.
+
+## Subdomain Scoping
+
+Every `*.headless.ly` subdomain resolves to the same Cloudflare Worker. The subdomain determines the default context for search results and schema discovery, but all three tools can always reach any entity in the graph.
+
+```
+crm.headless.ly/mcp           # CRM context -- Contact, Company, Deal prominent
+billing.headless.ly/mcp       # Billing context -- Product, Subscription, Invoice prominent
+healthcare.headless.ly/mcp    # Healthcare industry context
+build.headless.ly/mcp         # Build journey -- Projects, Tasks, Content prominent
+```
+
+Paths provide secondary dimensions. `crm.headless.ly/healthcare` and `healthcare.headless.ly/crm` resolve to the same composed context.
+
+## Authentication Levels
+
+Access is progressive. An unauthenticated agent can explore. An authenticated agent can act.
+
+| Level | Auth | Tools Available | Capability |
+|-------|------|-----------------|------------|
+| L0 | None | `search`, `fetch` | Read-only exploration of public schemas and demo data |
+| L1 | Session token | `search`, `fetch`, `do` | Sandboxed read/write within session scope |
+| L2 | API key (`hly_sk_...`) | `search`, `fetch`, `do` | Full tenant access, production mutations |
+| L3 | Admin key (`hly_admin_...`) | `search`, `fetch`, `do` | Cross-tenant, schema modification, bulk operations |
+
+L0 is designed for agent discovery. An agent connecting without credentials can fetch schemas, search demo data, and understand the system before requesting elevated access.
+
+## Progressive Capability
+
+At L0, `do` calls return a structured error with an upgrade path:
+
+```json
+{
+  "error": "authentication_required",
+  "message": "The do tool requires L1+ authentication.",
+  "upgrade": "https://headless.ly/~your-tenant/settings/api-keys"
+}
+```
+
+At L1 (session tokens), the sandbox runs in a restricted mode: 30-second timeout, 128MB memory, 100 entity operations per call, read-only access to other tenants' data.
+
+At L2 (API keys), limits increase: 60-second timeout, 256MB memory, 1000 entity operations per call.
+
+## Rate Limits
+
+| Auth Level | Requests per Minute | Burst | Entity Operations per Call |
+|------------|---------------------|-------|---------------------------|
+| L0 | 30 | 10 | N/A (read-only) |
+| L1 | 100 | 30 | 100 |
+| L2 | 1,000 | 100 | 1,000 |
+| L3 | Unlimited | Unlimited | 10,000 |
+
+Rate limit headers are included on every response:
+
+```
+X-RateLimit-Limit: 1000
+X-RateLimit-Remaining: 997
+X-RateLimit-Reset: 1706745600
+```
+
+When a rate limit is exceeded, the server returns HTTP 429 with a `Retry-After` header.
+
+## Tool Summary
+
+### search
+
+Find entities across the graph with MongoDB-style filters, sorting, and pagination. Returns a list of matching entities.
+
+```json title="headless.ly/mcp#search"
+{ "type": "Deal", "filter": { "value": { "$gte": 50000 } }, "sort": "-value", "limit": 10 }
+```
+
+### fetch
+
+Get a single entity by ID, a schema definition, a named metric, or the full business status snapshot.
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Contact", "id": "contact_fX9bL5nRd", "include": ["deals", "company"] }
+```
+
+### do
+
+Execute arbitrary TypeScript in a secure Cloudflare container sandbox. The `$` context provides access to all 32 entities and their verbs.
+
+```ts title="headless.ly/mcp#do"
+const leads = await $.Contact.find({ stage: 'Lead' })
+for (const lead of leads) {
+  await $.Contact.qualify(lead.$id)
+}
+return { qualified: leads.length }
+```

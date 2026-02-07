@@ -1,0 +1,238 @@
+---
+title: Business Status
+description: "The $.status() endpoint -- your entire business state in one call."
+icon: BarChart
+---
+
+`$.status()` returns a complete snapshot of your business across every domain. One call, one object, one source of truth.
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+const status = await $.status()
+```
+
+## Return Type
+
+```typescript
+interface BusinessStatus {
+  revenue: RevenueStatus
+  pipeline: PipelineStatus
+  product: ProductStatus
+  support: SupportStatus
+  marketing: MarketingStatus
+  engagement: EngagementStatus
+  alerts: Alert[]
+  asOf: string  // ISO timestamp of the snapshot
+}
+```
+
+## Revenue
+
+Financial metrics derived from live Stripe data. These are computed from real subscription and payment records, not estimates.
+
+```typescript
+const { revenue } = await $.status()
+
+console.log(revenue.mrr)    // Monthly recurring revenue in cents
+console.log(revenue.arr)    // Annual recurring revenue (mrr * 12)
+console.log(revenue.churn)  // Monthly churn rate as a percentage
+console.log(revenue.nrr)    // Net revenue retention as a percentage
+console.log(revenue.ltv)    // Average customer lifetime value in cents
+```
+
+```typescript
+interface RevenueStatus {
+  mrr: number         // Monthly recurring revenue (cents)
+  arr: number         // Annual recurring revenue (cents)
+  churn: number       // Monthly churn rate (percentage, e.g. 3.2)
+  nrr: number         // Net revenue retention (percentage, e.g. 112.5)
+  ltv: number         // Average customer lifetime value (cents)
+  trialConversion: number  // Trial-to-paid conversion rate (percentage)
+  revenueGrowth: number    // Month-over-month revenue growth (percentage)
+}
+```
+
+## Pipeline
+
+CRM activity across contacts and deals.
+
+```typescript
+const { pipeline } = await $.status()
+
+console.log(pipeline.deals.open)         // Number of open deals
+console.log(pipeline.deals.totalValue)   // Total pipeline value in cents
+console.log(pipeline.contacts.total)     // Total contacts
+console.log(pipeline.contacts.qualified) // Contacts in Qualified stage
+console.log(pipeline.conversionRate)     // Lead-to-customer conversion (percentage)
+```
+
+```typescript
+interface PipelineStatus {
+  deals: {
+    open: number
+    won: number
+    lost: number
+    totalValue: number       // Sum of open deal values (cents)
+    avgDealSize: number      // Average deal value (cents)
+    avgCycleTime: number     // Average days from creation to close
+  }
+  contacts: {
+    total: number
+    leads: number
+    qualified: number
+    customers: number
+    churned: number
+  }
+  conversionRate: number     // Lead-to-customer (percentage)
+}
+```
+
+## Product
+
+Active subscriptions and plan distribution.
+
+```typescript
+const { product } = await $.status()
+
+console.log(product.subscriptions.active)  // Active subscription count
+console.log(product.subscriptions.trial)   // Trial subscription count
+console.log(product.plans)                 // Plan distribution breakdown
+```
+
+```typescript
+interface ProductStatus {
+  subscriptions: {
+    active: number
+    trial: number
+    canceled: number
+    pastDue: number
+  }
+  plans: Record<string, number>  // { 'pro': 42, 'enterprise': 8 }
+  features: {
+    total: number
+    enabled: number      // Active feature flags
+    experiments: number  // Running experiments
+  }
+}
+```
+
+## Support
+
+Open tickets, response times, and customer satisfaction.
+
+```typescript
+const { support } = await $.status()
+
+console.log(support.tickets.open)          // Open ticket count
+console.log(support.tickets.avgResponseMs) // Avg first response time (ms)
+console.log(support.satisfaction)           // CSAT score (0-100)
+```
+
+```typescript
+interface SupportStatus {
+  tickets: {
+    open: number
+    inProgress: number
+    resolved: number
+    escalated: number
+    avgResponseMs: number   // Average first response time (milliseconds)
+    avgResolutionMs: number // Average time to resolution (milliseconds)
+  }
+  satisfaction: number      // CSAT score (0-100)
+  articles: {
+    total: number
+    published: number
+  }
+}
+```
+
+## Marketing and Engagement
+
+Campaign performance and user engagement metrics.
+
+```typescript
+const { marketing, engagement } = await $.status()
+
+console.log(marketing.campaigns.active)    // Running campaigns
+console.log(marketing.campaigns.leads)     // Leads generated this period
+console.log(engagement.dau)                // Daily active users
+console.log(engagement.events.today)       // Events tracked today
+```
+
+## Alerts
+
+Alerts flag conditions that need attention. Each alert has a severity, a human-readable message, and the metric that triggered it.
+
+```typescript
+const { alerts } = await $.status()
+
+for (const alert of alerts) {
+  console.log(`[${alert.severity}] ${alert.message}`)
+  console.log(`  Metric: ${alert.metric} = ${alert.value}`)
+}
+```
+
+```typescript
+interface Alert {
+  id: string
+  severity: 'info' | 'warning' | 'critical'
+  metric: string       // e.g. 'churn', 'mrr', 'tickets.open'
+  value: number        // Current value that triggered the alert
+  threshold: number    // The threshold that was crossed
+  direction: 'above' | 'below'
+  message: string      // Human-readable description
+  createdAt: string    // ISO timestamp
+}
+```
+
+Alerts are generated automatically when metrics cross configured thresholds. Configure thresholds via [Metric watches](/docs/reference/sdk/events#metric-watches).
+
+## Per-Metric Access
+
+Access individual metrics directly without pulling the full status object.
+
+```typescript
+import { Metric } from '@headlessly/analytics'
+
+const mrr = await Metric.get('mrr')
+console.log(mrr.value)      // Current value
+console.log(mrr.previous)   // Previous period value
+console.log(mrr.change)     // Percentage change
+
+const churn = await Metric.get('churn')
+const nrr = await Metric.get('nrr')
+const openTickets = await Metric.get('tickets.open')
+```
+
+## Historical Status
+
+Combine `$.status()` with time travel to see your business state at any point in the past.
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+// Business state 30 days ago
+const past = await $.status({ asOf: '2025-01-01T00:00:00Z' })
+
+// Compare MRR growth
+const current = await $.status()
+const mrrGrowth = current.revenue.mrr - past.revenue.mrr
+console.log(`MRR grew by ${mrrGrowth} cents in the last period`)
+```
+
+## Dashboard Integration
+
+The status endpoint powers the unified metrics API at `GET /~:tenant/metrics`. Connect it to any BI tool, dashboard, or spreadsheet.
+
+```bash
+# Fetch raw status via curl
+curl -H "Authorization: Bearer $HEADLESSLY_API_KEY" \
+  https://db.headless.ly/~my-startup/metrics
+
+# Specific metric
+curl -H "Authorization: Bearer $HEADLESSLY_API_KEY" \
+  https://db.headless.ly/~my-startup/metrics/mrr
+```
+
+One system, one connection, full visibility across CRM, billing, projects, support, analytics, and marketing.

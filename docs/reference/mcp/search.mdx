@@ -1,0 +1,286 @@
+---
+title: search
+description: 'Find entities across the graph with filters, sorting, and pagination.'
+---
+
+```json title="headless.ly/mcp#search"
+{ "type": "Contact", "filter": { "stage": "Lead" }, "sort": "-createdAt", "limit": 25 }
+```
+
+The `search` tool finds entities matching MongoDB-style filters. It returns a paginated list with total count and cursor for efficient traversal of large result sets.
+
+## Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `type` | string | Yes | -- | Entity type to search. Any of the 32 entity types: `Contact`, `Company`, `Deal`, `Project`, `Task`, `Subscription`, `Invoice`, `Ticket`, `Campaign`, etc. |
+| `filter` | object | No | `{}` | MongoDB-style query object. Keys are field names, values are exact matches or operator expressions. |
+| `sort` | string | No | `-createdAt` | Field to sort by. Prefix with `-` for descending order. |
+| `limit` | number | No | `25` | Maximum number of results to return. Range: 1-100. |
+| `offset` | number | No | `0` | Number of results to skip. Use for simple pagination. Mutually exclusive with `cursor`. |
+| `cursor` | string | No | -- | Opaque pagination cursor from a previous response. More efficient than `offset` for deep pagination. Mutually exclusive with `offset`. |
+| `asOf` | string | No | -- | ISO 8601 timestamp. Returns results as they existed at that point in time. Requires event-sourced entities. |
+| `include` | string[] | No | `[]` | Relationship fields to eagerly load on each result. e.g., `["company", "deals"]`. |
+
+## Filter Operators
+
+### Comparison Operators
+
+| Operator | Description | Example |
+|----------|-------------|---------|
+| `$eq` | Equal to (implicit when value is a literal) | `{ "stage": { "$eq": "Lead" } }` |
+| `$ne` | Not equal to | `{ "stage": { "$ne": "Churned" } }` |
+| `$gt` | Greater than | `{ "value": { "$gt": 10000 } }` |
+| `$gte` | Greater than or equal to | `{ "value": { "$gte": 50000 } }` |
+| `$lt` | Less than | `{ "value": { "$lt": 100000 } }` |
+| `$lte` | Less than or equal to | `{ "createdAt": { "$lte": "2025-06-01T00:00:00Z" } }` |
+| `$in` | Value is in array | `{ "stage": { "$in": ["Lead", "Qualified"] } }` |
+| `$nin` | Value is not in array | `{ "stage": { "$nin": ["Churned", "Lost"] } }` |
+| `$exists` | Field exists (or does not) | `{ "email": { "$exists": true } }` |
+| `$regex` | Regular expression match | `{ "name": { "$regex": "^Al" } }` |
+| `$not` | Negates an operator expression | `{ "value": { "$not": { "$lt": 1000 } } }` |
+
+Literal values are shorthand for `$eq`:
+
+```json title="headless.ly/mcp#search"
+{ "type": "Contact", "filter": { "stage": "Lead" } }
+```
+
+is equivalent to:
+
+```json title="headless.ly/mcp#search"
+{ "type": "Contact", "filter": { "stage": { "$eq": "Lead" } } }
+```
+
+### Logical Operators
+
+Combine multiple conditions with `$and` and `$or`:
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Deal",
+  "filter": {
+    "$or": [
+      { "stage": "Proposal", "value": { "$gte": 100000 } },
+      { "stage": "Negotiation" }
+    ]
+  }
+}
+```
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Contact",
+  "filter": {
+    "$and": [
+      { "stage": { "$in": ["Lead", "Qualified"] } },
+      { "company": { "$exists": true } },
+      { "email": { "$regex": "@enterprise\\.com$" } }
+    ]
+  }
+}
+```
+
+When multiple fields appear at the top level of `filter`, they are implicitly combined with `$and`:
+
+```json title="headless.ly/mcp#search"
+{ "type": "Deal", "filter": { "stage": "Proposal", "value": { "$gte": 50000 } } }
+```
+
+## Response Format
+
+```json
+{
+  "results": [
+    {
+      "$id": "contact_fX9bL5nRd",
+      "$type": "Contact",
+      "name": "Alice Chen",
+      "email": "alice@startup.io",
+      "stage": "Lead",
+      "company": "company_e5JhLzXc",
+      "createdAt": "2025-11-15T09:30:00Z",
+      "updatedAt": "2025-11-18T14:22:00Z"
+    }
+  ],
+  "total": 142,
+  "hasMore": true,
+  "cursor": "eyJvIjo2NSwibCI6MjV9"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `results` | Entity[] | Array of matching entities. Each entity includes `$id`, `$type`, and all stored fields. |
+| `total` | number | Total number of entities matching the filter (not just this page). |
+| `hasMore` | boolean | `true` if more results exist beyond this page. |
+| `cursor` | string | Opaque cursor for fetching the next page. Only present when `hasMore` is `true`. |
+
+## Cross-Entity Search
+
+Use dot notation to filter on related entity fields:
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Contact",
+  "filter": {
+    "company.industry": "Technology",
+    "company.size": { "$gte": 50 }
+  }
+}
+```
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Deal",
+  "filter": {
+    "contact.stage": "Qualified",
+    "contact.company.industry": "Healthcare"
+  }
+}
+```
+
+Dot notation traverses relationships defined in the entity's Noun schema. The depth limit is 3 levels (`a.b.c`).
+
+## Text Search
+
+Pass a string value to the special `$text` key to perform full-text search across all indexed string fields:
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Contact",
+  "filter": {
+    "$text": "alice startup",
+    "stage": "Lead"
+  }
+}
+```
+
+Text search uses prefix matching and is case-insensitive. Results are ranked by relevance when no explicit `sort` is provided.
+
+## Time Travel Queries
+
+The `asOf` parameter queries the entity state at a specific point in time. Every mutation is an event in the immutable log, so any past state is reconstructable.
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Deal",
+  "filter": { "stage": "Closed Won" },
+  "asOf": "2025-09-30T23:59:59Z"
+}
+```
+
+This returns deals that were in `Closed Won` stage as of September 30, 2025 -- even if they have since been updated or deleted.
+
+`asOf` accepts any ISO 8601 timestamp. The event log retains full history, so you can query arbitrarily far into the past.
+
+## Pagination
+
+### Offset Pagination
+
+Simple and predictable. Best for small result sets or when the agent needs to jump to a specific page.
+
+```json title="headless.ly/mcp#search"
+{ "type": "Contact", "filter": { "stage": "Lead" }, "limit": 25, "offset": 50 }
+```
+
+Offset pagination can become slow for large offsets (>10,000) because the database must scan and discard skipped rows.
+
+### Cursor Pagination
+
+Use the `cursor` from a previous response to fetch the next page. More efficient for sequential traversal of large result sets.
+
+```json title="headless.ly/mcp#search"
+{ "type": "Contact", "filter": { "stage": "Lead" }, "limit": 25, "cursor": "eyJvIjo2NSwibCI6MjV9" }
+```
+
+Cursors are opaque strings. Do not parse or construct them. They expire after 10 minutes of inactivity.
+
+## Error Responses
+
+| Error Code | HTTP Status | Description |
+|------------|-------------|-------------|
+| `invalid_type` | 400 | The `type` parameter does not match any known entity type. |
+| `invalid_filter` | 400 | The filter object contains an unrecognized operator or malformed expression. |
+| `invalid_sort` | 400 | The sort field does not exist on the entity type. |
+| `limit_exceeded` | 400 | The `limit` parameter exceeds the maximum of 100. |
+| `invalid_cursor` | 400 | The cursor is malformed or expired. |
+| `rate_limited` | 429 | Too many requests. Check `Retry-After` header. |
+| `unauthorized` | 401 | Missing or invalid authentication for the requested scope. |
+
+Error response body:
+
+```json
+{
+  "error": "invalid_filter",
+  "message": "Unknown operator '$like' in filter for field 'name'. Supported operators: $eq, $ne, $gt, $gte, $lt, $lte, $in, $nin, $exists, $regex, $not.",
+  "field": "name"
+}
+```
+
+## Examples
+
+### Simple Filter
+
+Find all active subscriptions on the Pro plan:
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Subscription",
+  "filter": { "status": "active", "plan": "pro" },
+  "sort": "-createdAt",
+  "limit": 50
+}
+```
+
+### Complex Filter with Logical Operators
+
+Find high-value deals in late stages, or any deal updated in the last 7 days:
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Deal",
+  "filter": {
+    "$or": [
+      {
+        "value": { "$gte": 100000 },
+        "stage": { "$in": ["Proposal", "Negotiation", "Closed Won"] }
+      },
+      {
+        "updatedAt": { "$gte": "2025-11-11T00:00:00Z" }
+      }
+    ]
+  },
+  "sort": "-value",
+  "limit": 20
+}
+```
+
+### Cross-Entity with Include
+
+Find leads at technology companies and include their deals:
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Contact",
+  "filter": {
+    "stage": "Lead",
+    "company.industry": "Technology"
+  },
+  "include": ["deals", "company"],
+  "limit": 10
+}
+```
+
+### Time Travel
+
+Find the pipeline snapshot at end of Q3:
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Deal",
+  "filter": { "stage": { "$ne": "Closed Lost" } },
+  "asOf": "2025-09-30T23:59:59Z",
+  "sort": "-value"
+}
+```

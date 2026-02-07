@@ -1,0 +1,360 @@
+---
+title: Architecture
+description: Complete reference for the layer architecture, storage model, write/read paths, multi-tenancy, and the five interfaces.
+icon: Layers
+---
+
+## Layer Diagram
+
+```
+headless.ly       → Tenant composition, SDK, RPC client (capnweb)
+objects.do        → Managed Digital Object service, verb conjugation, events
+digital-objects   → Pure schemas, zero deps, Noun() function, 32 core entities
+.do services      → payments.do, oauth.do, events.do, database.do, functions.do
+@dotdo/do         → THE Durable Object: StorageHandler, EventsStore, WebSocket
+@dotdo/db         → ParqueDB: hybrid relational-document-graph on Parquet
+Cloudflare        → Workers, Durable Objects, R2, KV, AI
+```
+
+Each layer depends only on the layer below it. `digital-objects` has zero dependencies and defines the 32 core entities as pure schemas. `objects.do` adds runtime behavior (verb execution, event emission). `headless.ly` composes tenants and exposes the SDK.
+
+## Storage Model: ParqueDB
+
+ParqueDB is a hybrid relational-document-graph database built on Apache Parquet:
+
+| Mode | Capability | Implementation |
+|------|-----------|----------------|
+| **Relational** | Typed schemas, foreign keys, joins | Column definitions with type constraints |
+| **Document** | Flexible fields, nested JSON, schema evolution | `json` columns with path-based indexing |
+| **Graph** | Bidirectional relationships, traversal | Relationship indexes from `->` and `<-` declarations |
+| **Columnar** | Predicate pushdown, bloom filters, compression | Apache Parquet file format on R2 |
+
+### Parquet Encoding
+
+Each entity type maps to a Parquet file with columns derived from its Noun definition:
+
+| Noun Type | Parquet Type | Encoding |
+|-----------|-------------|----------|
+| `string` | `BYTE_ARRAY` (UTF8) | Dictionary + RLE |
+| `number` | `DOUBLE` | Plain |
+| `boolean` | `BOOLEAN` | RLE |
+| `datetime` | `INT96` or `INT64` (micros) | Plain |
+| `id` | `BYTE_ARRAY` (UTF8) | Dictionary |
+| `json` | `BYTE_ARRAY` (UTF8) | Plain (JSON string) |
+| Enum | `BYTE_ARRAY` (UTF8) | Dictionary (closed set) |
+| Indexed (`#`) | Any | Bloom filter + dictionary |
+
+## Write Path
+
+```
+Client SDK
+  │
+  ▼
+Cloudflare Worker (Hono)
+  │  Route: POST /~:tenant/Entity
+  ▼
+Durable Object (per tenant)
+  │  1. BEFORE hooks (validation, transform)
+  │  2. Append event to immutable log
+  │  3. Update materialized state in SQLite WAL
+  │  4. Execute AFTER hooks (side effects)
+  │  5. Broadcast via WebSocket
+  ▼
+Background flush
+  │  SQLite WAL → Parquet → R2
+  ▼
+Iceberg R2 Lakehouse
+     Event log archived for analytics
+```
+
+All writes go through a single Durable Object per tenant. The DO provides serializable consistency -- no two writes to the same tenant execute concurrently. SQLite WAL provides fast local reads and writes; Parquet files on R2 provide durable columnar storage.
+
+### Write Guarantees
+
+| Guarantee | Mechanism |
+|-----------|-----------|
+| Serializable consistency | Single DO per tenant |
+| Durability | SQLite WAL + R2 Parquet flush |
+| Atomicity | DO transaction boundary |
+| Event ordering | Monotonic version numbers per entity |
+
+## Read Path
+
+```
+Client SDK
+  │
+  ▼
+Cloudflare Worker (Hono)
+  │  Route: GET /~:tenant/Entity/:id
+  ▼
+Cache Layer (KV + CDN)
+  │  Hit? → return cached response
+  │  Miss? ↓
+  ▼
+R2 (Parquet files)
+  │  Predicate pushdown, bloom filter skip
+  ▼
+Response
+  │  Cache populated for next read
+  ▼
+Client
+```
+
+Reads prefer the cached path. Parquet's columnar format enables efficient predicate pushdown -- only the columns and row groups matching the query are read from R2. Bloom filters on indexed (`#`) columns enable fast existence checks without scanning.
+
+### Read Consistency
+
+| Mode | Consistency | Source |
+|------|------------|--------|
+| Default | Eventually consistent | R2 + CDN cache |
+| `strong: true` | Strongly consistent | Direct DO read |
+| `asOf: timestamp` | Point-in-time | Event log replay |
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+// Eventually consistent (fast, cached)
+const contacts = await Contact.find({ stage: 'Lead' })
+
+// Strongly consistent (reads from DO)
+const contact = await Contact.get('contact_fX9bL5nRd', { strong: true })
+
+// Point-in-time (replays events)
+const historical = await Contact.get('contact_fX9bL5nRd', {
+  asOf: '2026-01-15T10:00:00Z',
+})
+```
+
+## Multi-Tenancy
+
+Every tenant gets their own Durable Object with complete data isolation. No shared state between tenants.
+
+### Tenant Addressing
+
+Tenants are addressed via the `~` path prefix:
+
+```
+https://{context}.headless.ly/~{tenant}/{Entity}
+https://{context}.headless.ly/~{tenant}/{Entity}/{id}
+https://{context}.headless.ly/~{tenant}/{Entity}/{id}/{verb}
+```
+
+```bash
+# Create a contact in the "acme" tenant
+POST https://crm.headless.ly/~acme/Contact
+{ "name": "Alice", "stage": "Lead" }
+
+# Query contacts in the "acme" tenant
+GET https://crm.headless.ly/~acme/Contact?stage=Lead
+
+# Execute a verb
+POST https://crm.headless.ly/~acme/Contact/contact_fX9bL5nRd/qualify
+```
+
+### Tenant Isolation
+
+| Layer | Isolation Mechanism |
+|-------|-------------------|
+| Compute | One Durable Object per tenant (separate V8 isolate) |
+| Storage | Tenant-prefixed keys in SQLite, tenant-prefixed paths in R2 |
+| Events | Tenant-scoped event log with separate Iceberg partitions |
+| Cache | Tenant-scoped KV keys |
+| WebSocket | Tenant-scoped connection groups |
+
+### SDK Configuration
+
+The tenant is set via environment variable. The SDK reads it automatically:
+
+```bash
+export HEADLESSLY_TENANT=acme
+```
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+// Automatically scoped to the "acme" tenant
+await Contact.create({ name: 'Alice', stage: 'Lead' })
+```
+
+## Domain Routing
+
+Every `*.headless.ly` subdomain routes to the same Cloudflare Worker. The subdomain determines the composition context -- which entities are surfaced, which API routes are generated, and which MCP tools are scoped.
+
+### Resolution Flow
+
+```
+Request: https://crm.headless.ly/~acme/Contact
+  │
+  ▼
+Worker extracts subdomain: "crm"
+  │
+  ▼
+Registry lookup: crm → { entities: [Contact, Company, Deal, Activity] }
+  │
+  ▼
+Route generation: /api/contacts, /api/companies, /api/deals, /api/activities
+  │
+  ▼
+DO lookup: tenant "acme" → Durable Object stub
+  │
+  ▼
+Execute operation within scoped context
+```
+
+### Symmetric Composition
+
+Subdomain and path are interchangeable dimensions:
+
+```
+CRM.Headless.ly/healthcare   = Healthcare.Headless.ly/crm
+```
+
+Both resolve to: CRM entities filtered by healthcare industry context. The first dimension (subdomain) is primary; the second (path) is a filter.
+
+### Subdomain Categories
+
+| Category | Examples | Entity Scope |
+|----------|----------|-------------|
+| **Journey** | `build`, `launch`, `grow`, `scale`, `automate`, `experiment` | Lifecycle-relevant entities |
+| **Domain** | `crm`, `billing`, `projects`, `content`, `support` | Product domain entities |
+| **System** | `CRM`, `EHR`, `Accounting`, `HRIS` | 52 system-specific compositions |
+| **Industry** | `Healthcare`, `Construction`, `Finance` | NAICS sector compositions |
+| **Utility** | `db`, `code` | Infrastructure services |
+
+## Five Interfaces
+
+Every entity and verb is accessible through all five interfaces. They share the same backend, the same event log, and the same verb conjugation system.
+
+### SDK
+
+The primary interface. TypeScript-first, fully typed, tree-shakeable.
+
+```typescript
+import { Contact } from '@headlessly/crm'
+import { $ } from '@headlessly/sdk'
+
+const contact = await Contact.create({ name: 'Alice', stage: 'Lead' })
+await Contact.qualify({ id: contact.$id })
+
+// Cross-domain via $
+const deals = await $.Deal.find({ contact: contact.$id })
+```
+
+### MCP (Search, Fetch, Do)
+
+Three tools -- not hundreds. Designed for AI agents:
+
+```json title="headless.ly/mcp#search"
+{ "type": "Contact", "filter": { "stage": "Lead" }, "limit": 10 }
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Contact", "id": "contact_fX9bL5nRd", "include": ["deals", "company"] }
+```
+
+```ts title="headless.ly/mcp#do"
+const leads = await $.Contact.find({ stage: 'Lead' })
+for (const lead of leads) {
+  await $.Contact.qualify(lead.$id)
+}
+```
+
+The `do` tool accepts arbitrary TypeScript executed via secure `ai-evaluate` inside the tenant's Durable Object.
+
+### CLI
+
+```bash
+# Query
+npx @headlessly/cli query Contact --stage Lead
+
+# CRUD
+npx @headlessly/cli Contact.create --name "Alice" --stage Lead
+npx @headlessly/cli Contact.get contact_fX9bL5nRd
+npx @headlessly/cli Contact.update contact_fX9bL5nRd --stage Qualified
+npx @headlessly/cli Contact.delete contact_fX9bL5nRd
+
+# Custom verbs
+npx @headlessly/cli do Contact.qualify contact_fX9bL5nRd
+
+# Status
+npx @headlessly/cli status
+```
+
+### REST
+
+Standard HTTP REST endpoints scoped by subdomain and tenant:
+
+```bash
+# CRUD
+POST   https://crm.headless.ly/~acme/Contact
+GET    https://crm.headless.ly/~acme/Contact?stage=Lead
+GET    https://crm.headless.ly/~acme/Contact/contact_fX9bL5nRd
+PUT    https://crm.headless.ly/~acme/Contact/contact_fX9bL5nRd
+DELETE https://crm.headless.ly/~acme/Contact/contact_fX9bL5nRd
+
+# Custom verbs
+POST   https://crm.headless.ly/~acme/Contact/contact_fX9bL5nRd/qualify
+
+# Query with MongoDB-style filters
+GET    https://crm.headless.ly/~acme/Deal?filter={"stage":"Negotiation"}&sort=-value&limit=10
+```
+
+### Events
+
+Real-time event stream via WebSocket or SSE:
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+// WebSocket subscription
+$.events.subscribe('Deal.Closed', event => {
+  console.log(`Deal closed: ${event.data.name} for $${event.data.value}`)
+})
+
+// SSE endpoint
+// GET https://crm.headless.ly/~acme/events?type=Deal.Closed
+```
+
+## Promise Pipelining
+
+The SDK batches chained operations into a single round trip using Cap'n Proto RPC (via capnweb):
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+// This resolves as ONE network round trip, not three
+const deals = await $.Contact
+  .find({ stage: 'Qualified' })
+  .map(contact => contact.deals)
+  .filter(deal => deal.stage === 'Negotiation')
+```
+
+The pipeline builder collects operations and sends them as a single batched RPC call. The Durable Object executes the full chain server-side and returns only the final result.
+
+| Without Pipelining | With Pipelining |
+|-------------------|-----------------|
+| 3 round trips (find, map, filter) | 1 round trip (batched) |
+| ~150ms total latency | ~50ms total latency |
+| 3 R2 reads | 1 server-side chain |
+
+## Data Lakehouse
+
+All events flow into an Apache Iceberg table on Cloudflare R2, partitioned by tenant and date:
+
+```
+r2://headlessly-db/
+  └── iceberg/
+      └── events/
+          ├── metadata/         # Iceberg table metadata
+          └── data/
+              ├── tenant=acme/
+              │   ├── date=2026-01-15/
+              │   │   └── events-00001.parquet
+              │   └── date=2026-01-16/
+              │       └── events-00001.parquet
+              └── tenant=startup/
+                  └── date=2026-01-15/
+                      └── events-00001.parquet
+```
+
+The lakehouse serves as the long-term analytical store. Live queries hit the DO and cached Parquet files; historical and cross-tenant analytics query the lakehouse directly via DuckDB, Spark, or any Iceberg-compatible engine.

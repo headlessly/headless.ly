@@ -1,0 +1,238 @@
+---
+title: Event Handlers
+description: BEFORE and AFTER hooks, the $ context, and subscription patterns.
+icon: Zap
+---
+
+Every verb on every entity produces events. You can register handlers that run BEFORE or AFTER any verb executes. This is the foundation of headless.ly's event-driven automation.
+
+## BEFORE Hooks
+
+BEFORE hooks run before the verb commits. Use them to validate data, transform input, enforce business rules, or reject the operation entirely.
+
+```typescript
+import { Deal } from '@headlessly/crm'
+
+Deal.closing((deal) => {
+  if (!deal.wonAmount || deal.wonAmount <= 0) {
+    throw new Error('Cannot close a deal without a positive won amount')
+  }
+})
+```
+
+The naming convention is the present participle of the verb: `creating`, `updating`, `qualifying`, `closing`.
+
+### Reject an Operation
+
+Throw an error inside a BEFORE hook to prevent the verb from executing.
+
+```typescript
+import { Subscription } from '@headlessly/billing'
+
+Subscription.canceling((subscription) => {
+  if (subscription.plan === 'enterprise') {
+    throw new Error('Enterprise subscriptions require manual cancellation')
+  }
+})
+```
+
+### Transform Input
+
+Modify the entity data before it is persisted. The returned object merges with the original.
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+Contact.creating((contact) => {
+  return {
+    ...contact,
+    email: contact.email?.toLowerCase(),
+    stage: contact.stage ?? 'Lead',
+  }
+})
+```
+
+## AFTER Hooks
+
+AFTER hooks run after the verb commits. Use them for side effects: sending notifications, creating related entities, triggering workflows, updating metrics.
+
+```typescript
+import { Deal } from '@headlessly/crm'
+
+Deal.closed((deal) => {
+  console.log(`Deal ${deal.id} closed for ${deal.wonAmount}`)
+})
+```
+
+The naming convention is the past participle of the verb: `created`, `updated`, `qualified`, `closed`.
+
+## The `$` Context
+
+The second argument to any hook is the `$` context -- a reference to the full entity graph. Use it for cross-domain operations without importing additional packages.
+
+```typescript
+import { Deal } from '@headlessly/crm'
+
+Deal.closed((deal, $) => {
+  // Create a subscription in the billing domain
+  $.Subscription.create({
+    plan: 'pro',
+    contact: deal.contact,
+  })
+
+  // Log an activity in the CRM domain
+  $.Activity.create({
+    type: 'deal_closed',
+    contact: deal.contact,
+    deal: deal.id,
+  })
+
+  // Track a metric in the analytics domain
+  $.Event.create({
+    name: 'deal_closed',
+    properties: { value: deal.wonAmount },
+  })
+})
+```
+
+## Handler Signature
+
+```typescript
+type BeforeHandler<T> = (entity: T, $: HeadlesslyContext) => void | Partial<T> | Promise<void | Partial<T>>
+type AfterHandler<T> = (entity: T, $: HeadlesslyContext) => void | Promise<void>
+```
+
+BEFORE handlers can return a partial entity to merge, or void. AFTER handlers return void. Both can be async.
+
+## CRUD Event Hooks
+
+Every entity gets hooks for the four standard CRUD operations without any configuration.
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+Contact.creating((contact) => { /* BEFORE create */ })
+Contact.created((contact, $) => { /* AFTER create */ })
+
+Contact.updating((contact) => { /* BEFORE update */ })
+Contact.updated((contact, $) => { /* AFTER update */ })
+
+Contact.deleting((contact) => { /* BEFORE delete */ })
+Contact.deleted((contact, $) => { /* AFTER delete */ })
+```
+
+## Custom Verb Hooks
+
+Custom verbs declared in the `Noun()` definition get the same BEFORE/AFTER pattern.
+
+```typescript
+import { Ticket } from '@headlessly/support'
+
+Ticket.escalating((ticket) => {
+  if (ticket.priority === 'critical') {
+    return { escalatedAt: new Date().toISOString() }
+  }
+})
+
+Ticket.escalated((ticket, $) => {
+  $.Agent.invoke({
+    id: 'agent_wQ2xLrHj',
+    action: 'notify-on-call',
+    ticket: ticket.id,
+  })
+})
+```
+
+## Code-as-Data Execution
+
+Handlers registered via the SDK are stored as code and executed inside headless.ly's secure runtime. This means:
+
+- Handlers run at the edge, close to the data
+- The `$` context is sandboxed to the current tenant
+- Side effects are recorded in the immutable event log
+- Failed handlers can be retried without re-executing the original verb
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+// This handler is serialized and runs inside headless.ly
+Contact.qualified((contact, $) => {
+  $.Campaign.create({
+    name: `Welcome ${contact.name}`,
+    segment: { stage: 'Qualified' },
+    type: 'onboarding',
+  })
+})
+```
+
+## WebSocket Subscriptions
+
+Subscribe to real-time event streams over WebSocket for live UIs and monitoring dashboards.
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+// Subscribe to all events on a specific entity type
+$.events.subscribe('Contact.*', (event) => {
+  console.log(`${event.verb} on ${event.entityId}`)
+})
+
+// Subscribe to a specific verb across all entities
+$.events.subscribe('*.created', (event) => {
+  console.log(`New ${event.type}: ${event.entityId}`)
+})
+
+// Subscribe to a specific entity instance
+$.events.subscribe('Contact.contact_fX9bL5nRd.*', (event) => {
+  console.log(`Contact updated: ${event.verb}`)
+})
+```
+
+## Metric Watches
+
+Watch specific metrics and react when they cross thresholds.
+
+```typescript
+import { Metric } from '@headlessly/analytics'
+
+Metric.watch('mrr', { threshold: 10000, direction: 'above' }, (metric, $) => {
+  $.Event.create({
+    name: 'milestone_reached',
+    properties: { metric: 'mrr', value: metric.value },
+  })
+})
+
+Metric.watch('churn', { threshold: 5, direction: 'above' }, (metric, $) => {
+  $.Ticket.create({
+    title: 'Churn rate exceeded 5%',
+    priority: 'critical',
+    assignee: 'agent_wQ2xLrHj',
+  })
+})
+```
+
+## Execution Order
+
+Handlers execute in registration order within their phase:
+
+1. All BEFORE hooks run sequentially in registration order
+2. If any BEFORE hook throws, the operation is aborted and no AFTER hooks run
+3. The verb executes and the mutation is committed
+4. All AFTER hooks run sequentially in registration order
+5. If an AFTER hook throws, remaining AFTER hooks still execute (fail-open)
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+// Runs first
+Contact.creating((contact) => {
+  console.log('Validation check')
+})
+
+// Runs second
+Contact.creating((contact) => {
+  console.log('Enrichment step')
+})
+
+// Both must pass before the contact is actually created
+```

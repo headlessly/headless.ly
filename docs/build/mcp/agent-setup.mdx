@@ -1,0 +1,239 @@
+---
+title: Agent Setup
+description: Configure MCP for Claude Desktop, Cursor, VS Code, and custom agents.
+icon: Settings
+---
+
+```json
+{
+  "mcpServers": {
+    "headlessly": {
+      "url": "https://headless.ly/mcp"
+    }
+  }
+}
+```
+
+One URL. No API key. Works with every MCP-compatible client. Below are setup instructions for specific clients and authentication tiers.
+
+## Claude Desktop
+
+Add headless.ly to your Claude Desktop MCP configuration.
+
+**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+
+**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "headlessly": {
+      "url": "https://headless.ly/mcp"
+    }
+  }
+}
+```
+
+Restart Claude Desktop. The agent connects at L0 (anonymous, read-only) and can immediately explore all 32 entities. Ask Claude to "explore headless.ly" and it will discover the full entity graph -- CRM, Billing, Projects, Content, Support, Analytics, Marketing, Experiments, Platform.
+
+To scope the connection to a specific domain, use a subdomain URL:
+
+```json
+{
+  "mcpServers": {
+    "headlessly": {
+      "url": "https://crm.headless.ly/mcp"
+    }
+  }
+}
+```
+
+## Cursor
+
+Open Cursor Settings, navigate to the MCP section, and add a new server:
+
+- **Name**: `headlessly`
+- **Type**: `sse`
+- **URL**: `https://headless.ly/mcp`
+
+No authentication fields required. The agent starts at L0 and can provision a session within the conversation to unlock write access.
+
+For a Cursor project-level configuration, add `.cursor/mcp.json` to your repository:
+
+```json
+{
+  "mcpServers": {
+    "headlessly": {
+      "url": "https://headless.ly/mcp"
+    }
+  }
+}
+```
+
+## VS Code (Copilot)
+
+Add the MCP server to your VS Code settings (`.vscode/settings.json` or global settings):
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "headlessly": {
+        "url": "https://headless.ly/mcp"
+      }
+    }
+  }
+}
+```
+
+## Custom Agent
+
+Use the MCP SDK to connect any agent programmatically:
+
+```typescript
+import { Client } from '@modelcontextprotocol/sdk/client'
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp'
+
+const transport = new StreamableHTTPClientTransport(
+  new URL('https://headless.ly/mcp')
+)
+
+const client = new Client({ name: 'my-agent', version: '1.0.0' })
+await client.connect(transport)
+
+// Discover available tools
+const { tools } = await client.listTools()
+
+// Search for contacts
+const result = await client.callTool({
+  name: 'search',
+  arguments: { type: 'Contact', filter: { stage: 'Lead' } }
+})
+
+// Fetch a specific entity
+const contact = await client.callTool({
+  name: 'fetch',
+  arguments: { type: 'Contact', id: 'contact_uLoSfycy', include: ['deals'] }
+})
+
+// Execute business logic
+const outcome = await client.callTool({
+  name: 'do',
+  arguments: {
+    code: `
+      const leads = await $.Contact.find({ stage: 'Lead' })
+      for (const lead of leads) {
+        await $.Contact.qualify(lead.$id)
+      }
+      return { qualified: leads.length }
+    `
+  }
+})
+```
+
+The SDK handles transport, reconnection, and session management. The agent starts at L0 and can provision a session by calling `fetch` with `{ type: 'session', action: 'provision' }`.
+
+## Authentication
+
+headless.ly uses **progressive capability tiers**. Agents start with zero configuration and unlock capabilities as needed.
+
+### L0 -- No Auth
+
+No headers required. The agent connects and starts reading immediately.
+
+```json
+{
+  "mcpServers": {
+    "headlessly": {
+      "url": "https://headless.ly/mcp"
+    }
+  }
+}
+```
+
+Capabilities: `search`, `fetch`. Rate limit: 30 req/min.
+
+### L1 -- Session Token
+
+After provisioning, the session token is returned in the MCP response and automatically managed by the transport layer. For custom agents that manage headers directly:
+
+```json
+{
+  "mcpServers": {
+    "headlessly": {
+      "url": "https://headless.ly/mcp",
+      "headers": { "Authorization": "Bearer hly_sess_xK9mNpQr" }
+    }
+  }
+}
+```
+
+Capabilities: `search`, `fetch`, `try`, `do`. Rate limit: 100 req/min. Sandbox: 1,000 entities, 24h TTL.
+
+### L2 -- GitHub-Linked (Claim-by-Commit)
+
+After claiming via commit, use the persistent API key:
+
+```json
+{
+  "mcpServers": {
+    "headlessly": {
+      "url": "https://headless.ly/mcp",
+      "headers": { "X-API-Key": "hly_sk_rT5vWxPn" }
+    }
+  }
+}
+```
+
+Capabilities: `search`, `fetch`, `try`, `do`, webhooks, export. Rate limit: 1,000 req/min. Stripe test mode.
+
+### L3 -- Production
+
+Same header format as L2. Plan-based limits:
+
+```json
+{
+  "mcpServers": {
+    "headlessly": {
+      "url": "https://headless.ly/mcp",
+      "headers": { "X-API-Key": "hly_sk_pQ8xNfKm" }
+    }
+  }
+}
+```
+
+Capabilities: everything. Rate limit: plan-based. Billing, team invites, admin controls.
+
+## Subdomain Scoping
+
+Every `*.headless.ly` subdomain routes to the same system but provides different default context. The subdomain determines which entities and verbs are surfaced first in tool descriptions:
+
+| URL | Context | Primary Entities |
+|-----|---------|-----------------|
+| `headless.ly/mcp` | Full system | All 32 entities |
+| `crm.headless.ly/mcp` | CRM | Contact, Company, Deal |
+| `billing.headless.ly/mcp` | Billing | Product, Price, Subscription, Invoice, Payment |
+| `projects.headless.ly/mcp` | Projects | Project, Issue, Comment |
+| `content.headless.ly/mcp` | Content | Content, Asset, Site |
+| `support.headless.ly/mcp` | Support | Ticket, Article, Reply |
+| `analytics.headless.ly/mcp` | Analytics | Event, Metric, Funnel, Goal |
+| `build.headless.ly/mcp` | Day 0-30 journey | Projects, Content, Tasks |
+| `grow.headless.ly/mcp` | Day 30-90 journey | Contacts, Deals, Campaigns |
+
+All tools can reach any entity regardless of subdomain. The scoping affects tool descriptions and default sorting -- not access control. An agent connected to `crm.headless.ly/mcp` can still create a Subscription via `do`.
+
+## Capability Tiers
+
+| | L0 | L1 | L2 | L3 |
+|---|---|---|---|---|
+| **Auth** | None | Session token | GitHub-linked | API key + billing |
+| **Access** | Read-only | Sandboxed write | Persistent write | Production |
+| **Tools** | search, fetch | + try, do | + webhooks, export | + admin, invite |
+| **Rate Limit** | 30/min | 100/min | 1,000/min | Plan-based |
+| **Entities** | Unlimited read | 1,000 max | Unlimited | Unlimited |
+| **TTL** | -- | 24 hours | Persistent | Persistent |
+| **Stripe** | -- | -- | Test mode | Live mode |
+| **Identity** | Anonymous | Session | GitHub user/org | Verified org |
+| **Upgrade Path** | Provision a session | Claim by commit | Add billing | -- |
+
+Every MCP response includes `_meta` with the current tier, remaining rate limit, and the next upgrade step. Agents discover capabilities progressively -- no documentation required.

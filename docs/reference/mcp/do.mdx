@@ -1,0 +1,345 @@
+---
+title: do
+description: 'Execute arbitrary TypeScript in a secure sandbox with full access to every entity.'
+---
+
+```ts title="headless.ly/mcp#do"
+const leads = await $.Contact.find({ stage: 'Lead', createdAt: { $gte: '7d ago' } })
+for (const lead of leads) {
+  await $.Contact.qualify(lead.$id)
+  await $.Deal.create({ contact: lead.$id, value: 25000, stage: 'Qualified' })
+}
+return { qualified: leads.length }
+```
+
+The `do` tool executes arbitrary TypeScript inside a secure sandbox. It is the universal mutation interface -- instead of hundreds of discrete tools (`create_contact`, `update_deal`, `void_invoice`), there is one tool that accepts code.
+
+## How the Sandbox Works
+
+Each `do` invocation runs in an isolated Cloudflare container managed by `ai-evaluate`. The container boots a TypeScript runtime with the `$` context pre-injected, executes the code, and returns the result. Containers are destroyed after execution -- no state persists between calls.
+
+The execution environment:
+
+- **Runtime**: V8 isolate inside a Cloudflare container
+- **Language**: TypeScript (ES2022+ syntax, top-level await)
+- **Isolation**: Each call gets a fresh container. No shared memory, no filesystem persistence, no network access outside the headless.ly API.
+- **Pre-injected**: The `$` context is available as a global. No imports needed.
+
+## Authentication
+
+The `do` tool requires L1+ authentication. Unauthenticated calls return:
+
+```json
+{
+  "error": "authentication_required",
+  "message": "The do tool requires L1+ authentication.",
+  "upgrade": "https://headless.ly/~your-tenant/settings/api-keys"
+}
+```
+
+| Auth Level | Timeout | Memory | Entity Ops per Call |
+|------------|---------|--------|---------------------|
+| L1 (session) | 30s | 128MB | 100 |
+| L2 (API key) | 60s | 256MB | 1,000 |
+| L3 (admin) | 120s | 512MB | 10,000 |
+
+## The `$` Context
+
+`$` is the universal context. It provides access to every entity type across all domains. No imports, no configuration -- it is always available.
+
+| Domain | Entities on `$` |
+|--------|-----------------|
+| CRM | `$.Contact`, `$.Company`, `$.Deal`, `$.Activity` |
+| Projects | `$.Project`, `$.Task`, `$.Milestone`, `$.Comment` |
+| Content | `$.Page`, `$.Post`, `$.Asset`, `$.Collection` |
+| Billing | `$.Product`, `$.Plan`, `$.Subscription`, `$.Invoice`, `$.Payment` |
+| Support | `$.Ticket`, `$.Article`, `$.Reply` |
+| Analytics | `$.Event`, `$.Metric`, `$.Funnel`, `$.Goal` |
+| Marketing | `$.Campaign`, `$.Segment`, `$.Form` |
+| Experiments | `$.Experiment`, `$.FeatureFlag` |
+| Platform | `$.Workflow`, `$.Integration`, `$.Agent` |
+
+## CRUD Operations
+
+Every entity on `$` supports five standard operations:
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `create` | `$.Entity.create(data)` | Create a new entity. Returns the created entity with `$id`. |
+| `get` | `$.Entity.get(id)` | Get a single entity by ID. Returns `null` if not found. |
+| `find` | `$.Entity.find(filter)` | Find entities matching a filter object. Returns an array. |
+| `update` | `$.Entity.update(id, data)` | Partial update. Merges `data` into the existing entity. |
+| `delete` | `$.Entity.delete(id)` | Soft-delete (marks as deleted, does not destroy). |
+
+```ts title="headless.ly/mcp#do"
+const contact = await $.Contact.create({
+  name: 'Alice Chen',
+  email: 'alice@startup.io',
+  stage: 'Lead'
+})
+
+const found = await $.Contact.get(contact.$id)
+
+await $.Contact.update(contact.$id, { stage: 'Qualified' })
+
+const leads = await $.Contact.find({ stage: 'Lead' })
+
+await $.Contact.delete(contact.$id)
+```
+
+The `find` method accepts the same MongoDB-style filter operators as the `search` MCP tool: `$eq`, `$ne`, `$gt`, `$gte`, `$lt`, `$lte`, `$in`, `$nin`, `$exists`, `$regex`.
+
+## Verb Execution
+
+Beyond CRUD, entities expose custom verbs defined in their Noun schema. Verbs encode domain-specific state transitions.
+
+```ts title="headless.ly/mcp#do"
+await $.Contact.qualify('contact_fX9bL5nRd')
+```
+
+```ts title="headless.ly/mcp#do"
+await $.Deal.close('deal_k7TmPvQx', { wonReason: 'Great fit' })
+```
+
+```ts title="headless.ly/mcp#do"
+await $.Subscription.upgrade('sub_vE4jKsAc', { plan: 'enterprise' })
+```
+
+```ts title="headless.ly/mcp#do"
+await $.FeatureFlag.rollout('flag_nB2wRtLp', { percentage: 50 })
+```
+
+```ts title="headless.ly/mcp#do"
+await $.Task.assign('task_qW8eYuHn', { assignee: 'member_dQz8FhLm' })
+```
+
+Verbs follow the conjugation lifecycle. Calling `$.Contact.qualify(id)` fires `qualifying` (BEFORE hook), executes the transition, then fires `qualified` (AFTER hook). All three events are recorded in the immutable event log.
+
+## Return Values
+
+The last expression in the sandbox code becomes the tool response. Explicit `return` statements also work. Return structured data so agents can reason about results.
+
+```ts title="headless.ly/mcp#do"
+const deals = await $.Deal.find({ stage: 'Closed Won' })
+const revenue = deals.reduce((sum, d) => sum + d.value, 0)
+
+return {
+  closedDeals: deals.length,
+  totalRevenue: revenue,
+  averageDealSize: revenue / deals.length
+}
+```
+
+If the code does not return or evaluate to a value, the response is `{ "result": null }`.
+
+If the code throws an error, the response includes the error details:
+
+```json
+{
+  "error": "execution_error",
+  "message": "Cannot read properties of null (reading 'name')",
+  "line": 3,
+  "stack": "TypeError: Cannot read properties of null (reading 'name')\n    at sandbox:3:28"
+}
+```
+
+## Multi-Step Logic
+
+The sandbox supports full TypeScript control flow: loops, conditionals, try/catch, async/await, destructuring, template literals. Write complete workflows, not just single operations.
+
+### Pipeline: Lead Qualification
+
+```ts title="headless.ly/mcp#do"
+const leads = await $.Contact.find({
+  stage: 'Lead',
+  createdAt: { $gte: '7d ago' }
+})
+
+const results = { qualified: 0, skipped: 0 }
+
+for (const lead of leads) {
+  if (!lead.email || !lead.company) {
+    results.skipped++
+    continue
+  }
+
+  await $.Contact.qualify(lead.$id)
+  await $.Deal.create({
+    contact: lead.$id,
+    company: lead.company,
+    value: 25000,
+    stage: 'Qualified'
+  })
+  results.qualified++
+}
+
+return results
+```
+
+### Aggregation: Revenue Report
+
+```ts title="headless.ly/mcp#do"
+const deals = await $.Deal.find({
+  stage: 'Closed Won',
+  closedAt: { $gte: '30d ago' }
+})
+
+const subs = await $.Subscription.find({ status: 'active' })
+
+const byPlan = {}
+for (const sub of subs) {
+  byPlan[sub.plan] = (byPlan[sub.plan] || 0) + 1
+}
+
+return {
+  newRevenue: deals.reduce((sum, d) => sum + d.value, 0),
+  dealsWon: deals.length,
+  mrr: subs.reduce((sum, s) => sum + s.amount, 0),
+  activeSubscriptions: subs.length,
+  subscriptionsByPlan: byPlan
+}
+```
+
+### Conditional Logic: Churn Risk Detection
+
+```ts title="headless.ly/mcp#do"
+const customers = await $.Contact.find({ stage: 'Customer' })
+const atRisk = []
+
+for (const customer of customers) {
+  const tickets = await $.Ticket.find({
+    contact: customer.$id,
+    createdAt: { $gte: '30d ago' }
+  })
+
+  const sub = await $.Subscription.find({
+    contact: customer.$id,
+    status: 'active'
+  })
+
+  if (tickets.length >= 3 && sub.length > 0) {
+    atRisk.push({
+      contact: customer.name,
+      contactId: customer.$id,
+      ticketCount: tickets.length,
+      plan: sub[0].plan,
+      mrr: sub[0].amount
+    })
+  }
+}
+
+return { atRisk, count: atRisk.length, totalMrrAtRisk: atRisk.reduce((s, r) => s + r.mrr, 0) }
+```
+
+### Bulk Update: Campaign Assignment
+
+```ts title="headless.ly/mcp#do"
+const segment = await $.Segment.get('segment_hN5pWcRd')
+const contacts = await $.Contact.find({
+  stage: { $in: ['Lead', 'Qualified'] },
+  'company.industry': segment.industry
+})
+
+const campaign = await $.Campaign.create({
+  name: `${segment.name} - Q4 Outreach`,
+  segment: segment.$id,
+  status: 'Draft'
+})
+
+let enrolled = 0
+for (const contact of contacts) {
+  await $.Activity.create({
+    type: 'campaign_enrolled',
+    contact: contact.$id,
+    campaign: campaign.$id
+  })
+  enrolled++
+}
+
+return { campaignId: campaign.$id, enrolled }
+```
+
+### Cross-Domain: Invoice Follow-Up
+
+```ts title="headless.ly/mcp#do"
+const overdue = await $.Invoice.find({
+  status: 'overdue',
+  dueDate: { $lt: 'today' }
+})
+
+const actions = []
+
+for (const invoice of overdue) {
+  const contact = await $.Contact.get(invoice.contact)
+  const daysPastDue = Math.floor(
+    (Date.now() - new Date(invoice.dueDate).getTime()) / 86400000
+  )
+
+  if (daysPastDue > 30) {
+    await $.Ticket.create({
+      subject: `Invoice ${invoice.number} - 30+ days overdue`,
+      contact: contact.$id,
+      priority: 'high'
+    })
+    actions.push({ invoice: invoice.number, action: 'ticket_created', days: daysPastDue })
+  } else if (daysPastDue > 7) {
+    await $.Activity.create({
+      type: 'payment_reminder',
+      contact: contact.$id,
+      note: `Reminder sent for invoice ${invoice.number}`
+    })
+    actions.push({ invoice: invoice.number, action: 'reminder_sent', days: daysPastDue })
+  }
+}
+
+return { overdueCount: overdue.length, actions }
+```
+
+## Error Handling in Sandbox Code
+
+Use try/catch to handle errors gracefully inside the sandbox. Unhandled errors terminate execution and return the error to the agent.
+
+```ts title="headless.ly/mcp#do"
+const ids = ['contact_fX9bL5nRd', 'contact_xYzAbCdE', 'contact_mN7pQwRs']
+const results = []
+
+for (const id of ids) {
+  try {
+    const contact = await $.Contact.get(id)
+    if (contact) {
+      await $.Contact.qualify(id)
+      results.push({ id, status: 'qualified' })
+    } else {
+      results.push({ id, status: 'not_found' })
+    }
+  } catch (err) {
+    results.push({ id, status: 'error', message: err.message })
+  }
+}
+
+return results
+```
+
+## Security Model
+
+The sandbox enforces strict isolation:
+
+- **No network access**: Code cannot make HTTP requests, open sockets, or access external services. All data access goes through `$`.
+- **No filesystem**: No `fs`, `path`, or file system APIs. The container has no persistent storage.
+- **No process control**: No `process.exit`, `child_process`, or similar APIs.
+- **Tenant isolation**: `$` is scoped to the authenticated tenant. Code cannot access other tenants' data.
+- **Read-only by default**: At L1, write operations require explicit session authorization. At L2+, writes are permitted within the tenant scope.
+- **Immutable audit log**: Every mutation through `$` is recorded as an event. Every state is reconstructable via time travel.
+- **Per-request isolation**: Each `do` call gets a fresh container. No state leaks between calls. No global variables persist.
+
+## Execution Errors
+
+| Error Code | Description |
+|------------|-------------|
+| `authentication_required` | `do` requires L1+ auth. No valid token provided. |
+| `execution_error` | The sandbox code threw an unhandled error. Message and stack trace included. |
+| `timeout` | Execution exceeded the time limit for the auth level. |
+| `memory_exceeded` | Execution exceeded the memory limit for the auth level. |
+| `entity_limit_exceeded` | Too many entity operations in a single call. |
+| `permission_denied` | The authenticated session does not have write access. |
+| `rate_limited` | Too many `do` calls. Check `Retry-After` header. |

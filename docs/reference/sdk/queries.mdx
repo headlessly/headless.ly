@@ -1,0 +1,215 @@
+---
+title: Queries & Filters
+description: MongoDB-style query filters, sorting, pagination, and time travel.
+icon: Search
+---
+
+The `find()` method accepts MongoDB-style filters, sorting, pagination, and time travel options. All query operators work consistently across every entity type.
+
+## Basic Query
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+const leads = await Contact.find({ stage: 'Lead' })
+```
+
+Passing a plain object matches fields by equality. For more control, use filter operators.
+
+## Method Signature
+
+```typescript
+find(filter?: Filter<T>, options?: QueryOptions): Promise<T[]>
+```
+
+```typescript
+interface QueryOptions {
+  limit?: number          // Max results (default: 50, max: 1000)
+  offset?: number         // Skip N results (for offset pagination)
+  cursor?: string         // Cursor for keyset pagination
+  sort?: string           // Field name, prefix with - for descending
+  asOf?: string | Date    // Time travel — query state at a point in time
+  include?: string[]      // Eager-load related entities
+}
+```
+
+## Filter Operators
+
+All operators are prefixed with `$` and nested inside the field name.
+
+```typescript
+import { Deal } from '@headlessly/crm'
+
+const bigDeals = await Deal.find({
+  value: { $gte: 10000 },
+  stage: { $in: ['Negotiation', 'Proposal'] },
+  closedAt: { $exists: false },
+})
+```
+
+### Operator Reference
+
+| Operator | Description | Example |
+|---|---|---|
+| `$eq` | Equal to | `{ stage: { $eq: 'Lead' } }` |
+| `$ne` | Not equal to | `{ stage: { $ne: 'Churned' } }` |
+| `$gt` | Greater than | `{ value: { $gt: 5000 } }` |
+| `$gte` | Greater than or equal | `{ value: { $gte: 10000 } }` |
+| `$lt` | Less than | `{ value: { $lt: 100000 } }` |
+| `$lte` | Less than or equal | `{ createdAt: { $lte: '2025-01-01' } }` |
+| `$in` | In array | `{ stage: { $in: ['Lead', 'Qualified'] } }` |
+| `$nin` | Not in array | `{ stage: { $nin: ['Churned', 'Lost'] } }` |
+| `$exists` | Field exists / is non-null | `{ email: { $exists: true } }` |
+| `$regex` | Regular expression match | `{ name: { $regex: '^A' } }` |
+
+Plain values are shorthand for `$eq`:
+
+```typescript
+// These are equivalent
+await Contact.find({ stage: 'Lead' })
+await Contact.find({ stage: { $eq: 'Lead' } })
+```
+
+### Combine Multiple Operators
+
+Multiple operators on the same field are ANDed together.
+
+```typescript
+import { Invoice } from '@headlessly/billing'
+
+const overdueInvoices = await Invoice.find({
+  amount: { $gte: 100, $lte: 10000 },
+  status: 'overdue',
+  dueDate: { $lt: new Date().toISOString() },
+})
+```
+
+## Sorting
+
+Pass a field name as a string. Prefix with `-` for descending order.
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+// Ascending by name
+const alphabetical = await Contact.find({}, { sort: 'name' })
+
+// Descending by creation date (newest first)
+const recent = await Contact.find({}, { sort: '-createdAt' })
+
+// Combined with filters
+const topDeals = await Deal.find(
+  { stage: 'Qualified' },
+  { sort: '-value', limit: 10 },
+)
+```
+
+## Pagination
+
+Two pagination strategies are supported: offset-based and cursor-based.
+
+### Offset Pagination
+
+Use `limit` and `offset` for simple page-based navigation.
+
+```typescript
+import { Ticket } from '@headlessly/support'
+
+// Page 1
+const page1 = await Ticket.find({ status: 'open' }, { limit: 25, offset: 0 })
+
+// Page 2
+const page2 = await Ticket.find({ status: 'open' }, { limit: 25, offset: 25 })
+```
+
+### Cursor Pagination
+
+Use `cursor` for stable iteration over changing datasets. The cursor is the `id` of the last item in the previous page.
+
+```typescript
+import { Event } from '@headlessly/analytics'
+
+const firstPage = await Event.find({}, { limit: 100 })
+const lastId = firstPage[firstPage.length - 1].id
+
+const nextPage = await Event.find({}, { limit: 100, cursor: lastId })
+```
+
+## Time Travel
+
+Query entity state as it existed at any point in time using the `asOf` parameter. Every mutation is recorded in an immutable event log, so any historical state is reconstructable.
+
+```typescript
+import { Subscription } from '@headlessly/billing'
+
+// Current state
+const current = await Subscription.find({ status: 'active' })
+
+// State as of January 1st
+const historical = await Subscription.find(
+  { status: 'active' },
+  { asOf: '2025-01-01T00:00:00Z' },
+)
+
+// State 30 days ago
+const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+const pastState = await Subscription.find(
+  { status: 'active' },
+  { asOf: thirtyDaysAgo },
+)
+```
+
+## Cross-Entity Queries
+
+Use dot notation to filter on related entity fields. The SDK resolves relationships defined in the `Noun()` schema.
+
+```typescript
+import { Deal } from '@headlessly/crm'
+
+// Find deals where the associated contact is in the Lead stage
+const deals = await Deal.find({
+  'contact.stage': 'Lead',
+  'contact.company.industry': 'Technology',
+})
+```
+
+## Include Related Entities
+
+Eager-load related entities to avoid N+1 queries.
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+const contacts = await Contact.find(
+  { stage: 'Qualified' },
+  { include: ['deals', 'company', 'activities'] },
+)
+
+// contacts[0].deals is an array of Deal objects, not just IDs
+```
+
+## Promise Pipelining
+
+Chain queries without awaiting intermediate results. The SDK batches the operations into a single round trip.
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+// These execute as a single batched request
+const [leads, openDeals, activeSubscriptions] = await Promise.all([
+  $.Contact.find({ stage: 'Lead' }, { limit: 10 }),
+  $.Deal.find({ stage: { $ne: 'Closed' } }),
+  $.Subscription.find({ status: 'active' }),
+])
+```
+
+## Count
+
+Get the total number of matching entities without fetching the data.
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+const totalLeads = await Contact.count({ stage: 'Lead' })
+// => 142
+```

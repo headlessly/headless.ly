@@ -1,0 +1,231 @@
+---
+title: Agent Onboarding
+description: Zero-auth MCP setup. Connect an agent, operate the system, claim when ready.
+icon: Bot
+---
+
+Connect any AI agent to headless.ly in seconds. No API key, no signup, no OAuth flow. The agent starts operating immediately and progressively unlocks capabilities.
+
+```json
+{
+  "mcpServers": {
+    "headlessly": {
+      "url": "https://headless.ly/mcp"
+    }
+  }
+}
+```
+
+That's the entire configuration. The agent connects at L0 (anonymous read-only) and can upgrade to full production without ever leaving the MCP conversation.
+
+## Connect
+
+Point any MCP-compatible client at `https://headless.ly/mcp`. No `Authorization` header, no API key, no bearer token:
+
+```json
+{
+  "mcpServers": {
+    "headlessly": {
+      "url": "https://headless.ly/mcp"
+    }
+  }
+}
+```
+
+The agent is now connected at **L0** -- anonymous, read-only, 30 requests per minute. Every MCP response includes a `_meta` object describing what the agent can do and how to unlock more.
+
+## Explore
+
+The first thing an agent should do is call the `explore` tool to discover the full entity graph:
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "schema" }
+```
+
+This returns all 32 entities across 11 product domains -- CRM, Billing, Projects, Content, Support, Analytics, Marketing, Experiments, and Platform -- with their verbs, relationships, and field definitions. No documentation lookup required. The system describes itself.
+
+## Search and Fetch
+
+At L0, agents can read everything. Search finds entities across the graph:
+
+```json title="headless.ly/mcp#search"
+{ "type": "Contact", "filter": { "stage": "Lead" } }
+```
+
+Fetch retrieves a specific entity with related data:
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Contact", "id": "contact_uLoSfycy", "include": ["deals", "company"] }
+```
+
+Fetch also retrieves system-level information:
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Metric", "id": "mrr" }
+```
+
+These are read-only operations. The agent can explore the entire business graph -- contacts, deals, subscriptions, metrics, projects -- without any authentication.
+
+## Provision
+
+When the agent needs write access, it upgrades from L0 to L1 by requesting a session:
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "session", "action": "provision" }
+```
+
+The response includes a session token and updated `_meta`:
+
+```json
+{
+  "session": "hly_sess_xK9mNpQr",
+  "level": 1,
+  "limits": { "entities": 1000, "ttl": "24h", "rateLimit": "100/min" },
+  "_meta": {
+    "level": 1,
+    "capabilities": ["search", "fetch", "try", "do"],
+    "upgrade": "Commit .github/workflows/headlessly.yml to claim this tenant"
+  }
+}
+```
+
+At **L1**, the agent gets a sandboxed workspace: 1,000 entities, 24-hour TTL, 100 requests per minute. The session token is automatically included in subsequent MCP requests for the duration of the conversation.
+
+## Try Before You Do
+
+The `try` tool lets agents simulate operations without persisting anything. Available at L1+:
+
+```ts title="headless.ly/mcp#try"
+const contact = await $.Contact.create({ name: 'Alice', email: 'alice@example.com', stage: 'Lead' })
+await $.Contact.qualify(contact.$id)
+await $.Deal.create({ contact: contact.$id, value: 25000, stage: 'Negotiation' })
+
+return { contact, deal: await $.Deal.find({ contact: contact.$id }) }
+```
+
+The response shows exactly what would happen -- entities created, events emitted, side effects triggered -- but nothing is written. The agent can validate its plan before committing.
+
+## Do
+
+Execute real operations with the `do` tool. Everything the `try` tool previewed now persists:
+
+```ts title="headless.ly/mcp#do"
+const contact = await $.Contact.create({ name: 'Alice', email: 'alice@example.com', stage: 'Lead' })
+await $.Contact.qualify(contact.$id)
+await $.Deal.create({ contact: contact.$id, value: 25000, stage: 'Negotiation' })
+
+return { created: contact.$id }
+```
+
+At L1, writes are sandboxed -- isolated to the session, no external side effects, no webhook delivery. This is a safe space for agents to build and test workflows.
+
+## Claim
+
+To upgrade from L1 to L2, the agent claims the tenant by linking it to a GitHub identity. This is the **claim-by-commit** flow:
+
+### 1. Generate the workflow file
+
+```ts title="headless.ly/mcp#do"
+const claim = await $.session.claim()
+
+return {
+  file: '.github/workflows/headlessly.yml',
+  content: claim.workflow,
+  token: claim.token,
+  instructions: 'Commit this file to your repo and push. The push event verifies your identity.'
+}
+```
+
+### 2. Commit to the repo
+
+The agent writes `.github/workflows/headlessly.yml` to the repository and pushes:
+
+```yaml
+# .github/workflows/headlessly.yml
+name: headlessly
+on: [push]
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: headlessly/action@v1
+        with:
+          claim: hly_claim_rT5vWxPn
+```
+
+### 3. GitHub verifies
+
+When the push event fires, GitHub authenticates the commit author. headless.ly receives the webhook, verifies the claim token matches the session, and upgrades the tenant:
+
+- **L2** unlocks: persistent data, webhook delivery, export, Stripe test mode
+- The tenant is now linked to the GitHub user or organization
+- All L1 sandbox data migrates to the persistent store
+- Rate limit increases to 1,000 requests per minute
+
+No OAuth redirect. No browser popup. The commit itself is the authentication.
+
+## Progressive Discovery
+
+Every MCP response includes a `_meta` field that tells the agent exactly where it stands and what to do next:
+
+```json
+{
+  "_meta": {
+    "level": 0,
+    "capabilities": ["search", "fetch"],
+    "rateLimit": { "remaining": 28, "limit": 30, "reset": "60s" },
+    "upgrade": "Call fetch with { type: 'session', action: 'provision' } to unlock write access"
+  }
+}
+```
+
+After provisioning:
+
+```json
+{
+  "_meta": {
+    "level": 1,
+    "capabilities": ["search", "fetch", "try", "do"],
+    "session": { "entities": 47, "limit": 1000, "ttl": "23h 41m" },
+    "upgrade": "Commit .github/workflows/headlessly.yml to claim this tenant"
+  }
+}
+```
+
+After claiming:
+
+```json
+{
+  "_meta": {
+    "level": 2,
+    "capabilities": ["search", "fetch", "try", "do", "webhooks", "export"],
+    "tenant": "my-startup",
+    "github": "github.com/my-startup",
+    "upgrade": "Add a billing method at billing.headless.ly to unlock production limits"
+  }
+}
+```
+
+Agents never need to read documentation. The system tells them what they can do and how to do more.
+
+## Full Conversation Flow
+
+Here is a complete agent session from anonymous connection to claimed tenant:
+
+**Agent connects** -- no auth, L0 automatic.
+
+**Agent explores** -- discovers 32 entities and their verbs.
+
+**Agent searches** -- reads existing data, understands the business state.
+
+**Agent provisions** -- requests a session, upgrades to L1.
+
+**Agent tries** -- simulates a workflow to validate the approach.
+
+**Agent executes** -- runs the workflow for real in the sandbox.
+
+**Agent claims** -- commits the workflow file, GitHub verifies, tenant upgrades to L2.
+
+**Agent operates** -- full persistent access, webhooks, Stripe test mode, 1,000 req/min.
+
+The entire journey happens inside a single MCP conversation. No browser tabs, no signup forms, no API key management dashboards. The agent onboards itself.

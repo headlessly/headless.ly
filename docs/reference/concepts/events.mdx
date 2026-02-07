@@ -1,0 +1,370 @@
+---
+title: Events
+description: Complete reference for the immutable event log, time travel, subscription modes, event forwarding, and the Iceberg R2 lakehouse.
+icon: History
+---
+
+## Immutable Event Log
+
+Every mutation in headless.ly appends an event to an immutable, ordered log. Events are never modified or deleted. The current state of any entity is a projection of its event history.
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+const history = await $.events.list({
+  entity: 'contact_fX9bL5nRd',
+  limit: 50,
+})
+```
+
+```json
+[
+  {
+    "id": "evt_tR8kJmNxP",
+    "type": "Contact.Created",
+    "target": "contact_fX9bL5nRd",
+    "actor": "agent_mR4nVkTw",
+    "timestamp": "2026-01-15T12:00:00Z",
+    "data": { "name": "Alice Chen", "email": "alice@startup.io", "stage": "Lead" }
+  },
+  {
+    "id": "evt_wL5pQrYvH",
+    "type": "Contact.Qualified",
+    "target": "contact_fX9bL5nRd",
+    "actor": "agent_mR4nVkTw",
+    "timestamp": "2026-01-16T09:30:00Z",
+    "data": { "stage": "Lead -> Qualified" }
+  }
+]
+```
+
+## Event Naming Convention
+
+Events follow the pattern `Entity.VerbPastTense`:
+
+| Verb | Event Name | Example |
+|------|-----------|---------|
+| `create` | `Entity.Created` | `Contact.Created` |
+| `update` | `Entity.Updated` | `Contact.Updated` |
+| `delete` | `Entity.Deleted` | `Contact.Deleted` |
+| `qualify` | `Entity.Qualified` | `Contact.Qualified` |
+| `close` | `Entity.Closed` | `Deal.Closed` |
+| `publish` | `Entity.Published` | `Page.Published` |
+| `cancel` | `Entity.Canceled` | `Subscription.Canceled` |
+| `deploy` | `Entity.Deployed` | `Agent.Deployed` |
+
+The event name is always the Noun name plus the past-tense value declared in the Noun definition.
+
+## Event Structure
+
+Every event contains the same fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | `string` | Unique event ID (`evt_{sqid}`) |
+| `type` | `string` | Event name (`Entity.VerbPastTense`) |
+| `target` | `string` | Entity ID of the affected object |
+| `actor` | `string` | ID of the user or agent that caused the event |
+| `timestamp` | `datetime` | ISO 8601 timestamp of when the event was recorded |
+| `data` | `json` | Payload — for creates: full entity, for updates: changed fields with before/after |
+| `tenant` | `string` | Tenant identifier |
+| `version` | `number` | Monotonically increasing sequence number per entity |
+
+## Time Travel
+
+Because every state is derived from the event log, any past state can be reconstructed using the `asOf` parameter:
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+// Get all leads as they existed on January 15th
+const contacts = await Contact.find(
+  { stage: 'Lead' },
+  { asOf: '2026-01-15T10:00:00Z' }
+)
+
+// Get a specific contact at a point in time
+const contact = await Contact.get('contact_fX9bL5nRd', {
+  asOf: '2026-01-15T10:00:00Z',
+})
+```
+
+```json title="headless.ly/mcp#fetch"
+{
+  "type": "Contact",
+  "id": "contact_fX9bL5nRd",
+  "asOf": "2026-01-15T10:00:00Z"
+}
+```
+
+Time travel queries replay events up to the specified timestamp to reconstruct the entity state. This is computed on-demand from the event log within the Durable Object.
+
+## Rollback
+
+Restore an entity to a previous state by specifying a timestamp. This does not delete events -- it appends a new event that sets the entity to its historical state:
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+await Contact.rollback('contact_fX9bL5nRd', {
+  asOf: '2026-02-06T15:00:00Z',
+})
+```
+
+The rollback emits a `Contact.Updated` event with the reconstructed state, maintaining the immutable log invariant.
+
+## Subscription Modes
+
+Three modes for reacting to events, each with different latency and isolation characteristics:
+
+### Code-as-Data (~0ms)
+
+Handlers registered via verb conjugation (`.verbed()`) are serialized and stored inside the tenant's Durable Object. They execute in the same isolate as the mutation, with near-zero overhead.
+
+```typescript
+import { Deal } from '@headlessly/crm'
+
+Deal.closed((deal, $) => {
+  $.Subscription.create({ plan: 'pro', contact: deal.contact })
+  $.Contact.update(deal.contact, { stage: 'Customer' })
+})
+```
+
+| Property | Value |
+|----------|-------|
+| Latency | ~0ms (same isolate) |
+| Execution | Synchronous within the DO transaction |
+| Access | Full entity graph within the tenant DO |
+| Limitations | No external network calls, no long-running work |
+| Serialization | `fn.toString()` stored in DO SQLite |
+
+### WebSocket (~10ms)
+
+Real-time streaming over persistent WebSocket connections. Events are pushed as they occur.
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+// Subscribe to specific event types
+$.events.subscribe('Contact.Qualified', event => {
+  console.log(`${event.data.name} was qualified by ${event.actor}`)
+})
+
+// Subscribe to all events on an entity
+$.events.subscribe('contact_fX9bL5nRd', event => {
+  console.log(`${event.type}: ${JSON.stringify(event.data)}`)
+})
+
+// Subscribe to all events of a type
+$.events.subscribe('Deal.*', event => {
+  console.log(`Deal event: ${event.type}`)
+})
+```
+
+| Property | Value |
+|----------|-------|
+| Latency | ~10ms (WebSocket push) |
+| Execution | Asynchronous, outside the DO transaction |
+| Access | Read-only event payload |
+| Limitations | Requires persistent connection |
+| Protocol | WebSocket at `wss://{context}.headless.ly/events` |
+
+### Webhook (~100ms)
+
+HTTP POST to external URLs for integrations that cannot maintain persistent connections:
+
+```typescript
+import { Workflow } from '@headlessly/platform'
+
+await Workflow.create({
+  trigger: 'Deal.Closed',
+  action: 'webhook',
+  url: 'https://my-app.com/hooks/deal-closed',
+  headers: { 'X-Secret': 'whsec_kR7nMpTx' },
+  retry: { maxAttempts: 3, backoff: 'exponential' },
+})
+```
+
+| Property | Value |
+|----------|-------|
+| Latency | ~100ms (HTTP POST) |
+| Execution | Asynchronous, queued with retry |
+| Access | Event payload in request body |
+| Limitations | External endpoint must be reachable |
+| Retry | Exponential backoff, configurable max attempts |
+
+```bash title="Webhook POST body"
+{
+  "id": "evt_tR8kJmNxP",
+  "type": "Deal.Closed",
+  "target": "deal_k7TmPvQx",
+  "actor": "agent_mR4nVkTw",
+  "timestamp": "2026-01-20T14:30:00Z",
+  "data": { "name": "Series A", "value": 500000, "stage": "Closed" }
+}
+```
+
+## Metric Watches
+
+Monitor computed metrics and react when thresholds are crossed:
+
+```typescript
+import { Metric } from '@headlessly/analytics'
+import { Campaign } from '@headlessly/marketing'
+
+Metric.watch('churn_rate', {
+  threshold: 3.0,
+  direction: 'above',
+}, (metric, $) => {
+  $.Campaign.create({
+    name: 'Win-back',
+    type: 'Email',
+    segment: 'churning',
+  })
+})
+
+Metric.watch('mrr', {
+  threshold: 100000,
+  direction: 'above',
+}, (metric, $) => {
+  $.Goal.achieve({ id: 'goal_nT5xKpRm', name: '100K MRR' })
+})
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `threshold` | `number` | Value to compare against |
+| `direction` | `'above' \| 'below' \| 'cross'` | Trigger direction |
+| Callback `metric` | `Metric` | The metric that crossed the threshold |
+| Callback `$` | `Context` | Cross-domain context for side effects |
+
+## Event Forwarding
+
+Browser and server events are forwarded to external analytics services while also being stored in the headless.ly event log:
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+// Configure forwarding destinations
+await $.Integration.connect({
+  type: 'analytics',
+  provider: 'google-analytics',
+  config: { measurementId: 'G-XXXXXXXXXX' },
+})
+
+await $.Integration.connect({
+  type: 'analytics',
+  provider: 'posthog',
+  config: { apiKey: 'phc_xxxxxxxxxxxx', host: 'https://app.posthog.com' },
+})
+
+await $.Integration.connect({
+  type: 'errors',
+  provider: 'sentry',
+  config: { dsn: 'https://xxx@sentry.io/xxx' },
+})
+```
+
+Events flow through a progressive pipeline:
+
+```
+Browser SDK (@headlessly/js)
+  ├── Forward to GA4        (real-time analytics)
+  ├── Forward to PostHog    (product analytics)
+  ├── Forward to Sentry     (error tracking)
+  └── Store in event log    (immutable record)
+        └── Flush to Iceberg R2 lakehouse (long-term storage)
+```
+
+External tools handle analytics and error tracking on day one. As the headless.ly lakehouse grows, tenants can progressively migrate to native analytics.
+
+## Iceberg R2 Lakehouse
+
+All events -- mutations, browser events, webhook receipts, metric snapshots -- land in an Apache Iceberg table stored on Cloudflare R2:
+
+```
+Event Sources                    Lakehouse
+─────────────                    ─────────
+Browser events  ─┐
+Stripe webhooks  ─┤
+GitHub webhooks  ─┤─→ Immutable Event Log ─→ Iceberg R2
+API mutations    ─┤
+Metric snapshots ─┘
+```
+
+| Property | Value |
+|----------|-------|
+| Format | Apache Parquet (columnar) |
+| Table Format | Apache Iceberg (schema evolution, time travel) |
+| Storage | Cloudflare R2 (S3-compatible) |
+| Partitioning | By tenant, then by date |
+| Compaction | Automatic, background merge of small files |
+
+The lakehouse enables:
+- **Historical analytics** without impacting the live DO
+- **Schema evolution** via Iceberg metadata (add columns without rewriting data)
+- **Cross-tenant aggregation** for platform-level metrics
+- **External query engines** (DuckDB, Spark, Trino) can read directly from R2
+
+## Status Endpoint
+
+The status endpoint surfaces anomalies that agents can act on:
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+const { alerts, metrics } = await $.status()
+```
+
+```json
+{
+  "alerts": [
+    {
+      "type": "churn_spike",
+      "severity": "high",
+      "metric": "churn_rate",
+      "value": 4.2,
+      "threshold": 3.0,
+      "action": "retain",
+      "since": "2026-01-18T00:00:00Z"
+    }
+  ],
+  "metrics": {
+    "mrr": 48500,
+    "activeSubscriptions": 127,
+    "churnRate": 4.2,
+    "nrr": 0.96
+  }
+}
+```
+
+Alerts are computed from metric watches and surfaced to agents, dashboards, and notification channels.
+
+## Querying Events
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+// All events for an entity
+const history = await $.events.list({ entity: 'contact_fX9bL5nRd' })
+
+// All events of a type within a time range
+const closedDeals = await $.events.list({
+  type: 'Deal.Closed',
+  after: '2026-01-01T00:00:00Z',
+  before: '2026-02-01T00:00:00Z',
+})
+
+// Events by actor
+const agentActions = await $.events.list({ actor: 'agent_mR4nVkTw' })
+```
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Event",
+  "filter": {
+    "type": "Deal.Closed",
+    "timestamp": { "$gte": "2026-01-01T00:00:00Z" }
+  }
+}
+```

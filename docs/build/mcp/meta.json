@@ -1,4 +1,4 @@
 {
   "title": "MCP",
-  "pages": ["index", "search", "fetch", "do"]
+  "pages": ["index", "agent-setup", "search", "fetch", "do"]
 }

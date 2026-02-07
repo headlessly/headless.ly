@@ -1,0 +1,256 @@
+---
+title: Digital Objects
+description: Complete reference for the Noun() function, property patterns, type modifiers, relationships, and entity composition.
+icon: Box
+---
+
+## Noun() Function
+
+The `Noun()` function is the sole primitive for defining entities. It produces a typed, versioned, event-sourced Digital Object with full CRUD, custom verbs, relationships, and TypeScript inference.
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Contact = Noun('Contact', {
+  // Data properties
+  name: 'string!',
+  email: 'string?#',
+  phone: 'string?',
+  title: 'string?',
+
+  // Enum property
+  stage: 'Lead | Qualified | Customer | Churned | Partner',
+
+  // Relationships
+  company: '-> Company.contacts',
+  deals: '<- Deal.contact[]',
+  tickets: '<- Ticket.contact[]',
+  messages: '<- Message.contact[]',
+
+  // Custom verbs
+  qualify:  'Qualified',
+  capture:  'Captured',
+  assign:   'Assigned',
+  merge:    'Merged',
+  enrich:   'Enriched',
+})
+```
+
+The first argument is the entity name (PascalCase). The second is a property map where each value is a type-description string that the parser interprets based on its shape.
+
+## Property Value Patterns
+
+Every value in a Noun definition is a string (or `null`) that the parser classifies by pattern:
+
+| Pattern | Classification | Detection Rule | Example |
+|---------|---------------|----------------|---------|
+| Lowercase type with modifiers | Data property | Starts with a known base type | `'string!'`, `'number?'`, `'datetime!#'` |
+| Arrow syntax | Relationship | Starts with `->` or `<-` | `'-> Company.contacts'` |
+| Pipe-separated PascalCase | Enum | Contains `\|` with PascalCase values | `'Lead \| Qualified \| Customer'` |
+| Single PascalCase word | Verb declaration | One PascalCase token, no pipes | `'Qualified'`, `'Captured'` |
+| `null` | CRUD opt-out | Literal `null` | `update: null` |
+
+## Base Types
+
+| Type | Description | Example Value |
+|------|-------------|---------------|
+| `string` | UTF-8 text | `'Alice Chen'` |
+| `number` | IEEE 754 float | `42`, `3.14` |
+| `boolean` | True/false | `true` |
+| `datetime` | ISO 8601 timestamp | `'2026-01-15T12:00:00Z'` |
+| `date` | ISO 8601 date | `'2026-01-15'` |
+| `json` | Arbitrary JSON value | `{ tags: ['vip'] }` |
+| `url` | Valid URL string | `'https://example.com'` |
+| `email` | Valid email string | `'alice@example.com'` |
+| `id` | Entity reference ID | `'contact_fX9bL5nRd'` |
+
+## Type Modifiers
+
+Modifiers are appended directly to the base type with no spaces:
+
+| Modifier | Meaning | Parquet Effect | Example |
+|----------|---------|----------------|---------|
+| `!` | Required | NOT NULL constraint | `'string!'` |
+| `?` | Optional | Nullable | `'string?'` |
+| `#` | Indexed | Bloom filter + dictionary encoding | `'string?#'` |
+| `!#` | Required + Indexed | NOT NULL + indexed | `'string!#'` |
+| `?#` | Optional + Indexed | Nullable + indexed | `'string?#'` |
+
+Every property must declare either `!` (required) or `?` (optional). The `#` index modifier can be combined with either.
+
+## Relationships
+
+Relationships use arrow syntax to declare typed, bidirectional links between entities.
+
+### Forward Reference (`->`)
+
+Many-to-one. The current entity holds a foreign key pointing to one instance of the target entity.
+
+```typescript
+// Contact belongs to one Company
+company: '-> Company.contacts'
+```
+
+The string after the dot (`contacts`) names the inverse field on the target entity, enabling bidirectional traversal.
+
+### Reverse Reference (`<-`)
+
+One-to-many (or one-to-one without `[]`). The target entity holds the foreign key.
+
+```typescript
+// Contact has many Deals
+deals: '<- Deal.contact[]'
+
+// Customer has one Contact (no [] suffix)
+contact: '<- Contact.customer'
+```
+
+### Collection Modifier (`[]`)
+
+Appended to the inverse field name to indicate a collection (array) relationship:
+
+| Syntax | Cardinality |
+|--------|------------|
+| `'-> Target.inverse'` | Many-to-one (this entity has one Target) |
+| `'<- Target.inverse[]'` | One-to-many (this entity has many Targets) |
+| `'<- Target.inverse'` | One-to-one reverse |
+
+### Cross-Domain Relationships
+
+Relationships work across product domains. A Contact (CRM) can reference a Customer (Billing) and Tickets (Support):
+
+```typescript
+export const Contact = Noun('Contact', {
+  company: '-> Company.contacts',       // CRM -> CRM
+  customer: '<- Customer.contact',       // CRM <- Billing
+  tickets: '<- Ticket.contact[]',        // CRM <- Support
+  deals: '<- Deal.contact[]',           // CRM <- CRM
+})
+```
+
+## Enum Properties
+
+Pipe-separated PascalCase values define a closed set:
+
+```typescript
+stage: 'Lead | Qualified | Customer | Churned | Partner'
+priority: 'Low | Medium | High | Critical'
+status: 'Open | In Progress | Resolved | Closed'
+```
+
+Enums are stored as dictionary-encoded strings in Parquet and enforced at write time. Attempting to set an invalid value throws a validation error.
+
+## Custom Verb Declaration
+
+A property whose value is a single PascalCase word declares a custom verb. The key is the verb infinitive; the value is the past-tense event name:
+
+```typescript
+export const Deal = Noun('Deal', {
+  name: 'string!',
+  value: 'number!',
+  stage: 'Discovery | Proposal | Negotiation | Closed | Lost',
+  contact: '-> Contact.deals',
+  company: '-> Company.deals',
+
+  advance: 'Advanced',   // Deal.advance() emits Deal.Advanced
+  close:   'Closed',     // Deal.close()   emits Deal.Closed
+  lose:    'Lost',       // Deal.lose()    emits Deal.Lost
+  reopen:  'Reopened',   // Deal.reopen()  emits Deal.Reopened
+})
+```
+
+Every custom verb receives the full conjugation lifecycle. See the [Verbs reference](/docs/reference/concepts/verbs) for details.
+
+## CRUD Opt-Out
+
+Set a CRUD verb key to `null` to remove it from the entity:
+
+```typescript
+export const Event = Noun('Event', {
+  name: 'string!',
+  type: 'string!',
+  data: 'json?',
+  timestamp: 'datetime!',
+  actor: 'id!',
+  target: 'id?',
+
+  update: null,   // Events are append-only
+  delete: null,   // Events are never deleted
+})
+```
+
+With `update: null`, calling `Event.update()` is a TypeScript compile error. The CRUD verb and its conjugation (`updating`, `updated`, `updatedBy`) are all removed.
+
+| CRUD Key | Default | Effect of `null` |
+|----------|---------|-------------------|
+| `create` | Enabled on all Nouns | Cannot create (rarely used) |
+| `update` | Enabled on all Nouns | Immutable after creation |
+| `delete` | Enabled on all Nouns | Cannot delete (soft-delete only) |
+
+## Entity ID Format
+
+Every entity instance receives an auto-generated ID in the format `{type}_{sqid}`:
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+const contact = await Contact.create({ name: 'Alice', stage: 'Lead' })
+console.log(contact.$id) // 'contact_fX9bL5nRd'
+```
+
+IDs are generated by [sqids](https://sqids.org/) -- short, unique, URL-safe, with a built-in blocklist. The type prefix enables type-safe ID parsing across the system.
+
+## The 32-Entity Graph
+
+All 32 core entities compose into a single connected graph via relationships:
+
+| Domain | Entities | Key Relationships |
+|--------|----------|-------------------|
+| **CRM** | Contact, Company, Deal, Activity | Contact -> Company, Deal -> Contact |
+| **Projects** | Project, Task, Milestone, Comment | Task -> Project, Comment -> Task |
+| **Content** | Page, Post, Asset, Collection | Post -> Collection, Asset -> Page |
+| **Billing** | Product, Plan, Subscription, Invoice, Payment | Subscription -> Plan, Invoice -> Subscription |
+| **Support** | Ticket, Article, Reply | Ticket -> Contact, Reply -> Ticket |
+| **Analytics** | Event, Metric, Funnel, Goal | Event -> Funnel, Metric -> Goal |
+| **Marketing** | Campaign, Segment, Form | Campaign -> Segment, Form -> Campaign |
+| **Experimentation** | Experiment, FeatureFlag | Experiment -> FeatureFlag |
+| **Platform** | Workflow, Integration, Agent | Workflow -> Agent, Integration -> Workflow |
+
+Because relationships are bidirectional, traversal works in any direction:
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+const contact = await $.Contact.get('contact_fX9bL5nRd', {
+  include: ['deals', 'tickets', 'company']
+})
+// contact.deals     -> Deal[]
+// contact.tickets   -> Ticket[]
+// contact.company   -> Company
+```
+
+## SDK Usage
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+// Create
+const contact = await Contact.create({ name: 'Alice', stage: 'Lead' })
+
+// Read
+const found = await Contact.find({ stage: 'Lead' })
+const one = await Contact.get('contact_fX9bL5nRd')
+
+// Update
+await Contact.update('contact_fX9bL5nRd', { stage: 'Qualified' })
+
+// Delete
+await Contact.delete('contact_fX9bL5nRd')
+
+// Custom verb
+await Contact.qualify({ id: 'contact_fX9bL5nRd' })
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Contact", "id": "contact_fX9bL5nRd", "include": ["deals", "company"] }
+```

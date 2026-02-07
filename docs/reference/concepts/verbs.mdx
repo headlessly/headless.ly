@@ -1,0 +1,317 @@
+---
+title: Verbs
+description: Complete reference for the verb conjugation system — CRUD defaults, custom verbs, hooks, execution modes, and the full verb table.
+icon: Zap
+---
+
+## Conjugation Pattern
+
+Every verb in the system follows the same four-part conjugation:
+
+```
+verb
+  ├── verb()        → execute (imperative)
+  ├── verbing()     → BEFORE hook (present participle)
+  ├── verbed()      → AFTER hook (past tense)
+  └── verbedBy      → audit trail (passive voice)
+```
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+// Execute the verb
+await Contact.qualify({ id: 'contact_fX9bL5nRd' })
+
+// BEFORE hook — runs before execution
+Contact.qualifying(contact => {
+  if (!contact.email) throw new Error('Cannot qualify without email')
+  return contact
+})
+
+// AFTER hook — runs after execution
+Contact.qualified((contact, $) => {
+  $.Issue.create({
+    type: 'Task',
+    subject: `Follow up with ${contact.name}`,
+    contact: contact.$id,
+  })
+})
+
+// Audit — queryable reverse lookup
+const events = await Contact.qualifiedBy('agent_mR4nVkTw')
+```
+
+## Default CRUD Verbs
+
+Every Noun receives three CRUD verbs automatically. No declaration needed.
+
+| Verb | Participle | Past Tense | Audit | Event |
+|------|-----------|------------|-------|-------|
+| `create` | `creating` | `created` | `createdBy` | `Entity.Created` |
+| `update` | `updating` | `updated` | `updatedBy` | `Entity.Updated` |
+| `delete` | `deleting` | `deleted` | `deletedBy` | `Entity.Deleted` |
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+// Full CRUD conjugation — available on every entity
+Contact.creating(contact => { /* validate before create */ })
+const created = await Contact.create({ name: 'Alice', stage: 'Lead' })
+Contact.created(contact => { /* react after create */ })
+
+Contact.updating((contact, changes) => { /* validate before update */ })
+await Contact.update('contact_fX9bL5nRd', { stage: 'Qualified' })
+Contact.updated(contact => { /* react after update */ })
+
+Contact.deleting(contact => { /* guard before delete */ })
+await Contact.delete('contact_fX9bL5nRd')
+Contact.deleted(contact => { /* clean up after delete */ })
+```
+
+To remove a CRUD verb, set it to `null` in the Noun definition. See [Digital Objects](/docs/reference/concepts/digital-objects) for details.
+
+## Custom Verb Declaration
+
+Custom verbs are declared as properties on the Noun definition. The key is the verb infinitive; the value is the PascalCase past-tense event name:
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Deal = Noun('Deal', {
+  name: 'string!',
+  value: 'number!',
+  stage: 'Discovery | Proposal | Negotiation | Closed | Lost',
+  contact: '-> Contact.deals',
+
+  advance: 'Advanced',
+  close:   'Closed',
+  lose:    'Lost',
+  reopen:  'Reopened',
+})
+```
+
+Each declaration generates the full conjugation:
+
+| Declaration | Execute | Before | After | Audit |
+|-------------|---------|--------|-------|-------|
+| `advance: 'Advanced'` | `Deal.advance()` | `Deal.advancing()` | `Deal.advanced()` | `Deal.advancedBy` |
+| `close: 'Closed'` | `Deal.close()` | `Deal.closing()` | `Deal.closed()` | `Deal.closedBy` |
+| `lose: 'Lost'` | `Deal.lose()` | `Deal.losing()` | `Deal.lost()` | `Deal.lostBy` |
+| `reopen: 'Reopened'` | `Deal.reopen()` | `Deal.reopening()` | `Deal.reopened()` | `Deal.reopenedBy` |
+
+## BEFORE Hooks (Validation)
+
+BEFORE hooks run synchronously before the verb executes. They receive the entity (or creation payload) and can:
+
+- **Validate** — throw to reject the operation
+- **Transform** — return a modified entity to change what gets written
+- **Enrich** — attach computed properties before persistence
+
+```typescript
+import { Contact } from '@headlessly/crm'
+import { Subscription } from '@headlessly/billing'
+
+// Reject invalid operations
+Contact.qualifying(contact => {
+  if (!contact.email) throw new Error('Cannot qualify without email')
+  if (!contact.company) throw new Error('Contact must belong to a company')
+  return contact
+})
+
+// Transform before write
+Subscription.creating(sub => {
+  return { ...sub, startDate: new Date().toISOString() }
+})
+```
+
+If a BEFORE hook throws, the verb does not execute and no event is emitted. The error propagates to the caller.
+
+## AFTER Hooks (Side Effects)
+
+AFTER hooks run asynchronously after the verb succeeds and the event is written. They receive the entity and a `$` context for cross-domain operations:
+
+```typescript
+import { Deal } from '@headlessly/crm'
+
+Deal.closed((deal, $) => {
+  // Cross-domain: create a billing subscription
+  $.Subscription.create({ plan: 'pro', contact: deal.contact })
+
+  // Cross-domain: update the contact stage
+  $.Contact.update(deal.contact, { stage: 'Customer' })
+
+  // Cross-domain: create a support article
+  $.Article.create({
+    title: `Onboarding: ${deal.name}`,
+    contact: deal.contact,
+  })
+})
+```
+
+The `$` argument provides access to all 32 entities across all domains. Import it from `@headlessly/sdk` when used outside a hook:
+
+```typescript
+import { $ } from '@headlessly/sdk'
+```
+
+## Verb Execution Across Interfaces
+
+The same verb works identically across all five interfaces:
+
+### SDK
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+await Contact.qualify({ id: 'contact_fX9bL5nRd' })
+```
+
+### MCP
+
+```ts title="headless.ly/mcp#do"
+await $.Contact.qualify({ id: 'contact_fX9bL5nRd' })
+```
+
+### CLI
+
+```bash
+npx @headlessly/cli do Contact.qualify contact_fX9bL5nRd
+```
+
+### REST
+
+```bash
+POST https://crm.headless.ly/~my-startup/Contact/contact_fX9bL5nRd/qualify
+```
+
+### Events
+
+```json title="headless.ly/mcp#search"
+{ "type": "Event", "filter": { "type": "Contact.Qualified", "target": "contact_fX9bL5nRd" } }
+```
+
+All interfaces produce the same event, the same audit trail, and the same hook execution.
+
+## Code-as-Data Execution
+
+Verb handlers (BEFORE and AFTER hooks) are serialized via `fn.toString()` and stored in the tenant's Durable Object. They execute inside the DO -- no separate function infrastructure, no cold starts, no network hops.
+
+```
+Handler registered → fn.toString() → stored in DO SQLite
+Verb executed      → handler deserialized → runs in-DO → ~0ms latency
+```
+
+This means handlers have access to the full entity graph within the DO but cannot make external network calls. For external integrations, use WebSocket or Webhook subscription modes instead. See [Events](/docs/reference/concepts/events) for subscription mode details.
+
+## Complete Verb Table
+
+All custom verbs across the 32 core entities:
+
+### CRM
+
+| Entity | Verb | Event | Description |
+|--------|------|-------|-------------|
+| Contact | `qualify` | `Qualified` | Move from Lead to Qualified |
+| Contact | `capture` | `Captured` | Capture from form or import |
+| Contact | `assign` | `Assigned` | Assign to team member |
+| Contact | `merge` | `Merged` | Merge duplicate records |
+| Contact | `enrich` | `Enriched` | Enrich with external data |
+| Company | `enrich` | `Enriched` | Enrich with external data |
+| Company | `score` | `Scored` | Update company score |
+| Deal | `advance` | `Advanced` | Move to next pipeline stage |
+| Deal | `close` | `Closed` | Close as won |
+| Deal | `lose` | `Lost` | Close as lost |
+| Deal | `reopen` | `Reopened` | Reopen a closed deal |
+| Activity | `log` | `Logged` | Log an activity |
+| Activity | `complete` | `Completed` | Mark activity complete |
+
+### Projects
+
+| Entity | Verb | Event | Description |
+|--------|------|-------|-------------|
+| Project | `archive` | `Archived` | Archive a project |
+| Project | `activate` | `Activated` | Activate a project |
+| Task | `assign` | `Assigned` | Assign to team member |
+| Task | `complete` | `Completed` | Mark task complete |
+| Task | `reopen` | `Reopened` | Reopen a completed task |
+| Milestone | `complete` | `Completed` | Mark milestone complete |
+| Comment | `resolve` | `Resolved` | Resolve a comment thread |
+
+### Content
+
+| Entity | Verb | Event | Description |
+|--------|------|-------|-------------|
+| Page | `publish` | `Published` | Publish a page |
+| Page | `unpublish` | `Unpublished` | Take a page offline |
+| Post | `publish` | `Published` | Publish a post |
+| Post | `schedule` | `Scheduled` | Schedule for future publish |
+| Asset | `process` | `Processed` | Process uploaded asset |
+| Collection | `publish` | `Published` | Publish a collection |
+
+### Billing
+
+| Entity | Verb | Event | Description |
+|--------|------|-------|-------------|
+| Subscription | `activate` | `Activated` | Activate subscription |
+| Subscription | `pause` | `Paused` | Pause subscription |
+| Subscription | `cancel` | `Canceled` | Cancel subscription |
+| Subscription | `renew` | `Renewed` | Renew subscription |
+| Invoice | `finalize` | `Finalized` | Finalize for payment |
+| Invoice | `void` | `Voided` | Void an invoice |
+| Payment | `capture` | `Captured` | Capture payment |
+| Payment | `refund` | `Refunded` | Issue refund |
+
+### Support
+
+| Entity | Verb | Event | Description |
+|--------|------|-------|-------------|
+| Ticket | `assign` | `Assigned` | Assign to agent |
+| Ticket | `escalate` | `Escalated` | Escalate priority |
+| Ticket | `resolve` | `Resolved` | Resolve the ticket |
+| Ticket | `reopen` | `Reopened` | Reopen a resolved ticket |
+| Article | `publish` | `Published` | Publish help article |
+| Reply | `send` | `Sent` | Send a reply |
+
+### Analytics
+
+| Entity | Verb | Event | Description |
+|--------|------|-------|-------------|
+| Metric | `snapshot` | `Snapshotted` | Record a metric snapshot |
+| Funnel | `activate` | `Activated` | Activate a funnel |
+| Goal | `achieve` | `Achieved` | Mark goal as achieved |
+| Goal | `miss` | `Missed` | Mark goal as missed |
+
+### Marketing
+
+| Entity | Verb | Event | Description |
+|--------|------|-------|-------------|
+| Campaign | `launch` | `Launched` | Launch a campaign |
+| Campaign | `pause` | `Paused` | Pause a campaign |
+| Campaign | `complete` | `Completed` | Complete a campaign |
+| Segment | `refresh` | `Refreshed` | Refresh segment membership |
+| Form | `publish` | `Published` | Publish a form |
+| Form | `submit` | `Submitted` | Record form submission |
+
+### Experimentation
+
+| Entity | Verb | Event | Description |
+|--------|------|-------|-------------|
+| Experiment | `start` | `Started` | Start an experiment |
+| Experiment | `stop` | `Stopped` | Stop an experiment |
+| Experiment | `conclude` | `Concluded` | Conclude with results |
+| FeatureFlag | `enable` | `Enabled` | Enable a feature flag |
+| FeatureFlag | `disable` | `Disabled` | Disable a feature flag |
+| FeatureFlag | `rollout` | `RolledOut` | Progressive rollout |
+
+### Platform
+
+| Entity | Verb | Event | Description |
+|--------|------|-------|-------------|
+| Workflow | `activate` | `Activated` | Activate a workflow |
+| Workflow | `deactivate` | `Deactivated` | Deactivate a workflow |
+| Workflow | `trigger` | `Triggered` | Trigger workflow execution |
+| Integration | `connect` | `Connected` | Connect an integration |
+| Integration | `disconnect` | `Disconnected` | Disconnect an integration |
+| Agent | `deploy` | `Deployed` | Deploy an agent |
+| Agent | `pause` | `Paused` | Pause an agent |
+| Agent | `invoke` | `Invoked` | Invoke agent execution |

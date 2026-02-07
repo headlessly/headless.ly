@@ -1,0 +1,340 @@
+---
+title: fetch
+description: 'Get a specific entity, schema, metric, or the full business status.'
+---
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Contact", "id": "contact_fX9bL5nRd", "include": ["deals", "company"] }
+```
+
+The `fetch` tool retrieves a single entity by ID, a schema definition, a named metric, or a full business status snapshot. It is the read-side complement to `search` -- use `search` to find entities, `fetch` to get the details.
+
+## Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `type` | string | Yes | -- | Entity type, or one of the special types: `Schema`, `Status`, `Metric`. |
+| `id` | string | Conditional | -- | Entity ID in `{type}_{sqid}` format. Required for entity and metric fetches. Not required for `Status`. For `Schema`, this is the entity type name (e.g., `Contact`). |
+| `include` | string[] | No | `[]` | Relationship fields to eagerly load. Only applies to entity fetches. |
+| `fields` | string[] | No | all | Subset of fields to return. Reduces response size for large entities. |
+| `asOf` | string | No | -- | ISO 8601 timestamp. Returns the entity as it existed at that point in time. |
+
+## Entity Fetch
+
+The most common use. Pass an entity `type` and `id` to get the full entity.
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Contact", "id": "contact_fX9bL5nRd" }
+```
+
+Response:
+
+```json
+{
+  "$id": "contact_fX9bL5nRd",
+  "$type": "Contact",
+  "name": "Alice Chen",
+  "email": "alice@startup.io",
+  "stage": "Qualified",
+  "company": "company_e5JhLzXc",
+  "createdAt": "2025-11-15T09:30:00Z",
+  "updatedAt": "2025-11-18T14:22:00Z"
+}
+```
+
+### Include Relationships
+
+The `include` parameter eagerly loads related entities inline, replacing the foreign key ID with the full entity object.
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Contact", "id": "contact_fX9bL5nRd", "include": ["company", "deals"] }
+```
+
+Response:
+
+```json
+{
+  "$id": "contact_fX9bL5nRd",
+  "$type": "Contact",
+  "name": "Alice Chen",
+  "email": "alice@startup.io",
+  "stage": "Qualified",
+  "company": {
+    "$id": "company_e5JhLzXc",
+    "$type": "Company",
+    "name": "Startup Inc",
+    "industry": "Technology",
+    "size": 25
+  },
+  "deals": [
+    {
+      "$id": "deal_k7TmPvQx",
+      "$type": "Deal",
+      "value": 48000,
+      "stage": "Negotiation"
+    }
+  ],
+  "createdAt": "2025-11-15T09:30:00Z",
+  "updatedAt": "2025-11-18T14:22:00Z"
+}
+```
+
+The `include` parameter accepts any relationship field defined on the entity's Noun schema. Nested includes are not supported -- use `do` for multi-hop graph traversal.
+
+### Sparse Responses
+
+The `fields` parameter limits which fields are returned. Useful when entities have many fields and the agent only needs a few.
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Contact", "id": "contact_fX9bL5nRd", "fields": ["name", "email", "stage"] }
+```
+
+Response:
+
+```json
+{
+  "$id": "contact_fX9bL5nRd",
+  "$type": "Contact",
+  "name": "Alice Chen",
+  "email": "alice@startup.io",
+  "stage": "Qualified"
+}
+```
+
+`$id` and `$type` are always included regardless of the `fields` parameter.
+
+### Time Travel
+
+Fetch an entity as it existed at a specific point in time:
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Deal", "id": "deal_k7TmPvQx", "asOf": "2025-09-30T23:59:59Z" }
+```
+
+The response reflects the entity's state at that timestamp, reconstructed from the immutable event log.
+
+## Schema Fetch
+
+Pass `type: "Schema"` and an entity type name as `id` to get the full schema definition.
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Schema", "id": "Contact" }
+```
+
+Response:
+
+```json
+{
+  "$type": "Schema",
+  "entity": "Contact",
+  "fields": {
+    "name": { "type": "string", "required": true },
+    "email": { "type": "string", "required": false, "unique": true },
+    "phone": { "type": "string", "required": false },
+    "stage": {
+      "type": "enum",
+      "values": ["Lead", "Qualified", "Customer", "Churned", "Partner"],
+      "default": "Lead"
+    },
+    "company": { "type": "relation", "target": "Company", "inverse": "contacts" },
+    "deals": { "type": "relation", "target": "Deal", "cardinality": "many", "inverse": "contact" }
+  },
+  "verbs": {
+    "qualify": { "targetStage": "Qualified", "lifecycle": ["qualifying", "qualify", "qualified", "qualifiedBy"] },
+    "enrich": { "lifecycle": ["enriching", "enrich", "enriched", "enrichedBy"] }
+  },
+  "crud": ["create", "get", "find", "update", "delete"]
+}
+```
+
+Omit `id` to get a list of all entity types available in the current context:
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Schema" }
+```
+
+Response:
+
+```json
+{
+  "$type": "Schema",
+  "entities": [
+    "Contact", "Company", "Deal", "Activity",
+    "Project", "Task", "Milestone", "Comment",
+    "Page", "Post", "Asset", "Collection",
+    "Product", "Plan", "Subscription", "Invoice", "Payment",
+    "Ticket", "Article", "Reply",
+    "Event", "Metric", "Funnel", "Goal",
+    "Campaign", "Segment", "Form",
+    "Experiment", "FeatureFlag",
+    "Workflow", "Integration", "Agent"
+  ],
+  "context": "crm.headless.ly"
+}
+```
+
+## Status Fetch
+
+Pass `type: "Status"` to get a full business snapshot. No `id` required.
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Status" }
+```
+
+Response:
+
+```json
+{
+  "$type": "Status",
+  "revenue": {
+    "mrr": 24500,
+    "arr": 294000,
+    "nrr": 1.12,
+    "churn": 0.023,
+    "ltv": 18400
+  },
+  "pipeline": {
+    "totalDeals": 47,
+    "totalValue": 892000,
+    "stages": {
+      "Lead": 18,
+      "Qualified": 12,
+      "Proposal": 9,
+      "Negotiation": 5,
+      "Closed Won": 3
+    }
+  },
+  "product": {
+    "activeSubscriptions": 134,
+    "trialConversions": 0.34,
+    "plans": { "starter": 78, "pro": 41, "enterprise": 15 }
+  },
+  "support": {
+    "openTickets": 12,
+    "avgResponseTime": "2h 14m",
+    "satisfaction": 4.6
+  },
+  "marketing": {
+    "activeCampaigns": 3,
+    "leads30d": 245,
+    "conversionRate": 0.087
+  },
+  "alerts": [
+    { "level": "warning", "message": "3 invoices overdue by 7+ days", "entity": "Invoice" },
+    { "level": "info", "message": "Trial conversion rate up 12% this week", "entity": "Subscription" }
+  ],
+  "asOf": "2025-11-18T15:00:00Z"
+}
+```
+
+Status aggregates data from all 32 entity types into a single response. It is the fastest way for an agent to understand the current state of the business.
+
+## Metric Fetch
+
+Pass `type: "Metric"` and a metric name as `id` to get a specific metric with historical data.
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Metric", "id": "mrr" }
+```
+
+Response:
+
+```json
+{
+  "$type": "Metric",
+  "name": "mrr",
+  "label": "Monthly Recurring Revenue",
+  "value": 24500,
+  "unit": "usd",
+  "trend": "+8.2%",
+  "period": "month",
+  "history": [
+    { "date": "2025-06-01", "value": 12800 },
+    { "date": "2025-07-01", "value": 15200 },
+    { "date": "2025-08-01", "value": 17900 },
+    { "date": "2025-09-01", "value": 19400 },
+    { "date": "2025-10-01", "value": 22600 },
+    { "date": "2025-11-01", "value": 24500 }
+  ]
+}
+```
+
+Available built-in metrics:
+
+| Metric ID | Description |
+|-----------|-------------|
+| `mrr` | Monthly Recurring Revenue |
+| `arr` | Annual Recurring Revenue |
+| `nrr` | Net Revenue Retention |
+| `churn` | Monthly churn rate |
+| `ltv` | Customer Lifetime Value |
+| `cac` | Customer Acquisition Cost |
+| `pipeline` | Total pipeline value |
+| `deals_won` | Deals closed won (this period) |
+| `leads` | New leads (this period) |
+| `tickets_open` | Open support tickets |
+| `satisfaction` | Customer satisfaction score |
+| `trial_conversion` | Trial-to-paid conversion rate |
+
+## Error Responses
+
+| Error Code | HTTP Status | Description |
+|------------|-------------|-------------|
+| `not_found` | 404 | The entity with the given `type` and `id` does not exist. |
+| `invalid_type` | 400 | The `type` parameter does not match any known entity type or special type. |
+| `invalid_id` | 400 | The `id` format is invalid (does not match `{type}_{sqid}` pattern). |
+| `invalid_include` | 400 | An `include` field does not correspond to a relationship on the entity. |
+| `invalid_fields` | 400 | A `fields` entry does not correspond to a field on the entity. |
+| `unauthorized` | 401 | Missing or invalid authentication. |
+| `rate_limited` | 429 | Too many requests. Check `Retry-After` header. |
+
+Error response body:
+
+```json
+{
+  "error": "not_found",
+  "message": "No Contact with ID 'contact_xYzAbCdE' exists.",
+  "type": "Contact",
+  "id": "contact_xYzAbCdE"
+}
+```
+
+## Examples
+
+### Fetch a Deal with Related Entities
+
+```json title="headless.ly/mcp#fetch"
+{
+  "type": "Deal",
+  "id": "deal_k7TmPvQx",
+  "include": ["contact", "company"]
+}
+```
+
+### Fetch Entity Schema for Discovery
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Schema", "id": "Subscription" }
+```
+
+### Fetch Business Health at End of Quarter
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Status", "asOf": "2025-09-30T23:59:59Z" }
+```
+
+### Fetch a Specific Metric
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Metric", "id": "nrr" }
+```
+
+### Sparse Fetch for Token Efficiency
+
+```json title="headless.ly/mcp#fetch"
+{
+  "type": "Invoice",
+  "id": "invoice_mR4nXwBp",
+  "fields": ["amount", "status", "dueDate"]
+}
+```

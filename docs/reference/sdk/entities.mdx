@@ -1,0 +1,201 @@
+---
+title: Entity Operations
+description: CRUD operations, custom verbs, and type signatures for all 32 entities.
+icon: Database
+---
+
+Every entity exposes the same CRUD interface plus domain-specific verbs. CRUD is automatic -- you never define it. Custom verbs are declared in the `Noun()` definition and follow the same calling convention.
+
+## CRUD Methods
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+// Create — returns the new entity with generated ID
+const contact = await Contact.create({
+  name: 'Alice Chen',
+  email: 'alice@acme.com',
+  stage: 'Lead',
+})
+// => { id: 'contact_fX9bL5nRd', name: 'Alice Chen', ... }
+
+// Get — fetch a single entity by ID
+const found = await Contact.get('contact_fX9bL5nRd')
+
+// Find — query with filters, returns an array
+const leads = await Contact.find({ stage: 'Lead' }, { limit: 25 })
+
+// Update — partial update, returns the updated entity
+const updated = await Contact.update('contact_fX9bL5nRd', {
+  stage: 'Qualified',
+})
+
+// Delete — soft delete (immutable log preserved), returns void
+await Contact.delete('contact_fX9bL5nRd')
+```
+
+## Method Signatures
+
+| Method | Signature | Returns |
+|---|---|---|
+| `create` | `create(data: Partial<T>)` | `Promise<T>` |
+| `get` | `get(id: string)` | `Promise<T \| null>` |
+| `find` | `find(filter?: Filter<T>, options?: QueryOptions)` | `Promise<T[]>` |
+| `update` | `update(id: string, data: Partial<T>)` | `Promise<T>` |
+| `delete` | `delete(id: string)` | `Promise<void>` |
+| `count` | `count(filter?: Filter<T>)` | `Promise<number>` |
+
+## Custom Verbs
+
+Custom verbs follow the same pattern as CRUD but express domain-specific transitions. Every verb has a full lifecycle: execute, BEFORE hook, AFTER hook, and reverse reference.
+
+```typescript
+import { Contact } from '@headlessly/crm'
+import { Deal } from '@headlessly/crm'
+
+// Execute a verb — pass the entity ID and any additional data
+await Contact.qualify({ id: 'contact_fX9bL5nRd' })
+await Deal.close({ id: 'deal_k7TmPvQx', wonAmount: 50000 })
+
+// Verb lifecycle
+Contact.qualifying(contact => { /* BEFORE hook — validate, transform, reject */ })
+Contact.qualified(contact => { /* AFTER hook — react, trigger side effects */ })
+```
+
+## Entity ID Format
+
+All IDs follow the `{type}_{sqid}` pattern. The prefix is the lowercase entity type. The suffix is a [sqid](https://sqids.org/) -- short, unique, URL-safe, with a built-in blocklist.
+
+```typescript
+'contact_fX9bL5nRd'    // Contact
+'deal_k7TmPvQx'        // Deal
+'project_e5JhLzXc'     // Project
+'invoice_mW3vRtYn'     // Invoice
+'ticket_pQ8xNfKm'      // Ticket
+```
+
+## Entities by Domain
+
+### CRM
+
+`@headlessly/crm` -- Contact, Company, Deal, Activity
+
+| Entity | Custom Verbs |
+|---|---|
+| **Contact** | `qualify`, `convert`, `churn`, `reactivate` |
+| **Company** | `verify`, `enrich` |
+| **Deal** | `advance`, `close`, `lose` |
+| **Activity** | `complete`, `cancel` |
+
+```typescript
+import { Contact, Company, Deal, Activity } from '@headlessly/crm'
+
+await Contact.qualify({ id: 'contact_fX9bL5nRd' })
+await Deal.close({ id: 'deal_k7TmPvQx' })
+await Activity.complete({ id: 'activity_jR5nLwXp' })
+```
+
+### Billing
+
+`@headlessly/billing` -- Product, Plan, Subscription, Invoice, Payment
+
+| Entity | Custom Verbs |
+|---|---|
+| **Product** | `publish`, `archive` |
+| **Plan** | `activate`, `deprecate` |
+| **Subscription** | `upgrade`, `downgrade`, `cancel`, `renew` |
+| **Invoice** | `finalize`, `void`, `refund` |
+| **Payment** | `capture`, `refund` |
+
+```typescript
+import { Subscription, Invoice } from '@headlessly/billing'
+
+await Subscription.upgrade({ id: 'sub_nR4wKpYm', plan: 'enterprise' })
+await Invoice.finalize({ id: 'invoice_mW3vRtYn' })
+```
+
+### Projects
+
+`@headlessly/projects` -- Project, Task, Milestone, Comment
+
+| Entity | Custom Verbs |
+|---|---|
+| **Project** | `archive`, `complete` |
+| **Task** | `assign`, `start`, `complete`, `block` |
+| **Milestone** | `complete`, `extend` |
+| **Comment** | `resolve`, `pin` |
+
+```typescript
+import { Task, Project } from '@headlessly/projects'
+
+await Task.assign({ id: 'task_bN7xKmRw', assignee: 'contact_fX9bL5nRd' })
+await Project.complete({ id: 'project_e5JhLzXc' })
+```
+
+### Content
+
+`@headlessly/content` -- Page, Post, Asset, Collection
+
+| Entity | Custom Verbs |
+|---|---|
+| **Page** | `publish`, `unpublish`, `archive` |
+| **Post** | `publish`, `schedule`, `archive` |
+| **Asset** | `process`, `tag` |
+| **Collection** | `publish`, `reorder` |
+
+### Support
+
+`@headlessly/support` -- Ticket, Article, Reply
+
+| Entity | Custom Verbs |
+|---|---|
+| **Ticket** | `assign`, `escalate`, `resolve`, `reopen` |
+| **Article** | `publish`, `archive` |
+| **Reply** | `send`, `retract` |
+
+### Analytics
+
+`@headlessly/analytics` -- Event, Metric, Funnel, Goal
+
+| Entity | Custom Verbs |
+|---|---|
+| **Event** | -- (immutable, create only) |
+| **Metric** | `snapshot`, `reset` |
+| **Funnel** | `activate`, `pause` |
+| **Goal** | `achieve`, `extend`, `abandon` |
+
+### Marketing
+
+`@headlessly/marketing` -- Campaign, Segment, Form
+
+| Entity | Custom Verbs |
+|---|---|
+| **Campaign** | `launch`, `pause`, `complete` |
+| **Segment** | `refresh`, `freeze` |
+| **Form** | `publish`, `unpublish` |
+
+### Experiments
+
+`@headlessly/experiments` -- Experiment, FeatureFlag
+
+| Entity | Custom Verbs |
+|---|---|
+| **Experiment** | `start`, `conclude`, `abort` |
+| **FeatureFlag** | `enable`, `disable`, `rollout` |
+
+### Platform
+
+`@headlessly/platform` -- Workflow, Integration, Agent
+
+| Entity | Custom Verbs |
+|---|---|
+| **Workflow** | `activate`, `pause`, `trigger` |
+| **Integration** | `connect`, `disconnect`, `sync` |
+| **Agent** | `deploy`, `pause`, `invoke` |
+
+```typescript
+import { Workflow, Agent } from '@headlessly/platform'
+
+await Workflow.activate({ id: 'workflow_tP6yMnVk' })
+await Agent.deploy({ id: 'agent_wQ2xLrHj' })
+```
