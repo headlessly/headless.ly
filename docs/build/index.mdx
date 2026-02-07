@@ -1,0 +1,48 @@
+---
+title: Build
+description: Set up your org, connect Stripe & GitHub, learn the core concepts. Everything you need for Day 0-30.
+icon: Hammer
+---
+
+You have an idea. You're building the product. headless.ly gives you a running business from line one — CRM, projects, billing, analytics, content, support — all connected in one typed graph.
+
+```typescript
+import Headlessly from 'headless.ly'
+
+const org = Headlessly({ tenant: 'my-startup' })
+
+// Connect your foundations immediately
+await org.Integration.connect('stripe', { apiKey: process.env.STRIPE_KEY })
+await org.Integration.connect('github', { token: process.env.GITHUB_TOKEN })
+
+// Start building
+await org.Contact.create({ name: 'Alice', email: 'alice@vc.com', stage: 'Lead' })
+await org.Task.create({ title: 'Build MVP', project: 'project_1', status: 'InProgress' })
+```
+
+## What's in this section
+
+<Cards>
+  <Card title="Getting Started" href="/build/getting-started">
+    Install, create an org, connect Stripe and GitHub. Five minutes.
+  </Card>
+  <Card title="Digital Objects" href="/build/concepts/digital-objects">
+    How entities are defined with the Noun() function.
+  </Card>
+  <Card title="Verbs" href="/build/concepts/verbs">
+    The verb conjugation system that powers every action.
+  </Card>
+  <Card title="SDK" href="/build/sdk">
+    The primary interface for agents and developers.
+  </Card>
+</Cards>
+
+## The Build Phase
+
+During build, you're focused on:
+
+- **Projects** — Task, Project, Milestone, Comment (syncing with GitHub)
+- **Content** — Page, Post, Asset, Collection (docs, blog, landing pages)
+- **CRM** — Contact, Company (tracking investors, beta users, partners)
+
+All 32 entities are available, but these are what matter most when you're building.
