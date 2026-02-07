@@ -1,0 +1,82 @@
+---
+title: Import & Export
+description: Bulk import and export data in JSON, NDJSON, CSV, and Parquet formats.
+---
+
+## Import
+
+### Endpoint
+
+```
+POST /import/:type
+```
+
+Import entities in bulk. Supports JSON arrays and NDJSON (newline-delimited JSON).
+
+### JSON Import
+
+```bash
+curl -X POST "https://db.headless.ly/import/Contact" \
+  -H "Authorization: Bearer hly_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '[
+    {"name": "Alice Chen", "email": "alice@acme.com", "stage": "Lead"},
+    {"name": "Bob Park", "email": "bob@widget.io", "stage": "Qualified"}
+  ]'
+```
+
+### NDJSON Import
+
+```bash
+curl -X POST "https://db.headless.ly/import/Contact" \
+  -H "Authorization: Bearer hly_your_api_key" \
+  -H "Content-Type: application/x-ndjson" \
+  --data-binary @contacts.ndjson
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "imported": 150,
+  "errors": 2,
+  "details": [
+    {"row": 42, "error": "Missing required field: name"},
+    {"row": 99, "error": "Duplicate email: alice@acme.com"}
+  ]
+}
+```
+
+## Export
+
+### Endpoint
+
+```
+GET /export/:type
+```
+
+Export all entities of a type. Supports JSON, CSV, and Parquet formats.
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `format` | string | `json` | Export format: `json`, `csv`, or `parquet` |
+| `filter` | JSON string | `{}` | Optional filter |
+
+### Examples
+
+```bash
+# JSON export
+curl "https://db.headless.ly/export/Contact?format=json"
+
+# CSV export
+curl "https://db.headless.ly/export/Deal?format=csv" > deals.csv
+
+# Parquet export
+curl "https://db.headless.ly/export/Contact?format=parquet" > contacts.parquet
+
+# Filtered export
+curl "https://db.headless.ly/export/Contact?format=csv&filter=%7B%22stage%22%3A%22Lead%22%7D"
+```

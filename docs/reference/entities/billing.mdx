@@ -1,0 +1,131 @@
+---
+title: Billing
+description: Customer, Product, Price, Subscription, Invoice, Payment — revenue powered by Stripe.
+---
+
+All Billing entities are Stripe-backed. Creating a Subscription in headless.ly creates a Stripe subscription. Stripe webhooks flow back as events.
+
+## Customer
+
+Stripe Customer — the billing identity. Links a Contact to Stripe.
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Customer = Noun('Customer', {
+  contact: '-> Contact.customer',
+  stripeId: 'string?#',
+  subscriptions: '<- Subscription.customer[]',
+  invoices: '<- Invoice.customer[]',
+  sync: 'Synced',
+})
+```
+
+Creating a Customer automatically creates a Stripe customer. The `stripeId` is set by the webhook.
+
+## Product
+
+What you sell.
+
+```typescript
+export const Product = Noun('Product', {
+  name: 'string!',
+  description: 'text?',
+  type: 'Software | Service | Physical',
+  stripeId: 'string?#',
+  prices: '<- Price.product[]',
+  activate: 'Activated',
+  archive:  'Archived',
+})
+```
+
+## Price
+
+Pricing configuration — maps to Stripe Prices. Replaces the concept of "Plan" with Stripe's more flexible model.
+
+```typescript
+export const Price = Noun('Price', {
+  name: 'string!',
+  amount: 'number!',
+  interval: 'Monthly | Annual | OneTime | Usage',
+  product: '-> Product.prices',
+  subscriptions: '<- Subscription.price[]',
+  stripeId: 'string?#',
+  activate: 'Activated',
+  archive:  'Archived',
+})
+```
+
+| Interval | Description |
+|----------|-------------|
+| `Monthly` | Recurring monthly charge |
+| `Annual` | Recurring yearly charge |
+| `OneTime` | Single purchase |
+| `Usage` | Metered billing based on consumption |
+
+## Subscription
+
+Active paying relationships.
+
+```typescript
+export const Subscription = Noun('Subscription', {
+  status: 'Active | Paused | Cancelled | Trialing | PastDue',
+  price: '-> Price.subscriptions',
+  customer: '-> Customer.subscriptions',
+  stripeId: 'string?#',
+  startDate: 'datetime!',
+  invoices: '<- Invoice.subscription[]',
+  upgrade:   'Upgraded',
+  downgrade: 'Downgraded',
+  cancel:    'Cancelled',
+  pause:     'Paused',
+  resume:    'Resumed',
+})
+```
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `upgrade` | `Upgraded` | Move to a higher-value Price |
+| `downgrade` | `Downgraded` | Move to a lower-value Price |
+| `cancel` | `Cancelled` | End the subscription |
+| `pause` | `Paused` | Temporarily suspend billing |
+| `resume` | `Resumed` | Restart a paused subscription |
+
+## Invoice
+
+Bills — monthly/annual.
+
+```typescript
+export const Invoice = Noun('Invoice', {
+  amount: 'number!',
+  status: 'Draft | Open | Paid | Void',
+  dueDate: 'datetime!',
+  subscription: '-> Subscription.invoices',
+  customer: '-> Customer.invoices',
+  payments: '<- Payment.invoice[]',
+  stripeId: 'string?#',
+  pay:    'Paid',
+  refund: 'Refunded',
+  void:   'Voided',
+})
+```
+
+## Payment
+
+Money movement — charges, refunds, credits.
+
+```typescript
+export const Payment = Noun('Payment', {
+  amount: 'number!',
+  type: 'Charge | Refund | Credit',
+  status: 'Pending | Completed | Failed',
+  invoice: '-> Invoice.payments',
+  stripeId: 'string?#',
+  capture: 'Captured',
+  refund:  'Refunded',
+  update: null,
+  delete: null,
+})
+```
+
+Payment is immutable — the ledger is append-only.

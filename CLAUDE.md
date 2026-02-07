@@ -1,98 +1,147 @@
-# CLAUDE.md
+# public/ — The @headlessly Package Repository
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This repo contains the published `@headlessly/*` packages, documentation, CLI, and tests.
 
-## ⚠️ IMPORTANT: This is Generated Code
+## Editing Policy
 
-**This entire repository is auto-generated.** Do not manually edit files in this repository.
+Direct edits are welcome. This content is hand-crafted for quality. When the package count grows to thousands, generation pipelines will take over — but right now, every doc page and README should be written to be excellent, not templated to be consistent.
 
-### Key Rules
-
-1. **DO NOT** write or modify code directly in this repository
-2. **DO NOT** execute code from this repository directly
-3. **DO NOT** reference the source repository (it is private/closed-source)
-4. All changes must be made to the source templates and regenerated
-
-### What This Repository Contains
-
-This repository contains generated packages and content for the headless.ly platform:
+## What Lives Here
 
 ```
-public/
-├── src/                 # Generated SDK source
-├── apps/                # Generated app packages (@headlessly/crm, etc.)
-├── nouns/               # Generated TypeScript types from entity schemas
-├── verbs/               # Generated action definitions
-├── industries/          # Generated NAICS-based industry packages
-├── occupations/         # Generated O*NET occupation packages
-├── processes/           # Generated APQC process packages
-├── departments/         # Generated department configurations
-├── integrations/        # Generated third-party integrations
-├── tasks/               # Generated task definitions
-├── tech/                # Generated technology packages
-├── docs/                # Generated documentation
-├── tests/               # Generated test files
-└── content/             # Generated content (from MDX templates)
+docs/           → Fumadocs MDX documentation (headless.ly)
+industries/     → Industry packages (@headlessly/farm-soybeans, etc.)
+processes/      → Process packages (@headlessly/develop-strategy, etc.)
+tasks/          → Task packages (@headlessly/manage-organizational-budgets, etc.)
+departments/    → Department packages (@headlessly/accounts-payable, etc.)
 ```
 
-### Generation Pipeline
+## SDK Conventions (Critical)
 
-Files are generated from:
-1. **Entity schemas** in `.db/schema/*.ts` (IceType definitions)
-2. **MDX templates** in `content/` (using `@mdxld/markdown`)
-3. **Standards data** from `.org.ai/` (NAICS, O*NET, APQC, etc.)
+All code examples MUST use the current `@headlessly/*` package naming. We own the `@headlessly` npm scope. `@headlessly/sdk@0.0.1` is published.
 
-### How to Make Changes
+### Three Import Styles
 
-To modify any content in this repository:
-
-1. **For schema changes**: Edit the source `.db/schema/*.ts` files
-2. **For template changes**: Edit the source `content/**/*.mdx` templates
-3. **Regenerate**: Run the generation script
-4. **Review**: Check the generated output
-5. **Commit**: The generation process will commit and push changes
-
-### Package Structure
-
-Each generated package follows this pattern:
+**1. Universal context (`$`)** — full access to every entity:
 
 ```typescript
-// @headlessly/{package}/index.ts
-import { rpc } from 'headless.ly'
-export const client = (options) => rpc('{package}', options)
+import { $ } from '@headlessly/sdk'
+
+await $.Contact.create({ name: 'Alice', stage: 'Lead' })
+await $.Deal.close({ id: 'deal_1' })
 ```
 
-### TypeScript Types
-
-Types are generated from IceType schemas:
-
-```
-.db/schema/crm.ts → nouns/organization/types.d.ts
-                  → nouns/contact/types.d.ts
-                  → nouns/lead/types.d.ts
-                  → nouns/deal/types.d.ts
-```
-
-### MCP Integration
-
-Generated packages include MCP tool definitions via `@dotdo/mcp`:
+**2. Direct entity imports** — domain-specific packages:
 
 ```typescript
-import { mcp } from '@dotdo/mcp'
+import { Contact, Deal } from '@headlessly/crm'
+import { Subscription } from '@headlessly/billing'
 
-export const tools = mcp.tools({
-  // Auto-generated from RPC definitions
-})
+await Contact.create({ name: 'Alice', stage: 'Lead' })
+await Deal.close({ id: 'deal_1' })
 ```
 
-## Why Generated?
+**3. Domain namespace imports** — grouping by product domain:
 
-1. **Consistency**: All packages follow the same patterns
-2. **Type Safety**: Types are derived from a single source of truth
-3. **Scalability**: Generate hundreds/thousands of packages from templates
-4. **Transparency**: Open-source output while keeping generation logic private
+```typescript
+import { crm, billing } from '@headlessly/sdk'
 
-## Related
+await crm.Contact.create({ name: 'Alice', stage: 'Lead' })
+await billing.Subscription.create({ plan: 'pro', contact: 'contact_1' })
+```
 
-- [headless.ly](https://headless.ly) - Main platform
-- [npmjs.com/package/headless.ly](https://npmjs.com/package/headless.ly) - SDK package
+### Package Hierarchy
+
+| Layer | Packages | Purpose |
+|---|---|---|
+| **SDK** | `@headlessly/sdk` | Full 32-entity graph, exports `$` and domain namespaces |
+| **CLI** | `@headlessly/cli` | CLI entry point (`npx @headlessly/cli`) |
+| **Domain** | `crm`, `billing`, `projects`, `content`, `support`, `analytics`, `marketing`, `experiments`, `platform` | Each owns a set of entities |
+| **Lifecycle** | `build`, `launch`, `experiment`, `grow`, `sell`, `market`, `automate`, `scale` | Same entities, organized by startup phase |
+| **Business model** | `b2b`, `b2c`, `b2d`, `b2a` | Same entities, organized by business model |
+| **Industry** | `farm-soybeans`, `manufacture-steel`, etc. | Industry-specific Business-as-Code APIs |
+| **Task** | `manage-organizational-budgets`, etc. | Task-specific Business-as-Code APIs |
+
+### Domain-to-Entity Mapping
+
+- `@headlessly/crm` — Contact, Company, Deal
+- `@headlessly/billing` — Customer, Product, Price, Subscription, Invoice, Payment
+- `@headlessly/projects` — Project, Issue, Comment
+- `@headlessly/content` — Content, Asset, Site
+- `@headlessly/support` — Ticket
+- `@headlessly/analytics` — Event, Metric, Funnel, Goal
+- `@headlessly/marketing` — Campaign, Segment, Form
+- `@headlessly/experiments` — Experiment, FeatureFlag
+- `@headlessly/platform` — Workflow, Integration, Agent
+
+### Entity IDs
+
+Entity IDs use the format `{type}_{sqid}` where the suffix is generated by [sqids](https://sqids.org/) — short, unique, URL-safe, with a built-in blocklist to prevent offensive strings.
+
+- `contact_fX9bL5nRd`, `deal_k7TmPvQx`, `project_e5JhLzXc`
+- Never use sequential numeric IDs: `contact_1`, `contact_847`
+- Never use obviously fake IDs: `contact_123`, `contact_abc`
+- Keep IDs consistent within a single file
+
+### Tenant Configuration
+
+Tenant is configured via the `HEADLESSLY_TENANT` environment variable. Never pass `{ tenant: '...' }` explicitly.
+
+### MCP Tool Representation
+
+headless.ly exposes three MCP tools: `search`, `fetch`, `do`. Represent them with titled code blocks:
+
+```json title="headless.ly/mcp#search"
+{ "type": "Contact", "filter": { "stage": "Lead" } }
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Contact", "id": "contact_123", "include": ["deals"] }
+```
+
+```ts title="headless.ly/mcp#do"
+const leads = await $.Contact.find({ stage: 'Lead' })
+for (const lead of leads) {
+  await $.Contact.qualify(lead.$id)
+}
+```
+
+### CLI Entry Point
+
+```bash
+npx @headlessly/cli
+```
+
+### What NOT to Write
+
+```typescript
+// WRONG — old pattern
+import Headlessly from 'headless.ly'
+const org = Headlessly({ tenant: 'my-startup' })
+org.Contact.create(...)
+
+// WRONG — headless.ly is not a valid npm package name
+import { Contact } from 'headless.ly'
+
+// WRONG — MCP tools are not function calls
+search({ type: 'Contact', filter: { stage: 'Lead' } })
+do({ method: 'Contact.qualify', args: ['contact_1'] })
+```
+
+## Code Style
+
+- No semicolons, single quotes, 2-space indent (project Prettier config)
+- Always include import statements
+- Always show the full operation, not a fragment
+- Prefer `const` over `let`
+- Use meaningful variable names
+
+## Source Relationships
+
+When content here overlaps with source data:
+- Industry MDX source → `.org.ai/industries/`
+- Process MDX source → `.org.ai/processes/`
+- Task MDX source → `.org.ai/tasks/`
+- Department MDX source → `.org.ai/departments/`
+- Schema definitions → `.db/index.ts`
+- Generation scripts → `scripts/generate-packages.ts`

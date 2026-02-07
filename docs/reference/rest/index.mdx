@@ -1,0 +1,73 @@
+---
+title: REST API
+description: HTTP endpoints for any client — same verbs, same entities, same semantics.
+icon: Globe
+---
+
+Every operation available via HTTP. Tenant-scoped URLs.
+
+## Base URL
+
+```
+https://headless.ly/~{tenant}
+```
+
+## Entity CRUD
+
+```bash
+# Create
+POST   /~my-startup/Contact
+{ "name": "Alice", "email": "alice@vc.com", "stage": "Lead" }
+
+# Get
+GET    /~my-startup/Contact/contact_uLoSfycy
+
+# Find
+GET    /~my-startup/Contact?stage=Lead&limit=25&sort=-createdAt
+
+# Update
+PUT    /~my-startup/Contact/contact_uLoSfycy
+{ "stage": "Qualified" }
+
+# Delete
+DELETE /~my-startup/Contact/contact_uLoSfycy
+```
+
+## Verb Execution
+
+```bash
+POST /~my-startup/Contact/contact_uLoSfycy/qualify
+POST /~my-startup/Deal/deal_k7TmPvQx/close
+{ "wonStageId": "stage_won" }
+```
+
+## Status
+
+```bash
+GET /~my-startup/status
+```
+
+## Metrics
+
+```bash
+GET /~my-startup/metrics
+GET /~my-startup/Metric/mrr
+```
+
+## Events Stream
+
+```bash
+GET /~my-startup/events?since=2026-02-07T00:00:00Z
+```
+
+## Time Travel
+
+```bash
+GET /~my-startup/Contact?stage=Lead&asOf=2026-01-15T10:00:00Z
+```
+
+## Authentication
+
+```bash
+Authorization: Bearer hly_sk_...
+```

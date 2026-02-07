@@ -1,0 +1,117 @@
+---
+title: do
+description: A secure TypeScript sandbox for executing any business logic. The universal agent interface.
+---
+
+The `do` tool is the most powerful MCP primitive. It runs arbitrary TypeScript inside a secure sandbox powered by Cloudflare containers and `ai-evaluate`. The sandbox has access to `$` -- the universal context with all 32 entities and their verbs.
+
+## Execute a Verb
+
+```ts title="headless.ly/mcp#do"
+await $.Contact.qualify('contact_uLoSfycy')
+```
+
+```ts title="headless.ly/mcp#do"
+await $.Deal.close('deal_k7TmPvQx', { wonStageId: 'stage_won' })
+```
+
+```ts title="headless.ly/mcp#do"
+await $.Issue.assign('issue_rN3bWxYp', { assignee: 'member_dQz8FhLm' })
+```
+
+```ts title="headless.ly/mcp#do"
+await $.Subscription.upgrade('sub_vE4jKsAc', { plan: 'enterprise' })
+```
+
+```ts title="headless.ly/mcp#do"
+await $.FeatureFlag.rollout('new-onboarding', { percentage: 100 })
+```
+
+## CRUD Operations
+
+```ts title="headless.ly/mcp#do"
+await $.Contact.create({ name: 'Alice', stage: 'Lead' })
+```
+
+```ts title="headless.ly/mcp#do"
+await $.Contact.update('contact_uLoSfycy', { stage: 'Qualified' })
+```
+
+```ts title="headless.ly/mcp#do"
+await $.Contact.delete('contact_uLoSfycy')
+```
+
+## Multi-Step Logic
+
+The `do` sandbox is a full TypeScript REPL. Write loops, conditionals, and multi-step workflows -- not just single method calls.
+
+```ts title="headless.ly/mcp#do"
+const leads = await $.Contact.find({ stage: 'Lead', createdAt: { $gt: '7d ago' } })
+
+for (const lead of leads) {
+  await $.Contact.enrich(lead.$id)
+}
+
+return { enriched: leads.length }
+```
+
+```ts title="headless.ly/mcp#do"
+const overdue = await $.Invoice.find({ status: 'overdue', dueDate: { $lt: 'today' } })
+
+for (const invoice of overdue) {
+  const contact = await $.Contact.get(invoice.contact)
+  await $.Message.create({
+    contact: contact.$id,
+    subject: `Invoice ${invoice.number} is past due`,
+    body: `Hi ${contact.name}, your invoice for $${invoice.amount} is overdue. Please review.`
+  })
+}
+
+return { notified: overdue.length }
+```
+
+```ts title="headless.ly/mcp#do"
+const deals = await $.Deal.find({ stage: 'Closed Won', closedAt: { $gte: '30d ago' } })
+const revenue = deals.reduce((sum, d) => sum + d.value, 0)
+
+const active = await $.Subscription.find({ status: 'active' })
+const mrr = active.reduce((sum, s) => sum + s.amount, 0)
+
+return { deals: deals.length, revenue, mrr, subscriptions: active.length }
+```
+
+## Return Values
+
+The last expression or explicit `return` becomes the tool response. Return structured data so agents can reason about results.
+
+```ts title="headless.ly/mcp#do"
+const contact = await $.Contact.get('contact_uLoSfycy')
+const deals = await $.Deal.find({ contact: contact.$id })
+const totalValue = deals.reduce((sum, d) => sum + d.value, 0)
+
+return {
+  contact: contact.name,
+  dealCount: deals.length,
+  totalValue,
+  stage: contact.stage
+}
+```
+
+## The `$` Context
+
+Inside the sandbox, `$` provides access to every entity type:
+
+| Domain | Entities |
+|--------|----------|
+| CRM | `$.Contact`, `$.Company`, `$.Deal` |
+| Billing | `$.Customer`, `$.Product`, `$.Price`, `$.Subscription`, `$.Invoice`, `$.Payment` |
+| Projects | `$.Project`, `$.Issue`, `$.Comment` |
+| Content | `$.Content`, `$.Asset`, `$.Site` |
+| Support | `$.Ticket` |
+| Analytics | `$.Event`, `$.Metric`, `$.Funnel`, `$.Goal` |
+| Marketing | `$.Campaign`, `$.Segment`, `$.Form` |
+| Experiments | `$.Experiment`, `$.FeatureFlag` |
+| Platform | `$.Workflow`, `$.Integration`, `$.Agent` |
+| Communication | `$.Message` |
+
+Every entity supports CRUD operations (`create`, `get`, `find`, `update`, `delete`) plus any custom verbs defined in its Noun schema.

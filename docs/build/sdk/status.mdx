@@ -1,0 +1,107 @@
+---
+title: Status & Alerts
+description: The agent's dashboard -- entire business state in one call.
+---
+
+## $.status()
+
+The agent equivalent of a dashboard. Returns the entire business state as structured data:
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+const state = await $.status()
+```
+
+```json
+{
+  "revenue": {
+    "mrr": 12500,
+    "arr": 150000,
+    "churn": 2.1,
+    "nrr": 108,
+    "ltv": 5950,
+    "arpu": 49
+  },
+  "pipeline": {
+    "leads": 47,
+    "qualified": 12,
+    "deals_open": 8,
+    "deal_value": 340000
+  },
+  "product": {
+    "issues_open": 23,
+    "issues_closed_7d": 15,
+    "blocked": 2
+  },
+  "support": {
+    "tickets_open": 5,
+    "p0": 1,
+    "avg_response": "2h",
+    "csat": 94
+  },
+  "marketing": {
+    "campaigns_active": 3,
+    "signups_7d": 89,
+    "conversion": 4.2
+  },
+  "engagement": {
+    "dau": 230,
+    "mau": 1200,
+    "events_24h": 15400
+  },
+  "alerts": [
+    { "type": "ticket_sla_breach", "entity": "ticket_vB2sYwAr", "action": "escalate", "severity": "high" },
+    { "type": "deal_stale", "entity": "deal_k7TmPvQx", "action": "follow_up", "days": 14 },
+    { "type": "churn_risk", "entity": "contact_uLoSfycy", "action": "retain", "severity": "medium" }
+  ]
+}
+```
+
+Revenue metrics are real -- derived from Stripe. Pipeline metrics are real -- derived from entity counts. Everything from one call.
+
+## Act on Alerts
+
+Agents reason about state and act:
+
+```typescript
+import { $ } from '@headlessly/sdk'
+import { Ticket } from '@headlessly/support'
+import { Campaign } from '@headlessly/marketing'
+
+const { alerts } = await $.status()
+
+for (const alert of alerts) {
+  switch (alert.type) {
+    case 'ticket_sla_breach':
+      await Ticket.escalate({ id: alert.entity })
+      break
+    case 'deal_stale':
+      await $.Event.create({
+        type: 'Task',
+        subject: 'Follow up on stale deal',
+        deal: alert.entity,
+        source: 'crm',
+      })
+      break
+    case 'churn_risk':
+      await Campaign.create({
+        name: `Retain ${alert.entity}`,
+        type: 'Email',
+        segment: 'at-risk',
+      })
+      break
+  }
+}
+```
+
+## For Humans
+
+The same data pipes to any dashboard tool:
+
+- **Numerics** -- iOS/Mac widgets
+- **Grafana** -- time-series dashboards
+- **Retool** -- custom internal tools
+- **Spreadsheets** -- CSV export or live connection
+
+One system. One connection. Entire business.

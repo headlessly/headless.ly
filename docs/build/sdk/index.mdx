@@ -1,0 +1,134 @@
+---
+title: SDK
+description: The TypeScript SDK -- the primary interface for agents and developers.
+icon: Code
+---
+
+The `@headlessly/sdk` package is the primary interface. Full TypeScript inference, zero codegen, every entity and verb typed from Noun() definitions.
+
+## Install
+
+```bash
+npm install @headlessly/sdk
+```
+
+Or install only what you need:
+
+```bash
+npm install @headlessly/crm @headlessly/billing
+```
+
+## Three Import Styles
+
+### Direct Entity Imports (Recommended)
+
+Import entities from their domain package. This is the most common pattern:
+
+```typescript
+import { Contact, Deal } from '@headlessly/crm'
+import { Subscription } from '@headlessly/billing'
+
+await Contact.create({ name: 'Alice', email: 'alice@vc.com', stage: 'Lead' })
+await Deal.close({ id: 'deal_k7TmPvQx' })
+```
+
+### Universal Context ($)
+
+The `$` object gives access to every entity across all domains. Use it for cross-domain operations or when you need the full graph:
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+await $.Contact.create({ name: 'Alice', stage: 'Lead' })
+await $.Deal.close({ id: 'deal_k7TmPvQx' })
+const state = await $.status()
+```
+
+### Domain Namespace
+
+Group operations by product domain:
+
+```typescript
+import { crm, billing } from '@headlessly/sdk'
+
+await crm.Contact.create({ name: 'Alice', stage: 'Lead' })
+await billing.Subscription.create({ plan: 'pro', contact: 'contact_uLoSfycy' })
+```
+
+## CRUD
+
+Every entity supports `create`, `get`, `find`, `update`, `delete`:
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+const contact = await Contact.create({ name: 'Alice', email: 'alice@vc.com', stage: 'Lead' })
+const found = await Contact.get(contact.$id)
+const leads = await Contact.find({ stage: 'Lead' })
+await Contact.update(contact.$id, { phone: '+1-555-0100' })
+```
+
+## Verbs
+
+Execute any verb on any entity. Verbs take an object argument:
+
+```typescript
+import { Contact, Deal } from '@headlessly/crm'
+import { Issue } from '@headlessly/projects'
+import { Ticket } from '@headlessly/support'
+import { Content } from '@headlessly/content'
+import { Subscription } from '@headlessly/billing'
+import { FeatureFlag } from '@headlessly/experiments'
+
+await Contact.qualify({ id: 'contact_uLoSfycy' })
+await Deal.close({ id: 'deal_k7TmPvQx' })
+await Issue.assign({ id: 'issue_pQ8xNfKm', assignee: 'member_aK9dGtRw' })
+await Ticket.escalate({ id: 'ticket_vB2sYwAr' })
+await Content.publish({ id: 'content_wT6yBpDs' })
+await Subscription.upgrade({ id: 'sub_mN4hFcWq', plan: 'enterprise' })
+await FeatureFlag.rollout({ id: 'new-onboarding', percentage: 100 })
+```
+
+## Event Handlers
+
+Register BEFORE and AFTER hooks. The `$` context is available as a second argument for cross-entity access:
+
+```typescript
+import { Contact, Deal } from '@headlessly/crm'
+
+// BEFORE hook -- validate or reject
+Contact.qualifying(contact => {
+  if (!contact.email) throw new Error('Cannot qualify without email')
+  return contact
+})
+
+// AFTER hook -- react to completed actions
+Deal.closed((deal, $) => {
+  $.Subscription.create({ plan: 'pro', contact: deal.contact })
+  $.Contact.update(deal.contact, { stage: 'Customer' })
+})
+```
+
+## Status
+
+The agent's dashboard -- entire business state in one call:
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+const state = await $.status()
+// { revenue, pipeline, product, support, marketing, engagement, alerts }
+```
+
+## Promise Pipelining
+
+Chain calls without awaiting -- batched into a single round trip:
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+const deals = await Contact
+  .find({ stage: 'Qualified' })
+  .map(contact => contact.deals)
+  .filter(deal => deal.status === 'Open')
+```

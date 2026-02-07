@@ -1,0 +1,95 @@
+---
+title: "@headlessly/js"
+description: Browser SDK for analytics, error tracking, feature flags, and surveys.
+---
+
+The `@headlessly/js` package is a lightweight browser SDK that provides:
+
+- **Analytics**: Page views, custom events, user identification
+- **Error Tracking**: Automatic error capture with stack traces
+- **Feature Flags**: Client-side feature flag evaluation
+- **Surveys**: In-app surveys and NPS collection
+
+## Installation
+
+```bash
+npm install @headlessly/js
+```
+
+## Quick Start
+
+```typescript
+import { Headlessly } from '@headlessly/js'
+
+const hly = new Headlessly({
+  apiKey: 'hly_your_public_key',
+})
+
+// Analytics
+hly.track('button_clicked', { buttonId: 'signup-cta' })
+hly.identify('user-123', { name: 'Jane', plan: 'pro' })
+hly.page()  // automatic page view
+
+// Error tracking
+hly.captureException(error)
+hly.captureMessage('Something went wrong', 'warning')
+
+// Feature flags
+const showNewUI = hly.getFeatureFlag('new-dashboard')
+if (showNewUI) {
+  renderNewDashboard()
+}
+
+// Surveys
+hly.showSurvey('onboarding-nps')
+```
+
+## Script Tag
+
+For non-bundled environments:
+
+```html
+<script src="https://cdn.headless.ly/js/v1/headlessly.min.js"></script>
+<script>
+  window.hly = new Headlessly({ apiKey: 'hly_your_public_key' })
+  hly.page()
+</script>
+```
+
+## Analytics Events
+
+```typescript
+// Page view (automatic)
+hly.page()
+
+// Custom event
+hly.track('purchase_completed', {
+  orderId: 'ord_r7K9mQwBn',
+  total: 99.99,
+  currency: 'USD',
+})
+
+// Identify user
+hly.identify('user_fX9bL5nRd', {
+  name: 'Jane Doe',
+  email: 'jane@example.com',
+  plan: 'enterprise',
+})
+
+// Group (associate user with organization)
+hly.group('org_k7TmPvQx', {
+  name: 'Acme Corp',
+  industry: 'Technology',
+})
+```
+
+## Web Vitals
+
+Automatically captures Core Web Vitals (LCP, FID, CLS, TTFB, INP):
+
+```typescript
+const hly = new Headlessly({
+  apiKey: 'hly_your_public_key',
+  captureWebVitals: true,
+})
+```

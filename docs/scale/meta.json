@@ -1,0 +1,6 @@
+{
+  "title": "Scale",
+  "description": "Financial metrics, goals, dashboards, and scaling operations.",
+  "root": true,
+  "pages": ["index", "metrics", "goals", "dashboards"]
+}

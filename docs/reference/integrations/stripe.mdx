@@ -1,0 +1,73 @@
+---
+title: Stripe
+description: Truth source for all Billing entities and financial metrics.
+---
+
+Stripe is not "an integration to add later." It's the truth source for all Billing entities from day 1.
+
+## Connect
+
+```typescript
+import { Integration } from '@headlessly/platform'
+
+await Integration.connect({ provider: 'stripe', apiKey: process.env.STRIPE_KEY })
+```
+
+## Entity Mapping
+
+| headless.ly | Stripe | Direction |
+|-------------|--------|-----------|
+| Customer | `stripe.customers` | Bidirectional |
+| Product | `stripe.products` | Bidirectional |
+| Price | `stripe.prices` | Bidirectional |
+| Subscription | `stripe.subscriptions` | Bidirectional |
+| Invoice | `stripe.invoices` | Bidirectional |
+| Payment | `stripe.payment_intents` | Bidirectional |
+
+Creating a Subscription in headless.ly creates a Stripe subscription. Stripe webhooks flow back as events in the immutable log.
+
+## Financial Metrics
+
+Real metrics derived from Stripe data:
+
+| Metric | Derivation |
+|--------|------------|
+| **MRR** | Sum of active subscription amounts, normalized monthly |
+| **ARR** | MRR × 12 |
+| **Churn Rate** | Cancellations / total subscriptions |
+| **NRR** | Including expansions, contractions, and churn |
+| **LTV** | Revenue per customer / churn rate |
+| **ARPU** | MRR / active subscribers |
+
+```typescript
+import { Metric } from '@headlessly/analytics'
+
+const mrr = await Metric.get('mrr')     // Real number from Stripe
+const churn = await Metric.get('churn_rate')
+```
+
+## Webhook Events
+
+Stripe webhooks map to headless.ly events:
+
+| Stripe Event | headless.ly Event |
+|-------------|------------------|
+| `customer.subscription.created` | `Subscription.Created` |
+| `customer.subscription.updated` | `Subscription.Updated` |
+| `customer.subscription.deleted` | `Subscription.Cancelled` |
+| `invoice.paid` | `Invoice.Paid` |
+| `payment_intent.succeeded` | `Payment.Captured` |
+
+React to events with handlers:
+
+```typescript
+import { Invoice, Subscription } from '@headlessly/billing'
+
+Invoice.paid((invoice, $) => {
+  $.Event.create({ type: 'revenue', amount: invoice.total })
+})
+
+Subscription.cancelled((sub, $) => {
+  $.Contact.update({ id: sub.contact, stage: 'Churned' })
+})
+```

@@ -1,0 +1,85 @@
+---
+title: Analytics
+description: Event, Metric, Funnel, Goal — insights and measurement.
+---
+
+Events captured via the browser SDK. Financial metrics derived from Stripe. Funnels track the revenue pipeline. Event absorbs the old Activity entity — all interactions are events.
+
+## Event
+
+Every tracked action — pageviews, API calls, sign-ups, CRM interactions, Stripe webhooks. Forwarded to GA/Sentry/PostHog and stored in the Iceberg R2 lakehouse.
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Event = Noun('Event', {
+  name: 'string!',
+  type: 'Track | Page | Identify | Group | Screen',
+  source: 'string?',
+  properties: 'json?',
+  contact: '-> Contact?',
+  timestamp: 'datetime!',
+  update: null,
+  delete: null,
+})
+```
+
+Event is immutable — append-only. The `source` field tracks where the event originated:
+
+| Source | Description |
+|--------|-------------|
+| `browser` | Client-side SDK (pageviews, clicks) |
+| `api` | Server-side API calls |
+| `crm` | CRM interactions (replaces old Activity entity) |
+| `stripe` | Stripe webhook events |
+| `github` | GitHub webhook events |
+| `agent` | AI agent actions |
+
+## Metric
+
+Real values — MRR, churn, NRR from Stripe; DAU, NPS from events.
+
+```typescript
+export const Metric = Noun('Metric', {
+  name: 'string!#',
+  type: 'Counter | Gauge | Histogram | Rate',
+  value: 'number!',
+  unit: 'string?',
+  dimensions: 'json?',
+  record: 'Recorded',
+  reset:  'Reset',
+})
+```
+
+Financial metrics auto-derive from Stripe. `Metric.get('mrr')` returns a real number.
+
+## Funnel
+
+Conversion flows — visitor → signup → activate → pay.
+
+```typescript
+export const Funnel = Noun('Funnel', {
+  name: 'string!',
+  steps: 'json!',
+  conversionRate: 'number?',
+  analyze: 'Analyzed',
+})
+```
+
+## Goal
+
+Business objectives — revenue targets, user targets, milestone deadlines.
+
+```typescript
+export const Goal = Noun('Goal', {
+  name: 'string!',
+  target: 'number!',
+  current: 'number?',
+  metric: '-> Metric?',
+  deadline: 'datetime?',
+  status: 'Active | Completed | Missed',
+  complete: 'Completed',
+  miss:     'Missed',
+  reset:    'Reset',
+})
+```

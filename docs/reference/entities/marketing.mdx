@@ -1,0 +1,85 @@
+---
+title: Marketing
+description: Campaign, Segment, Form — growth and acquisition with ICP targeting.
+---
+
+Acquire users, run campaigns, segment audiences. Segment includes the ICP sentence pattern from the startup-builder — define your ideal customer as a natural sentence.
+
+## Campaign
+
+Marketing initiatives — launches, drips, content pushes.
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Campaign = Noun('Campaign', {
+  name: 'string!',
+  type: 'Email | Social | Content | Paid | Event',
+  status: 'Draft | Active | Paused | Completed',
+  segment: '-> Segment?',
+  startDate: 'datetime?',
+  endDate: 'datetime?',
+  launch:   'Launched',
+  pause:    'Paused',
+  complete: 'Completed',
+})
+```
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `launch` | `Launched` | Start the campaign |
+| `pause` | `Paused` | Temporarily stop |
+| `complete` | `Completed` | Mark as finished |
+
+## Segment
+
+Audience groups with ICP sentence pattern. Define your ideal customer profile as a natural sentence: *"\{as\} at \{at\} are \{are\} using \{using\} to \{to\}"*.
+
+```typescript
+export const Segment = Noun('Segment', {
+  name: 'string!',
+  as: 'string?',
+  at: 'string?',
+  are: 'string?',
+  using: 'string?',
+  to: 'string?',
+  filters: 'json?',
+  size: 'number?',
+  refresh: 'Refreshed',
+  archive: 'Archived',
+})
+```
+
+### ICP Sentence Pattern
+
+The `as/at/are/using/to` fields compose into a natural ICP sentence:
+
+```
+"Compliance Officers at healthcare companies are managing audits using spreadsheets and email to stay compliant"
+```
+
+| Field | Maps To | Example |
+|-------|---------|---------|
+| `as` | Occupation | "Compliance Officers" |
+| `at` | Industry | "healthcare companies" |
+| `are` | Process | "managing audits" |
+| `using` | Tool/Tech | "spreadsheets and email" |
+| `to` | Goal | "stay compliant" |
+
+Fields fuzzy-match against ontology data (NAICS industries, O*NET occupations, APQC processes) for structured segmentation.
+
+## Form
+
+Data collection — sign-up, waitlist, contact us.
+
+```typescript
+export const Form = Noun('Form', {
+  name: 'string!',
+  fields: 'json!',
+  segment: '-> Segment?',
+  status: 'Draft | Active | Archived',
+  submissions: 'number?',
+  publish: 'Published',
+  archive: 'Archived',
+})
+```

@@ -1,0 +1,103 @@
+---
+title: RPC Interface
+description: Capnweb-inspired RPC interface with browser-friendly confirmation URLs.
+---
+
+The RPC interface provides a developer-friendly way to call API methods using a natural `Resource.operation(args)` syntax.
+
+## How It Works
+
+**Reads** execute immediately:
+
+```
+GET /rpc/Deals.find({"status":"active"})
+```
+
+**Mutations** return a confirmation URL (202 Accepted):
+
+```
+POST /rpc/Deals.create {"name": "Big Deal"}
+→ 202 { confirmUrl: "/rpc/confirm/abc123" }
+```
+
+Clicking or fetching the confirmation URL executes the mutation. This makes mutations safe for browser-based exploration.
+
+## Read Operations
+
+| Method | Description |
+|--------|-------------|
+| `Resource.find(filter?, opts?)` | Query entities with optional filter |
+| `Resource.get(id)` | Get single entity by ID |
+| `Resource.count(filter?)` | Count matching entities |
+
+### Examples
+
+```bash
+# Find all active deals
+GET /rpc/Deals.find({"status":"active"})
+
+# Get deal by ID
+GET /rpc/Deals.get("deal_k7TmPvQx")
+
+# Count active deals
+GET /rpc/Deals.count({"status":"active"})
+
+# Find with pagination
+GET /rpc/Contacts.find({}, {"limit": 50, "offset": 100})
+```
+
+## Mutation Operations
+
+| Method | Description |
+|--------|-------------|
+| `Resource.create(data)` | Create new entity |
+| `Resource.update(id, data)` | Update existing entity |
+| `Resource.delete(id)` | Delete entity |
+
+### Examples
+
+```bash
+# Create
+POST /rpc/Deals.create
+Content-Type: application/json
+
+{"name": "Enterprise Deal", "value": 50000, "stage": "qualification"}
+
+# Update
+POST /rpc/Deals.update
+Content-Type: application/json
+
+["deal_k7TmPvQx", {"stage": "proposal", "value": 75000}]
+
+# Delete
+POST /rpc/Deals.delete
+Content-Type: application/json
+
+["deal_k7TmPvQx"]
+```
+
+## JSON-RPC Style
+
+You can also use standard JSON-RPC format:
+
+```bash
+POST /rpc
+Content-Type: application/json
+
+{
+  "method": "Deals.find",
+  "args": [{"status": "active"}, {"limit": 10}]
+}
+```
+
+## Domain-Scoped RPC
+
+When using domain subdomains, RPC calls are automatically scoped:
+
+```bash
+# CRM-scoped: "Deals" resolves to the CRM Deal entity
+GET https://crm.headless.ly/rpc/Deals.find({})
+
+# Billing-scoped: "Subscriptions" resolves to billing Subscription
+GET https://billing.headless.ly/rpc/Subscriptions.find({})
+```

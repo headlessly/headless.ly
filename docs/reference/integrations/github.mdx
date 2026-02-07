@@ -1,0 +1,57 @@
+---
+title: GitHub
+description: Truth source for all Projects entities — bidirectional sync with repos, issues, and PRs.
+---
+
+GitHub is the truth source for all Projects entities from day 1.
+
+## Connect
+
+```typescript
+import { Integration } from '@headlessly/platform'
+
+await Integration.connect({ provider: 'github', token: process.env.GITHUB_TOKEN })
+```
+
+## Entity Mapping
+
+| headless.ly | GitHub | Direction |
+|-------------|--------|-----------|
+| Project | Repos / Projects | Bidirectional |
+| Issue | Issues / PRs | Bidirectional |
+| Comment | Issue comments | Bidirectional |
+
+Creating an Issue in headless.ly creates a GitHub issue. Closing a GitHub issue completes the Issue.
+
+## Webhook Events
+
+| GitHub Event | headless.ly Event |
+|-------------|------------------|
+| `issues.opened` | `Issue.Created` |
+| `issues.closed` | `Issue.Completed` |
+| `issues.assigned` | `Issue.Assigned` |
+| `pull_request.merged` | `Issue.Completed` |
+| `issue_comment.created` | `Comment.Created` |
+
+## Issue Status Mapping
+
+| GitHub | headless.ly |
+|--------|-------------|
+| Open issue | `Todo` or `InProgress` |
+| Closed issue | `Done` |
+| Open PR | `InProgress` |
+| Merged PR | `Done` |
+
+React to events with handlers:
+
+```typescript
+import { Issue, Comment } from '@headlessly/projects'
+
+Issue.completed((issue, $) => {
+  $.Event.create({ type: 'issue_closed', project: issue.project })
+})
+
+Comment.created((comment, $) => {
+  $.Event.create({ type: 'comment_added', issue: comment.issue })
+})
+```

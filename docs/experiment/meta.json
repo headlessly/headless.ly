@@ -1,0 +1,6 @@
+{
+  "title": "Experiment",
+  "description": "A/B test pricing, onboarding, and features. Roll out progressively.",
+  "root": true,
+  "pages": ["index", "ab-tests", "feature-flags", "funnels"]
+}

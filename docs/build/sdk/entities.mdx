@@ -1,0 +1,108 @@
+---
+title: Entity Operations
+description: CRUD operations, relationships, and population across all 32 entities.
+---
+
+## Create
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+const contact = await Contact.create({
+  name: 'Alice',
+  email: 'alice@vc.com',
+  stage: 'Lead',
+  company: 'company_R3nWjHdL',
+})
+// Returns: { $id: 'contact_uLoSfycy', name: 'Alice', stage: 'Lead', ... }
+```
+
+All fields are validated against the Noun definition. Required fields (`'string!'`) must be present. Enum fields must match a valid value.
+
+## Get
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+const contact = await Contact.get('contact_uLoSfycy')
+
+// With relationship population
+const full = await Contact.get('contact_uLoSfycy', {
+  populate: ['deals', 'messages', 'company'],
+})
+```
+
+## Find
+
+```typescript
+import { Contact } from '@headlessly/crm'
+import { Deal } from '@headlessly/crm'
+
+// Simple filter
+const leads = await Contact.find({ stage: 'Lead' })
+
+// MongoDB-style operators
+const highValue = await Deal.find({
+  value: { $gte: 50_000 },
+  stage: { $in: ['Proposal', 'Negotiation'] },
+})
+
+// With pagination and sorting
+const recent = await Contact.find(
+  { stage: 'Customer' },
+  { limit: 25, offset: 0, sort: '-createdAt' }
+)
+
+// Time travel
+const historical = await Contact.find(
+  { stage: 'Lead' },
+  { asOf: '2026-01-15T10:00:00Z' }
+)
+```
+
+### Query Operators
+
+| Operator | Meaning |
+|----------|---------|
+| `$eq` | Equal |
+| `$ne` | Not equal |
+| `$gt` / `$gte` | Greater than (or equal) |
+| `$lt` / `$lte` | Less than (or equal) |
+| `$in` / `$nin` | In / not in array |
+| `$exists` | Field exists |
+| `$regex` | Regular expression match |
+
+## Update
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+await Contact.update('contact_uLoSfycy', {
+  phone: '+1-555-0100',
+  stage: 'Qualified',
+})
+```
+
+## Delete
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+await Contact.delete('contact_uLoSfycy')
+```
+
+Some entities opt out of delete (immutable entities like Event):
+
+```typescript
+import { Event } from '@headlessly/analytics'
+
+await Event.delete('event_jX3kRnHv') // TypeScript error
+```
+
+## Count
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+const total = await Contact.count({ stage: 'Lead' })
+```

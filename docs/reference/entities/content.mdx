@@ -1,0 +1,92 @@
+---
+title: Content
+description: Content, Asset, Site — typed MDX publishing powered by mdxui.
+---
+
+Everything is Content — landing pages, blog posts, docs, articles, even startup frameworks like Lean Canvas and StoryBrand. Each Content has a `$type` that maps to a Zod schema from mdxui, giving strongly-typed props that render automatically.
+
+## Content
+
+Typed MDX documents. The `type` field selects a Zod schema — `Content.$type: 'LandingPage'` gets strongly-typed props (headline, subheadline, cta, features) that mdxui auto-renders.
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Content = Noun('Content', {
+  title: 'string!',
+  slug: 'string!#',
+  type: 'Page | Post | Doc | Article | LandingPage | LeanCanvas | StoryBrand | SWOT | BMC | JTBD | Custom',
+  body: 'text?',
+  props: 'json?',
+  status: 'Draft | Published | Archived',
+  site: '-> Site.content',
+  author: '-> User?',
+  comments: '<- Comment.content[]',
+  publish: 'Published',
+  archive: 'Archived',
+  draft:   'Drafted',
+})
+```
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `publish` | `Published` | Make publicly visible |
+| `archive` | `Archived` | Remove from public view |
+| `draft` | `Drafted` | Return to draft state |
+
+### Content Types
+
+The `type` field is a discriminator. Each type has a Zod schema defining its `props`:
+
+| Type | Props | Use Case |
+|------|-------|----------|
+| `Page` | title, body | Static pages — pricing, about |
+| `Post` | title, body, tags, publishedAt | Blog posts, tutorials, changelog |
+| `Doc` | title, body, section | Documentation pages |
+| `Article` | title, body, category | Knowledge base / help center |
+| `LandingPage` | headline, subheadline, cta, features, testimonials | Marketing pages |
+| `LeanCanvas` | problem, solution, uvp, channels, customerSegments, costStructure, revenueStreams | Lean Canvas framework |
+| `StoryBrand` | heroWants, villain, guide, plan, cta, failure, success, oneLiner | StoryBrand messaging |
+| `SWOT` | strengths, weaknesses, opportunities, threats | SWOT analysis |
+| `BMC` | keyPartners, keyActivities, valuePropositions, customerRelationships, customerSegments, keyResources, channels, costStructure, revenueStreams | Business Model Canvas |
+| `JTBD` | functionalJob, emotionalJob, socialJob, context, currentSolutions, painPoints, desiredOutcomes | Jobs to Be Done |
+
+All Content types are AI-generatable (props are structured data) and auto-rendered through mdxui's component system.
+
+## Asset
+
+Files — images, videos, documents, audio.
+
+```typescript
+export const Asset = Noun('Asset', {
+  name: 'string!',
+  url: 'string!',
+  type: 'Image | Video | Document | Audio | Other',
+  size: 'number?',
+  mimeType: 'string?',
+  upload:  'Uploaded',
+  process: 'Processed',
+})
+```
+
+## Site
+
+mdxui site configuration — determines how Content renders. Maps to one of 14 mdxui site types with auto-wired components.
+
+```typescript
+export const Site = Noun('Site', {
+  name: 'string!',
+  type: 'Marketing | Docs | Blog | Directory | Marketplace | API | Agent | Agency | Platform | SaaS | App | Dashboard | Portal | Custom',
+  domain: 'string?#',
+  theme: 'json?',
+  content: '<- Content.site[]',
+  deploy:    'Deployed',
+  configure: 'Configured',
+})
+```
+
+Site types auto-wire Content to components:
+- `Blog` → maps Posts to a blog layout with feeds, tags, pagination
+- `Docs` → maps Docs to a documentation layout with sidebar, search
+- `Marketing` → maps Pages and LandingPages to a marketing site
+- `Directory` → maps structured Content to a searchable listing

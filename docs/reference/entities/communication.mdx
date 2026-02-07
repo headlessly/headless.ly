@@ -1,0 +1,96 @@
+---
+title: Communication
+description: Message — cross-channel communication for email, SMS, Slack, Discord, and more.
+---
+
+One entity for all communication. Email, SMS, Slack, Discord, Teams, in-app chat, webhooks — they're all the same shape. Messages attach to any entity and group into threads.
+
+## Message
+
+Universal communication primitive — replaces the old Reply entity with cross-channel support.
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Message = Noun('Message', {
+  body: 'text!',
+  channel: 'Email | SMS | Slack | Discord | Teams | Web | InApp | API',
+  direction: 'Inbound | Outbound | Internal',
+  from: '-> Contact?',
+  to: '-> Contact?',
+  agent: '-> Agent?',
+  thread: 'string?',
+  ticket: '-> Ticket.messages?',
+  deal: '-> Deal.messages?',
+  contact: '-> Contact.messages?',
+  send:    'Sent',
+  deliver: 'Delivered',
+  read:    'Read',
+  bounce:  'Bounced',
+  update: null,
+  delete: null,
+})
+```
+
+Message is immutable — conversation history is always preserved.
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `send` | `Sent` | Message dispatched to channel |
+| `deliver` | `Delivered` | Confirmed delivery |
+| `read` | `Read` | Recipient opened/read |
+| `bounce` | `Bounced` | Delivery failed |
+
+### Channels
+
+| Channel | Description |
+|---------|-------------|
+| `Email` | Traditional email (SMTP/API) |
+| `SMS` | Text messages |
+| `Slack` | Slack workspace messages |
+| `Discord` | Discord server messages |
+| `Teams` | Microsoft Teams messages |
+| `Web` | Live chat on website |
+| `InApp` | In-application notifications |
+| `API` | Programmatic/webhook messages |
+
+### Threading
+
+The `thread` field groups messages into conversations. A thread can span multiple channels — a customer might start on web chat, continue via email, and get a Slack notification to the support team, all in the same thread.
+
+### Polymorphic Attachment
+
+Messages attach to any entity via optional relationships:
+
+```typescript
+import { Message } from '@headlessly/sdk'
+
+// Customer emails about a support ticket
+await Message.create({
+  body: 'My billing is incorrect',
+  channel: 'Email',
+  direction: 'Inbound',
+  from: 'contact_fX9bL5nRd',
+  ticket: 'ticket_pQ8xNfKm',
+  thread: 'thread_Lw4vRjHn',
+})
+
+// Agent replies via Slack
+await Message.create({
+  body: 'I have corrected your invoice',
+  channel: 'Slack',
+  direction: 'Outbound',
+  agent: 'agent_Tn3mKxWqR',
+  ticket: 'ticket_pQ8xNfKm',
+  thread: 'thread_Lw4vRjHn',
+})
+
+// Sales follow-up SMS
+await Message.create({
+  body: 'Following up on our call',
+  channel: 'SMS',
+  direction: 'Outbound',
+  to: 'contact_hR7dNcPwL',
+  deal: 'deal_k7TmPvQx',
+})
+```

@@ -1,0 +1,51 @@
+---
+title: search
+description: Find entities across the graph with filters, sorting, and pagination.
+---
+
+## Usage
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Contact",
+  "filter": { "stage": "Lead" },
+  "sort": "-createdAt",
+  "limit": 25
+}
+```
+
+## Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `type` | string | Entity type (Contact, Deal, Issue, etc.) |
+| `filter` | object | MongoDB-style query filters |
+| `sort` | string | Field to sort by (prefix `-` for descending) |
+| `limit` | number | Max results (default 25) |
+| `offset` | number | Skip N results |
+| `asOf` | string | Time travel -- query as of ISO timestamp |
+
+## Filter Operators
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Deal",
+  "filter": {
+    "value": { "$gte": 50000 },
+    "stage": { "$in": ["Proposal", "Negotiation"] },
+    "closedAt": { "$exists": false }
+  }
+}
+```
+
+## Cross-Entity Search
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Contact",
+  "filter": {
+    "company.industry": "Technology",
+    "stage": "Qualified"
+  }
+}
+```

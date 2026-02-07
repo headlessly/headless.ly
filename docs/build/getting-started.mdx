@@ -1,0 +1,126 @@
+---
+title: Getting Started
+description: Install, create an org, connect Stripe and GitHub. Five minutes to a running business.
+icon: Rocket
+---
+
+## Install
+
+```bash
+npm install @headlessly/sdk
+```
+
+Or install only the domains you need:
+
+```bash
+npm install @headlessly/crm @headlessly/billing @headlessly/projects
+```
+
+## Create an Org
+
+Set your tenant via environment variable:
+
+```bash
+export HEADLESSLY_TENANT=my-startup
+```
+
+Then import and use any entity directly:
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+await Contact.create({ name: 'Alice', stage: 'Lead' })
+```
+
+That's it. 32 entities across 11 product domains are ready. No schema design, no module selection, no configuration.
+
+## Connect Stripe (Day 1)
+
+Stripe is the truth source for all Billing entities. This isn't an integration to add later -- it's how billing works:
+
+```typescript
+import { Integration } from '@headlessly/platform'
+
+await Integration.connect({ provider: 'stripe', apiKey: process.env.STRIPE_KEY })
+```
+
+Now Product, Price, Subscription, Invoice, and Payment are Stripe-backed. Financial metrics (MRR, churn, NRR) compute from real Stripe data.
+
+## Connect GitHub (Day 1)
+
+GitHub is the truth source for all Projects entities:
+
+```typescript
+import { Integration } from '@headlessly/platform'
+
+await Integration.connect({ provider: 'github', token: process.env.GITHUB_TOKEN })
+```
+
+Now Project, Issue, and Comment sync bidirectionally with GitHub repos, issues, and PRs.
+
+## Add the Browser SDK
+
+One script tag captures all client events and forwards to your analytics providers while building your data lakehouse:
+
+```html
+<script src="https://js.headless.ly/v1" data-tenant="my-startup" />
+```
+
+Events flow to Google Analytics, Sentry, PostHog -- and to your Iceberg R2 lakehouse.
+
+## Five Interfaces, One System
+
+Every operation works across all five interfaces:
+
+### SDK (Agents & Developers)
+
+```typescript
+import { Contact } from '@headlessly/crm'
+import { $ } from '@headlessly/sdk'
+
+await Contact.create({ name: 'Alice', stage: 'Lead' })
+await Contact.qualify({ id: 'contact_uLoSfycy' })
+const state = await $.status()
+```
+
+### MCP (AI Agents)
+
+```json title="headless.ly/mcp#search"
+{ "type": "Contact", "filter": { "stage": "Lead" } }
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Metric", "id": "mrr" }
+```
+
+```ts title="headless.ly/mcp#do"
+await $.Contact.qualify({ id: 'contact_uLoSfycy' })
+```
+
+### CLI (Terminal)
+
+```bash
+npx @headlessly/cli status
+headlessly Contact.create --name "Alice" --stage Lead
+headlessly Contact.qualify contact_uLoSfycy
+```
+
+### REST (HTTP)
+
+```bash
+POST /~my-startup/Contact         { "name": "Alice", "stage": "Lead" }
+POST /~my-startup/Contact/contact_uLoSfycy/qualify
+GET  /~my-startup/status
+```
+
+### Events (Reactive)
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+Contact.qualified(contact => {
+  console.log(`${contact.name} qualified -- schedule follow-up`)
+})
+```
+
+Same verbs. Same entities. Same semantics. Five projections.

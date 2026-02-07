@@ -1,0 +1,77 @@
+---
+title: CLI
+description: Terminal interface mirroring the SDK — same verbs, same entities, same semantics.
+icon: Terminal
+---
+
+The CLI mirrors the SDK exactly. Same verbs, same entities, same output.
+
+## Install
+
+```bash
+npm install -g @headlessly/cli
+# Or without installing:
+npx @headlessly/cli
+```
+
+## Auth
+
+```bash
+npx @headlessly/cli login
+# Or if installed globally:
+headlessly login
+```
+
+## Status
+
+```bash
+headlessly status
+```
+
+Returns the same structured data as `$.status()`.
+
+## Entity Operations
+
+```bash
+# Create
+headlessly Contact.create --name "Alice" --email "alice@vc.com" --stage Lead
+
+# Get
+headlessly Contact.get contact_uLoSfycy
+
+# Find
+headlessly Contact.find --stage Lead --limit 25
+
+# Update
+headlessly Contact.update contact_uLoSfycy --stage Qualified
+
+# Delete
+headlessly Contact.delete contact_uLoSfycy
+```
+
+## Verb Execution
+
+```bash
+headlessly do Contact.qualify contact_uLoSfycy
+headlessly do Deal.close deal_k7TmPvQx --wonStageId stage_won
+headlessly do Issue.assign issue_pQ8xNfKm --assignee member_aK9dGtRw
+headlessly do FeatureFlag.rollout new-onboarding --percentage 100
+```
+
+## Metrics
+
+```bash
+headlessly Metric.get mrr
+headlessly Metric.get churn_rate
+headlessly Metric.dashboard
+```
+
+## MCP Server
+
+Start the MCP server for AI agents:
+
+```bash
+headlessly mcp
+```
+
+Exposes three tools: `search`, `fetch`, `do`.

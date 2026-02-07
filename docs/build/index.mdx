@@ -4,20 +4,20 @@ description: Set up your org, connect Stripe & GitHub, learn the core concepts. 
 icon: Hammer
 ---
 
-You have an idea. You're building the product. headless.ly gives you a running business from line one — CRM, projects, billing, analytics, content, support — all connected in one typed graph.
+You have an idea. You're building the product. headless.ly gives you a running business from line one -- CRM, projects, billing, analytics, content, support -- all connected in one typed graph.
 
 ```typescript
-import Headlessly from 'headless.ly'
-
-const org = Headlessly({ tenant: 'my-startup' })
+import { Contact } from '@headlessly/crm'
+import { Issue } from '@headlessly/projects'
+import { Integration } from '@headlessly/platform'
 
 // Connect your foundations immediately
-await org.Integration.connect('stripe', { apiKey: process.env.STRIPE_KEY })
-await org.Integration.connect('github', { token: process.env.GITHUB_TOKEN })
+await Integration.connect({ provider: 'stripe', apiKey: process.env.STRIPE_KEY })
+await Integration.connect({ provider: 'github', token: process.env.GITHUB_TOKEN })
 
 // Start building
-await org.Contact.create({ name: 'Alice', email: 'alice@vc.com', stage: 'Lead' })
-await org.Task.create({ title: 'Build MVP', project: 'project_1', status: 'InProgress' })
+await Contact.create({ name: 'Alice', email: 'alice@vc.com', stage: 'Lead' })
+await Issue.create({ title: 'Build MVP', project: 'project_e5JhLzXc', status: 'InProgress' })
 ```
 
 ## What's in this section
@@ -41,8 +41,8 @@ await org.Task.create({ title: 'Build MVP', project: 'project_1', status: 'InPro
 
 During build, you're focused on:
 
-- **Projects** — Task, Project, Milestone, Comment (syncing with GitHub)
-- **Content** — Page, Post, Asset, Collection (docs, blog, landing pages)
-- **CRM** — Contact, Company (tracking investors, beta users, partners)
+- **Projects** -- Issue, Project, Comment (syncing with GitHub Issues)
+- **Content** -- Content, Asset, Site (docs, blog, landing pages)
+- **CRM** -- Contact, Company (tracking investors, beta users, partners)
 
 All 32 entities are available, but these are what matter most when you're building.

@@ -1,0 +1,91 @@
+---
+title: Grow
+description: Acquire customers, close deals, track revenue, and support users.
+icon: TrendingUp
+---
+
+You have users. Now turn them into customers. headless.ly connects the entire revenue pipeline -- from lead to qualified to deal to subscription to payment -- in one graph with real Stripe data.
+
+```typescript
+import { Contact, Deal } from '@headlessly/crm'
+import { Metric } from '@headlessly/analytics'
+
+// Qualify a lead
+await Contact.qualify({ id: 'contact_uLoSfycy' })
+
+// Create and close a deal
+await Deal.create({ name: 'Enterprise', value: 50_000, contact: 'contact_uLoSfycy', stage: 'Proposal' })
+await Deal.close({ id: 'deal_k7TmPvQx' })
+
+// Real MRR from Stripe
+const mrr = await Metric.get('mrr')
+```
+
+## Key Entities
+
+### CRM -- People and Relationships
+
+| Entity | Purpose | Key Verbs |
+|--------|---------|-----------|
+| **Contact** | People -- developers, founders, VCs | qualify, capture, assign, merge, enrich |
+| **Company** | Organizations using your product | enrich, score |
+| **Deal** | Sales opportunities with value | advance, close, lose, reopen |
+
+### Billing -- Revenue
+
+| Entity | Purpose | Key Verbs |
+|--------|---------|-----------|
+| **Customer** | Stripe Customer, links Contact to billing | create, update |
+| **Product** | What you sell | activate, archive |
+| **Price** | Pricing tiers -- Free, Pro, Enterprise | activate, archive |
+| **Subscription** | Active paying relationships | upgrade, downgrade, cancel, pause, resume |
+| **Invoice** | Bills | pay, refund, void |
+| **Payment** | Money movement | capture, refund |
+
+### Analytics -- Insights
+
+| Entity | Purpose | Key Verbs |
+|--------|---------|-----------|
+| **Event** | Every tracked action | track, batch |
+| **Metric** | Real values -- MRR, churn, NRR from Stripe | record, aggregate |
+| **Funnel** | Conversion flows | analyze, compare |
+| **Goal** | Business objectives | check, reset |
+
+## The Revenue Pipeline
+
+```typescript
+import { Deal } from '@headlessly/crm'
+
+// Automated: deal closes -> subscription created -> contact becomes customer
+Deal.closed((deal, $) => {
+  $.Subscription.create({ plan: 'pro', contact: deal.contact })
+  $.Contact.update(deal.contact, { stage: 'Customer' })
+})
+```
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+// Real financial metrics from Stripe
+const state = await $.status()
+// state.revenue = { mrr: 12_500, churn: 2.1, nrr: 108, ltv: 5_950 }
+```
+
+## Support
+
+| Entity | Purpose | Key Verbs |
+|--------|---------|-----------|
+| **Ticket** | Support requests | assign, escalate, solve, close, reopen |
+| **Content** | Knowledge base entries (type: 'Article') | publish, translate |
+| **Message** | Cross-channel communication (Email, SMS, Slack, etc.) | send, reply, forward |
+
+```typescript
+import { Ticket } from '@headlessly/support'
+import { Agent } from '@headlessly/platform'
+
+Ticket.created((ticket) => {
+  if (ticket.priority === 'High') {
+    Agent.deploy('support-bot', { ticket: ticket.$id })
+  }
+})
+```

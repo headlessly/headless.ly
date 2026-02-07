@@ -1,0 +1,139 @@
+---
+title: "@headlessly/react"
+description: React hooks and providers for building headless UIs with Headless.ly data.
+---
+
+The `@headlessly/react` package provides React hooks and context providers for seamless integration with Headless.ly.
+
+## Installation
+
+```bash
+npm install @headlessly/react @headlessly/db
+```
+
+## Setup
+
+Wrap your app with the `HeadlesslyProvider`:
+
+```tsx
+import { HeadlesslyProvider } from '@headlessly/react'
+
+function App() {
+  return (
+    <HeadlesslyProvider
+      apiKey={process.env.NEXT_PUBLIC_HEADLESSLY_KEY}
+      app="crm"
+    >
+      <YourApp />
+    </HeadlesslyProvider>
+  )
+}
+```
+
+## Hooks
+
+### useCollection
+
+Query a collection with automatic loading states:
+
+```tsx
+import { useCollection } from '@headlessly/react'
+
+function ContactList() {
+  const { data, loading, error, refetch } = useCollection('Contact', {
+    filter: { status: { $eq: 'active' } },
+    limit: 25,
+    sort: '-lastEngagement',
+  })
+
+  if (loading) return <Spinner />
+  if (error) return <Error message={error.message} />
+
+  return (
+    <ul>
+      {data.map(contact => (
+        <li key={contact.id}>{contact.name} - {contact.email}</li>
+      ))}
+    </ul>
+  )
+}
+```
+
+### useEntity
+
+Fetch a single entity by ID:
+
+```tsx
+import { useEntity } from '@headlessly/react'
+
+function ContactProfile({ id }: { id: string }) {
+  const { data: contact, loading } = useEntity('Contact', id)
+
+  if (loading || !contact) return <Spinner />
+
+  return (
+    <div>
+      <h1>{contact.name}</h1>
+      <p>{contact.email}</p>
+      <span>Stage: {contact.stage}</span>
+    </div>
+  )
+}
+```
+
+### useMutation
+
+Create, update, or delete entities:
+
+```tsx
+import { useMutation } from '@headlessly/react'
+
+function CreateContactForm() {
+  const { mutate, loading, error } = useMutation('Contact', 'create')
+
+  const handleSubmit = async (data: ContactData) => {
+    const result = await mutate(data)
+    console.log('Created:', result.id)
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      {/* form fields */}
+      <button disabled={loading}>Create Contact</button>
+      {error && <p className="text-red-500">{error.message}</p>}
+    </form>
+  )
+}
+```
+
+### useFeatureFlag
+
+Evaluate feature flags client-side:
+
+```tsx
+import { useFeatureFlag } from '@headlessly/react'
+
+function Dashboard() {
+  const showNewChart = useFeatureFlag('new-analytics-chart')
+
+  return showNewChart ? <NewChart /> : <LegacyChart />
+}
+```
+
+### useAnalytics
+
+Access analytics methods:
+
+```tsx
+import { useAnalytics } from '@headlessly/react'
+
+function PricingPage() {
+  const { track } = useAnalytics()
+
+  return (
+    <button onClick={() => track('plan_selected', { plan: 'pro' })}>
+      Select Pro Plan
+    </button>
+  )
+}
+```

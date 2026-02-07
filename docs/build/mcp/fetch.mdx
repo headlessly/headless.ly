@@ -1,0 +1,45 @@
+---
+title: fetch
+description: Get a specific entity, schema, metric, or the full business status.
+---
+
+## Usage
+
+Get an entity:
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Contact", "id": "contact_uLoSfycy" }
+```
+
+Get with relationships:
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Contact", "id": "contact_uLoSfycy", "include": ["deals", "company"] }
+```
+
+Get a metric:
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Metric", "id": "mrr" }
+```
+
+Get the full business status:
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Status" }
+```
+
+Get a schema definition:
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Schema", "id": "Contact" }
+```
+
+## Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `type` | string | Entity type, `Metric`, `Status`, or `Schema` |
+| `id` | string | Entity ID (not required for Status) |
+| `include` | string[] | Relationships to include |
+| `asOf` | string | Time travel -- fetch as of ISO timestamp |

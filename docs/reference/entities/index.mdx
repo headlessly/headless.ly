@@ -1,0 +1,43 @@
+---
+title: Entities
+description: All 32 core entities across 11 product domains.
+icon: Database
+---
+
+Every entity exists because headless.ly needs it to run itself as an autonomous business.
+
+## Base Meta-Fields
+
+Every Digital Object carries these `$` meta-fields automatically — you never declare them in a Noun, but they're always present:
+
+```typescript
+{
+  $type: 'Contact',                              // TypeScript discriminator
+  $id: 'contact_fX9bL5nRd',                     // unique, type-prefixed
+  $context: 'https://headless.ly/~acme',         // tenant namespace
+  $version: 7,                                   // event-sourcing version
+  $createdAt: '2025-01-15T...',
+  $createdBy: 'user_Qm8xNfKpL',
+  $updatedAt: '2025-02-07T...',
+}
+```
+
+`$context` supports custom domains — if Acme maps `api.acme.com` to their org, then `https://headless.ly/~acme` and `https://api.acme.com` resolve to the same data.
+
+## Domains
+
+| Domain | Entities | Count |
+|--------|----------|-------|
+| [Identity](/docs/reference/entities/identity) | User, Organization, ApiKey | 3 |
+| [CRM](/docs/reference/entities/crm) | Contact, Company, Deal | 3 |
+| [Projects](/docs/reference/entities/projects) | Project, Issue, Comment | 3 |
+| [Content](/docs/reference/entities/content) | Content, Asset, Site | 3 |
+| [Billing](/docs/reference/entities/billing) | Customer, Product, Price, Subscription, Invoice, Payment | 6 |
+| [Support](/docs/reference/entities/support) | Ticket | 1 |
+| [Analytics](/docs/reference/entities/analytics) | Event, Metric, Funnel, Goal | 4 |
+| [Marketing](/docs/reference/entities/marketing) | Campaign, Segment, Form | 3 |
+| [Experimentation](/docs/reference/entities/experimentation) | Experiment, FeatureFlag | 2 |
+| [Platform](/docs/reference/entities/platform) | Workflow, Integration, Agent | 3 |
+| [Communication](/docs/reference/entities/communication) | Message | 1 |
+
+All entities share the same interface: `create`, `get`, `find`, `update`, `delete`, `count`, plus custom verbs defined on each Noun.

@@ -1,0 +1,79 @@
+---
+title: CRM
+description: Contact, Company, Deal — people and relationships.
+---
+
+Track developers who sign up, startups using the platform, investor conversations, partner deals.
+
+## Contact
+
+People — developers, founders, VCs, partners.
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Contact = Noun('Contact', {
+  name: 'string!',
+  email: 'string?#',
+  phone: 'string?',
+  title: 'string?',
+  stage: 'Lead | Qualified | Customer | Churned | Partner',
+  source: 'string?',
+  company: '-> Company.contacts',
+  deals: '<- Deal.contact[]',
+  tickets: '<- Ticket.contact[]',
+  customer: '<- Customer.contact',
+  messages: '<- Message.contact[]',
+  qualify:  'Qualified',
+  capture:  'Captured',
+  assign:   'Assigned',
+  merge:    'Merged',
+  enrich:   'Enriched',
+})
+```
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `qualify` | `Qualified` | Move from Lead to Qualified |
+| `capture` | `Captured` | Capture from form or import |
+| `assign` | `Assigned` | Assign to a team member |
+| `merge` | `Merged` | Merge duplicate contacts |
+| `enrich` | `Enriched` | Enrich with external data |
+
+## Company
+
+Organizations — startups, enterprises, partners.
+
+```typescript
+export const Company = Noun('Company', {
+  name: 'string!#',
+  domain: 'string?#',
+  industry: 'string?',
+  size: 'number?',
+  contacts: '<- Contact.company[]',
+  deals: '<- Deal.company[]',
+  enrich: 'Enriched',
+  score:  'Scored',
+})
+```
+
+## Deal
+
+Sales opportunities with value and pipeline stage.
+
+```typescript
+export const Deal = Noun('Deal', {
+  name: 'string!',
+  value: 'number!',
+  stage: 'Discovery | Proposal | Negotiation | Closed | Lost',
+  probability: 'number?',
+  closeDate: 'datetime?',
+  contact: '-> Contact.deals',
+  company: '-> Company.deals',
+  messages: '<- Message.deal[]',
+  advance: 'Advanced',
+  close:   'Closed',
+  lose:    'Lost',
+  reopen:  'Reopened',
+})
+```

@@ -1,0 +1,91 @@
+---
+title: Sync API
+description: Bidirectional sync with conflict resolution and change-data-capture events.
+---
+
+## Overview
+
+The Sync API enables bidirectional synchronization between your local database and Headless.ly. It uses a last-write-wins conflict resolution strategy with vector clock support.
+
+## Sync Endpoint
+
+```
+POST /sync
+```
+
+### Request
+
+```json
+{
+  "lastSyncAt": "2026-01-15T12:00:00Z",
+  "changes": [
+    {
+      "type": "Contact",
+      "id": "contact_fX9bL5nRd",
+      "operation": "update",
+      "data": { "stage": "Qualified" },
+      "timestamp": "2026-01-15T12:30:00Z"
+    }
+  ]
+}
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "applied": 1,
+  "conflicts": 0,
+  "serverChanges": [
+    {
+      "type": "Contact",
+      "id": "contact_jH6gT3mVa",
+      "operation": "create",
+      "data": { "name": "John Doe", "email": "john@acme.com", "stage": "Lead" },
+      "timestamp": "2026-01-15T12:15:00Z"
+    }
+  ],
+  "syncedAt": "2026-01-15T12:31:00Z"
+}
+```
+
+## CDC Events
+
+```
+GET /events
+```
+
+Stream change-data-capture events for real-time synchronization.
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `since` | ISO 8601 | - | Only events after this timestamp |
+| `type` | string | all | Filter by entity type |
+| `limit` | integer | 100 | Maximum events to return |
+
+### Example
+
+```bash
+curl "https://db.headless.ly/events?since=2026-01-15T00:00:00Z&type=Contact"
+```
+
+## Manifest
+
+```
+GET /manifest
+```
+
+Returns file checksums for all Parquet data files, enabling efficient sync by comparing hashes.
+
+```json
+{
+  "files": {
+    "Contact.parquet": { "hash": "sha256:abc123...", "size": 45678, "records": 1500 },
+    "Deal.parquet": { "hash": "sha256:def456...", "size": 123456, "records": 8500 }
+  },
+  "generatedAt": "2026-01-15T12:00:00Z"
+}
+```

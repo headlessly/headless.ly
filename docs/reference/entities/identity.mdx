@@ -1,0 +1,74 @@
+---
+title: Identity
+description: User, Organization, ApiKey — authentication and tenancy. Powered by WorkOS.
+---
+
+Identity is backed by WorkOS via [oauth.do](https://oauth.do). Users authenticate, Organizations are tenants, ApiKeys enable programmatic access.
+
+## User
+
+Authenticated humans — founders, team members, collaborators.
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const User = Noun('User', {
+  name: 'string!',
+  email: 'string!#',
+  avatar: 'string?',
+  role: 'Owner | Admin | Member | Viewer',
+  status: 'Active | Invited | Suspended',
+  organization: '-> Organization.members',
+  invite:  'Invited',
+  suspend: 'Suspended',
+  restore: 'Restored',
+})
+```
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `invite` | `Invited` | Send invite to join organization |
+| `suspend` | `Suspended` | Temporarily disable access |
+| `restore` | `Restored` | Re-enable a suspended user |
+
+## Organization
+
+Tenants — each org gets a complete isolated instance of all 32 entities.
+
+```typescript
+export const Organization = Noun('Organization', {
+  name: 'string!#',
+  slug: 'string!#',
+  domain: 'string?#',
+  plan: '-> Price',
+  members: '<- User.organization[]',
+  apiKeys: '<- ApiKey.organization[]',
+})
+```
+
+The `slug` becomes the tenant namespace: `https://headless.ly/~{slug}`. If `domain` is set, that custom domain resolves to the same org.
+
+## ApiKey
+
+Programmatic access — SDK, CI/CD, agent authentication.
+
+```typescript
+export const ApiKey = Noun('ApiKey', {
+  name: 'string!',
+  key: 'string!#',
+  organization: '-> Organization.apiKeys',
+  scopes: 'json?',
+  expiresAt: 'datetime?',
+  lastUsedAt: 'datetime?',
+  revoke: 'Revoked',
+  rotate: 'Rotated',
+  delete: null,
+})
+```
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `revoke` | `Revoked` | Permanently disable the key |
+| `rotate` | `Rotated` | Generate new key, invalidate old |
+
+ApiKeys are never deleted — only revoked. The audit trail is preserved.

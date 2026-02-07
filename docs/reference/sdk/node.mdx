@@ -1,0 +1,44 @@
+---
+title: "@headlessly/node"
+description: Node.js SDK for server-side integrations with Headless.ly.
+---
+
+The `@headlessly/node` package provides a Node.js SDK for server-side operations.
+
+## Installation
+
+```bash
+npm install @headlessly/node
+```
+
+## Quick Start
+
+```typescript
+import { Headlessly } from '@headlessly/node'
+
+const hly = new Headlessly({
+  apiKey: process.env.HEADLESSLY_API_KEY,
+})
+
+// Server-side analytics
+hly.track({
+  userId: 'user_fX9bL5nRd',
+  event: 'subscription_renewed',
+  properties: {
+    plan: 'enterprise',
+    mrr: 499,
+  },
+})
+
+// Server-side error capture
+hly.captureException(error, {
+  user: { id: 'user_fX9bL5nRd' },
+  tags: { service: 'billing' },
+})
+
+// Feature flag evaluation
+const enabled = await hly.isFeatureEnabled('beta-billing', {
+  userId: 'user_fX9bL5nRd',
+  properties: { plan: 'enterprise' },
+})
+```

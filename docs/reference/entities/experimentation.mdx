@@ -1,0 +1,67 @@
+---
+title: Experimentation
+description: Experiment, FeatureFlag — A/B testing, hypothesis validation, and progressive rollouts.
+---
+
+Test with real revenue data. Validate business hypotheses. Roll out progressively.
+
+## Experiment
+
+A/B tests, multivariate tests, and business hypothesis validation.
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Experiment = Noun('Experiment', {
+  name: 'string!',
+  type: 'ABTest | Multivariate | Hypothesis',
+  status: 'Draft | Running | Analyzing | Completed',
+  hypothesis: 'text?',
+  control: 'json?',
+  variants: 'json?',
+  metric: '-> Metric?',
+  results: 'json?',
+  start:    'Started',
+  stop:     'Stopped',
+  conclude: 'Concluded',
+})
+```
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `start` | `Started` | Begin running the experiment |
+| `stop` | `Stopped` | Halt the experiment early |
+| `conclude` | `Concluded` | Declare results and winner |
+
+### Experiment Types
+
+| Type | Use Case |
+|------|----------|
+| `ABTest` | Compare two variants (pricing page, onboarding flow) |
+| `Multivariate` | Test multiple variables simultaneously |
+| `Hypothesis` | Validate business assumptions (does this ICP convert?) |
+
+The `Hypothesis` type bridges the startup-builder's validation loop — test assumptions against real data before committing.
+
+## FeatureFlag
+
+Progressive rollouts, beta access, kill switches.
+
+```typescript
+export const FeatureFlag = Noun('FeatureFlag', {
+  key: 'string!#',
+  description: 'text?',
+  enabled: 'boolean!',
+  rules: 'json?',
+  percentage: 'number?',
+  enable:  'Enabled',
+  disable: 'Disabled',
+  rollout: 'RolledOut',
+})
+```
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `enable` | `Enabled` | Turn on the flag |
+| `disable` | `Disabled` | Turn off the flag |
+| `rollout` | `RolledOut` | Increase percentage rollout |

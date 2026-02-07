@@ -1,0 +1,81 @@
+---
+title: Event Handlers
+description: Register BEFORE and AFTER hooks, subscribe to events, watch metrics.
+---
+
+## BEFORE Hooks (Gerund)
+
+Validate, transform, or reject before an action executes:
+
+```typescript
+import { Contact } from '@headlessly/crm'
+import { Subscription } from '@headlessly/billing'
+
+Contact.qualifying(contact => {
+  if (!contact.email) throw new Error('Cannot qualify without email')
+  return contact
+})
+
+Subscription.creating(sub => {
+  if (!sub.plan) throw new Error('Plan is required')
+  return { ...sub, startDate: new Date() }
+})
+```
+
+## AFTER Hooks (Past Tense)
+
+React to completed actions. The `$` context is available as a second argument for cross-entity access:
+
+```typescript
+import { Contact, Deal } from '@headlessly/crm'
+import { Ticket } from '@headlessly/support'
+
+Contact.qualified(contact => {
+  console.log(`${contact.name} qualified -- schedule follow-up`)
+})
+
+Deal.closed((deal, $) => {
+  $.Subscription.create({ plan: 'pro', contact: deal.contact })
+  $.Contact.update(deal.contact, { stage: 'Customer' })
+})
+
+Ticket.created((ticket, $) => {
+  if (ticket.priority === 'High') {
+    $.Agent.deploy({ template: 'support-bot', ticket: ticket.$id })
+  }
+})
+```
+
+## Event Stream
+
+Subscribe to all events or filter by type:
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+// All events
+$.events.subscribe('*', event => { /* ... */ })
+
+// Specific entity
+$.events.subscribe('Contact.*', event => { /* ... */ })
+
+// Specific action
+$.events.subscribe('Deal.Closed', event => { /* ... */ })
+```
+
+## Metric Watches
+
+React when metrics cross thresholds:
+
+```typescript
+import { Metric, Goal } from '@headlessly/analytics'
+import { Campaign } from '@headlessly/marketing'
+
+Metric.watch('churn_rate', { threshold: 3.0, direction: 'above' }, () => {
+  Campaign.create({ name: 'Win-back', segment: 'churning' })
+})
+
+Metric.watch('mrr', { threshold: 100_000, direction: 'above' }, () => {
+  Goal.complete({ id: 'goal_hR5tLnYm' })
+})
+```

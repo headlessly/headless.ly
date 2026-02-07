@@ -1,0 +1,14 @@
+{
+  "title": "Build",
+  "description": "Set up your org, connect Stripe & GitHub, learn the fundamentals.",
+  "root": true,
+  "pages": [
+    "index",
+    "getting-started",
+    "---Concepts---",
+    "concepts",
+    "---Interfaces---",
+    "sdk",
+    "mcp"
+  ]
+}

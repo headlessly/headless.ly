@@ -1,0 +1,65 @@
+---
+title: Queries & Pipelining
+description: Find entities, traverse relationships, and batch operations with promise pipelining.
+---
+
+## Promise Pipelining
+
+Chain dependent calls without awaiting -- the system batches them into a single round trip via capnweb:
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+// One round trip, not three
+const deals = await Contact
+  .find({ stage: 'Qualified' })
+  .map(contact => contact.deals)
+  .filter(deal => deal.status === 'Open')
+```
+
+The `.map()` callback runs in recording mode locally, then replays server-side.
+
+## Relationship Traversal
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+// Get a contact with all their deals
+const contact = await Contact.get('contact_uLoSfycy', {
+  populate: ['deals', 'messages', 'company'],
+})
+
+// Traverse the graph
+const company = await Contact.get('contact_uLoSfycy').company
+const deals = await Contact.get('contact_uLoSfycy').deals
+```
+
+## Aggregations
+
+```typescript
+import { Contact, Deal } from '@headlessly/crm'
+
+// Count by stage
+const leadCount = await Contact.count({ stage: 'Lead' })
+const dealValue = await Deal.find({ stage: 'Open' })
+  .reduce((sum, deal) => sum + deal.value, 0)
+```
+
+## Batch Operations
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+// Bulk create
+const contacts = await Contact.createMany([
+  { name: 'Alice', stage: 'Lead' },
+  { name: 'Bob', stage: 'Lead' },
+  { name: 'Carol', stage: 'Qualified' },
+])
+
+// Bulk update
+await Contact.updateMany(
+  { stage: 'Lead', createdAt: { $lt: '30d ago' } },
+  { stage: 'Churned' }
+)
+```

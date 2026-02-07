@@ -1,0 +1,52 @@
+---
+title: MCP Tools
+description: Three tools for any AI agent — search, fetch, do. Not hundreds.
+icon: Bot
+---
+
+headless.ly exposes three MCP tools -- not hundreds. Any AI agent (Claude, GPT, custom) can operate the entire business through these three primitives.
+
+```json title="headless.ly/mcp#search"
+{ "type": "Contact", "filter": { "stage": "Lead", "createdAt": { "$gte": "today" } } }
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Contact", "id": "contact_uLoSfycy", "include": ["deals", "company"] }
+```
+
+```ts title="headless.ly/mcp#do"
+const leads = await $.Contact.find({ stage: 'Lead' })
+for (const lead of leads) {
+  await $.Contact.qualify(lead.$id)
+  await $.Deal.create({ contact: lead.$id, value: 50000, stage: 'Negotiation' })
+}
+```
+
+## Why Three Tools?
+
+Most MCP servers expose dozens or hundreds of tools. Agents struggle with large tool sets -- they don't know what to pick, they make mistakes, they waste tokens reasoning about options.
+
+headless.ly gives agents three verbs that cover everything:
+
+- **search** -- find entities across the graph with filters, sorting, and pagination
+- **fetch** -- get a specific entity, schema, metric, or the full business status
+- **do** -- execute arbitrary TypeScript in a secure sandbox with full access to every entity
+
+The `do` tool is the universal interface. It runs arbitrary TypeScript in a secure sandbox powered by Cloudflare containers and `ai-evaluate`. The sandbox has access to `$` -- the universal context with all 32 entities. Any logic that goes beyond a simple lookup belongs in `do`.
+
+## Connect Your Agent
+
+Point any MCP-compatible client at your tenant's MCP endpoint:
+
+```json
+{
+  "mcpServers": {
+    "headlessly": {
+      "url": "https://crm.headless.ly/mcp",
+      "headers": { "Authorization": "Bearer hly_sk_..." }
+    }
+  }
+}
+```
+
+The subdomain determines the default context. `crm.headless.ly/mcp` scopes to CRM entities, but `search`, `fetch`, and `do` can reach any entity in the graph regardless of subdomain.

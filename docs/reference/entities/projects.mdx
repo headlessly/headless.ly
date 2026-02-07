@@ -1,0 +1,96 @@
+---
+title: Projects
+description: Project, Issue, Comment — work and collaboration. GitHub + Beads superset.
+---
+
+Build features, fix bugs, ship releases, track everything. Issues sync bidirectionally with GitHub and extend Beads with hierarchical IDs and dependency types.
+
+## Project
+
+Container for organized work. Maps to GitHub Projects.
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Project = Noun('Project', {
+  name: 'string!',
+  description: 'text?',
+  status: 'Active | Paused | Completed | Archived',
+  issues: '<- Issue.project[]',
+  githubRepo: 'string?',
+  activate: 'Activated',
+  complete: 'Completed',
+  archive:  'Archived',
+})
+```
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `activate` | `Activated` | Set project to active |
+| `complete` | `Completed` | Mark all work done |
+| `archive` | `Archived` | Archive for reference |
+
+## Issue
+
+Unit of work — bugs, features, tasks. Syncs with GitHub Issues. Supports Beads-style hierarchical IDs (parent.child up to 3 levels) and dependency types.
+
+```typescript
+export const Issue = Noun('Issue', {
+  title: 'string!',
+  body: 'text?',
+  status: 'Backlog | Todo | InProgress | InReview | Done | Cancelled',
+  priority: 'Urgent | High | Medium | Low',
+  type: 'Bug | Feature | Task | Chore',
+  project: '-> Project.issues',
+  assignee: '-> User?',
+  parent: '-> Issue?',
+  blocks: '-> Issue[]?',
+  relatedTo: '-> Issue[]?',
+  comments: '<- Comment.issue[]',
+  githubId: 'number?#',
+  assign:     'Assigned',
+  start:      'Started',
+  review:     'InReview',
+  complete:   'Completed',
+  cancel:     'Cancelled',
+  reopen:     'Reopened',
+  prioritize: 'Prioritized',
+})
+```
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `assign` | `Assigned` | Assign to a user |
+| `start` | `Started` | Move to InProgress |
+| `review` | `InReview` | Submit for review |
+| `complete` | `Completed` | Mark done |
+| `cancel` | `Cancelled` | Cancel the issue |
+| `reopen` | `Reopened` | Reopen after close |
+| `prioritize` | `Prioritized` | Change priority level |
+
+### Dependencies
+
+Issues support four Beads-style dependency types:
+
+- **`parent`** — hierarchical nesting (up to 3 levels: epic → story → subtask)
+- **`blocks`** — this issue blocks another from starting
+- **`relatedTo`** — informational link between issues
+- Parent-child IDs are hierarchical: `PROJ-1.1`, `PROJ-1.1.1`
+
+## Comment
+
+Discussion on Issues, Tickets, or Content. Polymorphic — attaches to any commentable entity.
+
+```typescript
+export const Comment = Noun('Comment', {
+  body: 'text!',
+  author: '-> User',
+  issue: '-> Issue.comments?',
+  ticket: '-> Ticket.comments?',
+  content: '-> Content.comments?',
+  update: null,
+  delete: null,
+})
+```
+
+Comment is append-only — no updates, no deletes.

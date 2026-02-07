@@ -1,0 +1,6 @@
+{
+  "title": "Automate",
+  "description": "Workflows, agents, and integrations that run the business.",
+  "root": true,
+  "pages": ["index", "workflows", "agents", "integrations"]
+}

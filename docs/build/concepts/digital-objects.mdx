@@ -1,0 +1,77 @@
+---
+title: Digital Objects
+description: The core abstraction — typed, versioned, event-sourced entities defined via the Noun() function.
+icon: Box
+---
+
+Every entity in headless.ly is a **Digital Object** — a typed, versioned, event-sourced entity with an immutable history, relationships to other objects, and actions you can perform on it.
+
+## Defining a Noun
+
+Entities are defined using the `Noun()` function from `digital-objects`. Zero dependencies. Zero codegen. Full TypeScript inference.
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Contact = Noun('Contact', {
+  name: 'string!',
+  email: 'string?#',
+  phone: 'string?',
+  title: 'string?',
+  stage: 'Lead | Qualified | Customer | Churned | Partner',
+  source: 'string?',
+  company: '-> Company.contacts',
+  deals: '<- Deal.contact[]',
+  messages: '<- Message.contact[]',
+
+  qualify:  'Qualified',
+  capture:  'Captured',
+  assign:   'Assigned',
+  merge:    'Merged',
+  enrich:   'Enriched',
+})
+```
+
+## Property Value Patterns
+
+Every property value tells the parser what it is:
+
+| Pattern | Meaning | Example |
+|---------|---------|---------|
+| Type string | Data property | `'string!'`, `'number?'`, `'datetime!'` |
+| Arrow syntax | Relationship | `'-> Company.contacts'`, `'<- Deal.contact[]'` |
+| Pipe-separated PascalCase | Enum | `'Lead \| Qualified \| Customer'` |
+| Single PascalCase word | Verb declaration | `'Qualified'`, `'Captured'` |
+| `null` | Opt out of inherited verb | `update: null` |
+
+## Type Modifiers
+
+| Modifier | Meaning |
+|----------|---------|
+| `!` | Required |
+| `?` | Optional |
+| `#` | Indexed |
+
+## Relationships
+
+```typescript
+company: '-> Company.contacts'     // belongs to Company
+deals: '<- Deal.contact[]'         // has many Deals
+```
+
+`->` is a forward reference (many-to-one). `<-` is a reverse reference (one-to-many). `[]` indicates a collection.
+
+## Immutability
+
+Opt out of CRUD verbs with `null`:
+
+```typescript
+export const Event = Noun('Event', {
+  name: 'string!',
+  timestamp: 'datetime!',
+  update: null,
+  delete: null,
+})
+```
+
+`Event.update()` is a TypeScript error — the Noun definition above removes it.

@@ -1,0 +1,185 @@
+---
+title: 'Three Tools Architecture'
+description: Why headless.ly exposes exactly three MCP tools — search, fetch, do — instead of hundreds. The design rationale, token arithmetic, and workflow examples.
+---
+
+Open the MCP server for a typical SaaS platform and count the tools. Salesforce's connector might expose 80. A project management integration, 45. A billing platform, 30. Chain three of those together and your agent is staring down 155 tool definitions before it has done a single useful thing.
+
+This is the central failure mode of the MCP ecosystem right now: we are building agent interfaces the same way we built human interfaces in 2005 — with giant menus of discrete operations. The agent equivalent of a toolbar with 200 icons.
+
+headless.ly's MCP server exposes exactly three tools: `search`, `fetch`, and `do`. They cover CRM, project management, billing, content, support, analytics, marketing, experimentation, and workflows. All 32 entity types. All CRUD operations plus custom domain verbs. Across 52 composable systems.
+
+## The Problem: Tool Overload Is a Tax on Every Request
+
+When an LLM receives a list of available tools, each tool definition consumes context window tokens. The model must read every tool's name, description, and parameter schema to decide which one to call. This is not free.
+
+Consider the math. A typical MCP tool definition runs 150-300 tokens when you include the JSON Schema for parameters. A server with 200 tools burns 30,000-60,000 tokens just on tool descriptions — before the user has even asked a question.
+
+But the cost is not just tokens. It is accuracy. Research on tool-use in language models consistently shows that selection accuracy degrades as the number of available tools increases. At 10 tools, models pick correctly almost every time. At 50, errors creep in. At 200, the model spends more effort choosing the right tool than actually using it.
+
+| Tools Available | Token Overhead | Selection Accuracy | Avg. Calls to Complete Task |
+|---|---|---|---|
+| 3 | ~600 tokens | ~99% | 2.1 |
+| 50 | ~10,000 tokens | ~91% | 3.4 |
+| 200 | ~40,000 tokens | ~78% | 5.7 |
+| 500 | ~100,000 tokens | ~64% | 8.2+ |
+
+Fewer tools means the agent gets to work faster, picks right more often, and finishes in fewer steps.
+
+## Three Primitives That Compose
+
+headless.ly's MCP server is built on `@modelcontextprotocol/sdk` with an HTTP Streamable transport, deployed as a Cloudflare Worker. Every `*.headless.ly` subdomain routes to the same worker, which resolves the subdomain to determine the system context — then constructs a three-tool MCP server scoped to that system.
+
+### `search` — Find entities across the graph
+
+```json title="headless.ly/mcp#search"
+{ "type": "Contact", "filter": { "stage": "Lead", "company": { "$exists": true } }, "limit": 10 }
+```
+
+Under the hood, `search` resolves the entity type against the current system's entity registry, constructs a query path with MongoDB-style filter encoding, and delegates to the system's Durable Object. The agent does not need to know any of this. It just says what it wants to find.
+
+### `fetch` — Get a specific entity or system metadata
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Contact", "id": "contact_fX9bL5nRd" }
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "resource": "schema" }
+```
+
+When an agent first connects, it can fetch the schema to discover exactly what entities and operations are available in the current context.
+
+### `do` — Execute any action
+
+```ts title="headless.ly/mcp#do"
+await $.Contact.create({ name: 'Alice Chen', email: 'alice@startup.io', stage: 'Lead' })
+await $.Deal.update('deal_k7TmPvQx', { stage: 'Negotiation', value: 48000 })
+await $.Contact.qualify('contact_fX9bL5nRd')
+```
+
+The `do` tool is the universal executor. Instead of 200 discrete tools (`create_contact`, `update_contact`, `delete_contact`, `list_contacts`, `create_deal`, `update_deal`, ...), you have one tool with typed operations. The combinatorial explosion happens in the argument space, not in the tool namespace.
+
+## Context Scoping: Same Tools, Different Worlds
+
+Every `*.headless.ly` subdomain resolves to a different system context:
+
+```
+CRM.Headless.ly/mcp          → search/fetch/do scoped to CRM entities
+Billing.Headless.ly/mcp      → search/fetch/do scoped to Billing entities
+Healthcare.Headless.ly/mcp   → search/fetch/do scoped to Healthcare industry
+PM.Headless.ly/mcp           → search/fetch/do scoped to Project Management entities
+```
+
+The symmetric composition system means paths work as secondary dimensions:
+
+```
+CRM.Headless.ly/healthcare   = Healthcare.Headless.ly/crm
+```
+
+This is why three tools can cover 52 systems. The tools are polymorphic. The context is what changes.
+
+## A Real Workflow: Lead to Deal in Three Calls
+
+**Step 1: Search for unqualified leads**
+
+```json title="headless.ly/mcp#search"
+{ "type": "Contact", "filter": { "stage": "Lead", "company": { "$exists": true } }, "limit": 5 }
+```
+
+**Step 2: Fetch the company details for context**
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Company", "id": "company_e5JhLzXc" }
+```
+
+**Step 3: Qualify the lead and create a deal**
+
+```ts title="headless.ly/mcp#do"
+await $.Contact.qualify('contact_fX9bL5nRd')
+await $.Deal.create({
+  contact: 'contact_fX9bL5nRd',
+  company: 'company_e5JhLzXc',
+  value: 24000,
+  stage: 'Qualified'
+})
+```
+
+Three calls. Two entity types. One workflow that would have required finding and correctly sequencing at least four different tools on a traditional MCP server.
+
+## Why Three Is the Correct Number
+
+The three-tool pattern falls out of a categorical observation about what agents do with data:
+
+1. **Discover** what exists (search)
+2. **Inspect** something specific (fetch)
+3. **Act** on it (do)
+
+Every operation in every SaaS product maps to one of these three. Listing invoices is a search. Getting an invoice PDF is a fetch. Voiding an invoice is a do. The `do` tool absorbs the most complexity — its typed operations (`Entity.verb`) encode both the target and the action in a single expression.
+
+## The Token Arithmetic
+
+Three tool definitions as they appear in the MCP tool listing:
+
+```
+search:  ~180 tokens (name + description + 4 parameters)
+fetch:   ~160 tokens (name + description + 3 parameters)
+do:      ~140 tokens (name + description + 2 parameters)
+───────────────────────────────────────────────────────
+Total:   ~480 tokens
+```
+
+A conventional MCP server exposing the same CRM capability as individual tools:
+
+```
+search_contacts, get_contact, create_contact, update_contact, delete_contact,
+search_companies, get_company, create_company, ...
+(7 entity types x 5 operations each = 35 tools)
+───────────────────────────────────────────────────────
+Total (35 tools):     ~4,550 tokens
+```
+
+That is a 9.5x reduction for a single system. Across all 52 headless.ly systems, the conventional approach would require 1,800+ tools and consume over 230,000 tokens of context. The three-tool pattern stays at 480 tokens regardless.
+
+## Event Sourcing: Every Tool Call Is an Event
+
+Every `do` invocation passes through the Durable Object, which maintains an immutable event log with CDC (Change Data Capture). Every mutation produces a `SyncEvent`:
+
+```typescript
+interface SyncEvent {
+  id: string
+  timestamp: string
+  operation: 'create' | 'update' | 'delete'
+  type: string
+  entityId: string
+  data?: Record<string, unknown>
+  checksum?: string
+}
+```
+
+Complete audit trail of everything the agent did, reconstructable via time travel. For agent-operated businesses, this is not optional. It is the foundation of trust.
+
+## Connecting
+
+```json
+{
+  "mcpServers": {
+    "headlessly-crm": {
+      "url": "https://crm.headless.ly/mcp",
+      "headers": {
+        "Authorization": "Bearer sk_live_your_api_key"
+      }
+    }
+  }
+}
+```
+
+Or with the CLI:
+
+```bash
+npx @headlessly/cli mcp --context crm
+npx @headlessly/cli mcp --context healthcare
+npx @headlessly/cli mcp --context billing
+```
+
+The `--context` flag determines which system scopes the three tools. Same three tools, different entity universes.

@@ -1,0 +1,92 @@
+---
+title: Subdomain Routing
+description: How Headless.ly routes requests through subdomain-scoped contexts.
+icon: Globe
+---
+
+## Overview
+
+Every `*.headless.ly` subdomain routes to the same Cloudflare Worker, which resolves the subdomain to determine the composition context.
+
+## How It Works
+
+When a request arrives at `crm.headless.ly`:
+
+1. The Worker extracts the subdomain: `crm`
+2. Looks up the context in the registry
+3. The context defines available entities:
+   ```
+   crm -> Contact, Company, Deal
+   ```
+4. API routes are automatically generated:
+   ```
+   /api/contacts    -> Contact
+   /api/companies   -> Company
+   /api/deals       -> Deal
+   ```
+
+## URL Structure
+
+```
+https://{context}.headless.ly/api/{entities}
+https://{context}.headless.ly/api/{entities}/:id
+https://{context}.headless.ly/rpc/{Resource}.{operation}(args)
+https://{context}.headless.ly/mcp
+```
+
+### Examples
+
+```bash
+# CRM
+GET  https://crm.headless.ly/api/contacts
+POST https://crm.headless.ly/api/deals
+GET  https://crm.headless.ly/rpc/Deals.find({"stage":"negotiation"})
+
+# Billing
+GET  https://billing.headless.ly/api/subscriptions
+GET  https://billing.headless.ly/api/invoices?filter={"status":"open"}
+
+# Support
+GET  https://support.headless.ly/api/tickets
+```
+
+## Symmetric Composition
+
+Paths work as secondary dimensions — the order doesn't matter:
+
+```
+CRM.Headless.ly/healthcare   = Healthcare.Headless.ly/crm
+```
+
+Both resolve to the same composed context: CRM entities filtered by healthcare industry.
+
+## Subdomain Categories
+
+| Category | Examples | Scoped To |
+|----------|----------|-----------|
+| **Domain** | `crm`, `billing`, `projects`, `support` | Product domain entities |
+| **Journey** | `build`, `launch`, `grow`, `scale` | Lifecycle stage context |
+| **System** | `CRM`, `EHR`, `Accounting` | 52 system compositions |
+| **Industry** | `Healthcare`, `Construction` | NAICS sector compositions |
+| **Utility** | `db`, `code` | Infrastructure services |
+
+## Core Database API
+
+The `db.headless.ly` domain provides access to all entity types without context scoping:
+
+```bash
+# Direct entity access (any type)
+GET  https://db.headless.ly/query/Contact
+GET  https://db.headless.ly/entity/Contact/contact_fX9bL5nRd
+POST https://db.headless.ly/entity/Deal
+```
+
+## MCP per Subdomain
+
+Each subdomain exposes its own MCP endpoint with the same three tools (`search`, `fetch`, `do`), scoped to the subdomain's entities:
+
+```
+CRM.Headless.ly/mcp          → search/fetch/do scoped to CRM entities
+Billing.Headless.ly/mcp      → search/fetch/do scoped to Billing entities
+Healthcare.Headless.ly/mcp   → search/fetch/do scoped to Healthcare entities
+```

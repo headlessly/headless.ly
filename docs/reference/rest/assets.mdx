@@ -1,0 +1,42 @@
+---
+title: Assets API
+description: Direct Parquet file access with CDN caching and ETag support.
+---
+
+## Endpoint
+
+```
+GET /assets/:filename
+```
+
+Access raw Parquet data files directly. Responses are CDN-cached with ETag support for efficient bandwidth usage.
+
+## Examples
+
+```bash
+# Download Contact data
+curl "https://db.headless.ly/assets/Contact.parquet" -o contacts.parquet
+
+# Conditional request (only download if changed)
+curl "https://db.headless.ly/assets/Deal.parquet" \
+  -H "If-None-Match: \"abc123\"" \
+  -o deals.parquet -w "%{http_code}"
+```
+
+## Response Headers
+
+| Header | Description |
+|--------|-------------|
+| `ETag` | File hash for conditional requests |
+| `Content-Type` | `application/octet-stream` |
+| `Content-Length` | File size in bytes |
+| `Cache-Control` | CDN cache directives |
+| `Last-Modified` | Last modification timestamp |
+
+## Status Codes
+
+| Status | Meaning |
+|--------|---------|
+| `200` | File returned |
+| `304` | Not modified (ETag matched) |
+| `404` | File not found |

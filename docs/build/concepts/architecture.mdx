@@ -1,0 +1,65 @@
+---
+title: Architecture
+description: Layer architecture, storage model, multi-tenancy, and the data lakehouse.
+icon: Layers
+---
+
+## Layer Architecture
+
+```
+headless.ly       → Tenant composition, ICP templates, SDK, RPC client
+objects.do        → Managed Digital Object service, verb conjugation, events
+digital-objects   → Pure schemas, zero deps, Noun() function, 32 core entities
+.do services      → payments.do, oauth.do, events.do, database.do, functions.do
+@dotdo/do         → THE Durable Object: StorageHandler, EventsStore, WebSocket
+@dotdo/db         → ParqueDB: hybrid relational-document-graph on Parquet
+Cloudflare        → Workers, Durable Objects, R2, KV, AI
+```
+
+## Storage
+
+ParqueDB — hybrid relational-document-graph database on Apache Parquet:
+
+- **Relational**: Typed schemas, foreign keys across entities
+- **Document**: Flexible fields, schema evolution without rewrites
+- **Graph**: Bidirectional relationship indexes
+- **Columnar**: Predicate pushdown, bloom filters
+
+```
+Write:  Client → Worker → DO (SQLite WAL) → flush → R2 (Parquet)
+Read:   Client → Worker → R2 (Parquet) → Cache → response
+```
+
+## Multi-Tenancy
+
+One Durable Object per tenant. Complete data isolation:
+
+```
+POST   headless.ly/~my-startup/Contact          → create
+GET    headless.ly/~my-startup/Contact?stage=Lead → find
+GET    headless.ly/~my-startup/Contact/abc123    → get
+```
+
+## Data Lakehouse
+
+All events land in an Iceberg R2 lakehouse:
+
+```
+Browser events  ─┐
+Stripe webhooks  ─┤─→ Immutable Event Log ─→ Iceberg R2 Lakehouse
+GitHub webhooks  ─┤
+API mutations    ─┘
+```
+
+## Promise Pipelining
+
+Chain calls without awaiting — batched into a single round trip:
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+const deals = await $.Contact
+  .find({ stage: 'Qualified' })
+  .map(contact => contact.deals)
+  .filter(deal => deal.status === 'Open')
+```

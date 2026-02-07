@@ -1,0 +1,90 @@
+---
+title: Events & Time Travel
+description: Every mutation is an event. Every state is reconstructable. Nothing is ever lost.
+icon: History
+---
+
+## Immutable Event Log
+
+Every mutation appends to an immutable log:
+
+```
+Contact.Created   → { id, name, email, stage: 'Lead' }
+Contact.Qualified → { id, stage: 'Lead' → 'Qualified', qualifiedBy: 'agent_1' }
+```
+
+Events are never deleted or modified.
+
+## Time Travel
+
+Reconstruct any point in time:
+
+```typescript
+import { $ } from '@headlessly/sdk'
+import { Contact } from '@headlessly/crm'
+
+const contacts = await Contact.find(
+  { stage: 'Lead' },
+  { asOf: '2026-01-15T10:00:00Z' }
+)
+
+await Contact.rollback('contact_uLoSfycy', { asOf: '2026-02-06T15:00:00Z' })
+```
+
+## Subscriptions
+
+### Code-as-Data (~0ms)
+
+```typescript
+import { Deal } from '@headlessly/crm'
+
+Deal.closed((deal, $) => {
+  $.Subscription.create({ plan: 'pro', contact: deal.contact })
+})
+```
+
+### WebSocket (~10ms)
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+$.events.subscribe('Contact.Qualified', event => {
+  console.log(`${event.entity.name} was qualified`)
+})
+```
+
+### Webhook (~100ms)
+
+```typescript
+import { Workflow } from '@headlessly/platform'
+
+await Workflow.create({
+  trigger: 'Deal.Closed',
+  action: 'webhook',
+  url: 'https://my-app.com/hooks/deal-closed',
+})
+```
+
+## Metric Watches
+
+React when numbers cross thresholds:
+
+```typescript
+import { Metric } from '@headlessly/analytics'
+import { Campaign } from '@headlessly/marketing'
+
+Metric.watch('churn_rate', { threshold: 3.0, direction: 'above' }, () => {
+  Campaign.create({ name: 'Win-back', type: 'Email', segment: 'churning' })
+})
+```
+
+## Alerts
+
+The status endpoint surfaces anomalies agents can act on:
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+const { alerts } = await $.status()
+// [{ type: 'churn_spike', severity: 'high', action: 'retain' }]
+```

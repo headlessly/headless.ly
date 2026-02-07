@@ -1,0 +1,72 @@
+---
+title: Dashboards
+description: Your entire business at a glance — for agents via $.status(), for humans via Numerics, Grafana, or any BI tool.
+---
+
+headless.ly is headless — no built-in UI dashboards. But one system means one connection shows your entire business.
+
+## For Agents
+
+The agent's dashboard is `$.status()`:
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+const state = await $.status()
+// {
+//   revenue:    { mrr: 12_500, churn: 2.1, nrr: 108 },
+//   pipeline:   { leads: 47, qualified: 12, deals_open: 8 },
+//   product:    { tasks_open: 23, blocked: 2 },
+//   support:    { tickets_open: 5, p0: 1, avg_response: '2h' },
+//   marketing:  { campaigns_active: 3, signups_7d: 89 },
+//   engagement: { dau: 230, mau: 1_200 },
+//   alerts:     [...]
+// }
+```
+
+The agent doesn't look at a chart. It reasons about the data and acts.
+
+## For Humans
+
+The same data, piped to any visualization tool:
+
+### Numerics
+
+iOS/Mac widgets for real-time business KPIs. One connection to the metrics API.
+
+### Grafana
+
+Time-series dashboards over the Iceberg R2 lakehouse. Full historical data.
+
+### Retool / Appsmith
+
+Custom internal tools against the REST API.
+
+### Google Sheets
+
+Live connection or CSV/JSON export.
+
+### Any BI Tool
+
+Standard REST + OpenAPI means any tool can connect.
+
+## Metrics API
+
+```
+GET /~my-startup/metrics
+```
+
+Returns every dimension:
+
+```json
+{
+  "revenue":    { "mrr": 12500, "arr": 150000, "churn": 2.1, "nrr": 108 },
+  "pipeline":   { "leads": 47, "qualified": 12, "deals_open": 8, "deal_value": 340000 },
+  "product":    { "issues_open": 23, "issues_closed_7d": 15 },
+  "support":    { "tickets_open": 5, "avg_response": "2h", "csat": 94 },
+  "marketing":  { "campaigns_active": 3, "signups_7d": 89, "conversion": 4.2 },
+  "engagement": { "dau": 230, "mau": 1200, "events_24h": 15400 }
+}
+```
+
+One API. Every metric. Complete business view.

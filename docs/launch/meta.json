@@ -1,0 +1,6 @@
+{
+  "title": "Launch",
+  "description": "Go to market with campaigns, landing pages, and forms.",
+  "root": true,
+  "pages": ["index", "campaigns", "pages", "forms", "segments"]
+}

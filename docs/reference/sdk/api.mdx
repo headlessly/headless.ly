@@ -1,0 +1,46 @@
+---
+title: "@headlessly/api"
+description: Unified REST API client for all Headless.ly endpoints.
+---
+
+The `@headlessly/api` package provides a low-level API client for direct HTTP access to all Headless.ly endpoints.
+
+## Installation
+
+```bash
+npm install @headlessly/api
+```
+
+## Quick Start
+
+```typescript
+import { HeadlesslyAPI } from '@headlessly/api'
+
+const api = new HeadlesslyAPI({
+  apiKey: process.env.HEADLESSLY_API_KEY,
+  baseUrl: 'https://db.headless.ly',  // optional, this is the default
+})
+
+// Direct API calls
+const response = await api.get('/query/Contact', {
+  params: { filter: JSON.stringify({ stage: 'Lead' }), limit: '10' },
+})
+
+const data = await api.post('/entity/Contact', {
+  body: { name: 'Jane Doe', email: 'jane@acme.com', stage: 'Lead' },
+})
+
+// Domain-scoped requests
+const crmApi = api.withApp('crm')
+const deals = await crmApi.get('/api/deals')
+```
+
+## Methods
+
+| Method | Description |
+|--------|-------------|
+| `api.get(path, opts?)` | GET request |
+| `api.post(path, opts?)` | POST request |
+| `api.put(path, opts?)` | PUT request |
+| `api.delete(path, opts?)` | DELETE request |
+| `api.withApp(slug)` | Create domain-scoped client |

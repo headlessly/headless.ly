@@ -1,0 +1,103 @@
+---
+title: Verbs
+description: Every action has a full lifecycle — execute, validate, react, audit.
+icon: Zap
+---
+
+Every verb has a full conjugation:
+
+```
+qualify
+  ├── qualify()      → execute (imperative)
+  ├── qualifying()   → BEFORE hook (gerund)
+  ├── qualified()    → AFTER hook (past tense)
+  └── qualifiedBy    → audit (reverse)
+```
+
+## CRUD Is Default
+
+Every Noun gets `create`, `update`, `delete` with full conjugation:
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+Contact.creating(contact => { /* validate */ })
+await Contact.create({ name: 'Alice', stage: 'Lead' })
+Contact.created(contact => { /* react */ })
+```
+
+## Custom Verbs
+
+Declared as properties on the Noun:
+
+```typescript
+export const Contact = Noun('Contact', {
+  qualify: 'Qualified',
+  capture: 'Captured',
+})
+```
+
+## BEFORE Hooks
+
+Validate or reject before an action executes:
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+Contact.qualifying(contact => {
+  if (!contact.email) throw new Error('Cannot qualify without email')
+  return contact
+})
+```
+
+## AFTER Hooks
+
+React to what happened:
+
+```typescript
+import { Contact, Deal } from '@headlessly/crm'
+
+Contact.qualified((contact, $) => {
+  $.Issue.create({
+    type: 'Task',
+    subject: `Follow up with ${contact.name}`,
+    contact: contact.$id,
+    source: 'crm',
+  })
+})
+
+Deal.closed((deal, $) => {
+  $.Subscription.create({ plan: 'pro', contact: deal.contact })
+  $.Contact.update(deal.contact, { stage: 'Customer' })
+})
+```
+
+## Same Verb, All Interfaces
+
+```typescript title="SDK"
+import { Contact } from '@headlessly/crm'
+
+await Contact.qualify({ id: 'contact_uLoSfycy' })
+```
+
+```ts title="headless.ly/mcp#do"
+await $.Contact.qualify({ id: 'contact_uLoSfycy' })
+```
+
+```bash title="CLI"
+headlessly do Contact.qualify contact_uLoSfycy
+```
+
+```bash title="REST"
+POST /~my-startup/Contact/contact_uLoSfycy/qualify
+```
+
+## Code-as-Data
+
+Handlers are serialized via `fn.toString()` and stored in the tenant's database. They execute inside the Durable Object — no separate infrastructure.
+
+| Mode | Latency | Use Case |
+|------|---------|----------|
+| Code-as-data | ~0ms | Default — runs inside the DO |
+| WebSocket | ~10ms | Real-time streaming |
+| Webhook | ~100ms | External integrations |

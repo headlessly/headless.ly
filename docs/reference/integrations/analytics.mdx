@@ -1,0 +1,65 @@
+---
+title: Analytics Forwarding
+description: Forward events to Google Analytics, Sentry, and PostHog while building your own data lakehouse.
+---
+
+The browser SDK captures all events and acts as an intelligent proxy — forwarding to your existing tools while building your own data lake.
+
+## How It Works
+
+```
+Browser → headless.ly/events → ┬→ Google Analytics (web analytics)
+                                ├→ Sentry (error tracking)
+                                ├→ PostHog (product analytics)
+                                └→ Iceberg R2 Lakehouse (your data)
+```
+
+## Setup
+
+```html
+<script src="https://js.headless.ly/v1"
+  data-tenant="my-startup"
+  data-ga="G-XXXXXXXXXX"
+  data-sentry-dsn="https://xxx@sentry.io/xxx"
+  data-posthog-key="phc_xxx"
+/>
+```
+
+One script tag. Events flow everywhere.
+
+Or with npm:
+
+```typescript
+import { Headlessly } from '@headlessly/js'
+
+Headlessly.init({
+  ga: 'G-XXXXXXXXXX',
+  sentryDsn: 'https://xxx@sentry.io/xxx',
+  posthogKey: 'phc_xxx',
+})
+```
+
+## What Gets Captured
+
+| Event Type | Forwarded To | Stored |
+|-----------|-------------|--------|
+| Pageviews, sessions | Google Analytics | Lakehouse |
+| JavaScript errors | Sentry | Lakehouse |
+| Feature usage, clicks | PostHog | Lakehouse |
+| Custom events | All configured | Lakehouse |
+
+## Progressive Capability
+
+- **Phase 1**: Forward everything, store everything
+- **Phase 2**: Basic funnel analysis from your own data
+- **Phase 3**: Replace external tools one by one
+
+Day 1: external tools handle the heavy lifting. Over time, the lakehouse enables more. You never lose data.
+
+## Edge Proxy
+
+Cloudflare Snippets handle the proxy at the edge:
+- Intercept analytics/error requests
+- Forward to external providers
+- Also forward to ingest endpoint
+- Zero latency impact (< 5ms, < 32KB)

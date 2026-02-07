@@ -1,0 +1,6 @@
+{
+  "title": "Grow",
+  "description": "Acquire customers, close deals, track revenue and analytics.",
+  "root": true,
+  "pages": ["index", "crm", "billing", "analytics", "support"]
+}

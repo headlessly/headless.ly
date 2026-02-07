@@ -1,0 +1,115 @@
+---
+title: Automate
+description: Workflows, AI agents, and integrations that run the business autonomously.
+icon: Cog
+---
+
+Stop doing things manually. headless.ly's event system and verb conjugation make automation the natural outcome -- not a separate "automation platform" to configure.
+
+```typescript
+import { Deal } from '@headlessly/crm'
+import { Metric } from '@headlessly/analytics'
+import { Agent } from '@headlessly/platform'
+import { Campaign } from '@headlessly/marketing'
+
+// When a deal closes, create a subscription and update the contact
+Deal.closed((deal, $) => {
+  $.Subscription.create({ plan: 'pro', contact: deal.contact })
+  $.Contact.update(deal.contact, { stage: 'Customer' })
+})
+
+// When churn spikes, launch a win-back campaign
+Metric.watch('churn_rate', { threshold: 3.0, direction: 'above' }, () => {
+  Campaign.create({ name: 'Win-back', type: 'Email', segment: 'churning' })
+})
+
+// Deploy an autonomous support agent
+await Agent.create({
+  name: 'Support Bot',
+  mode: 'Autonomous',
+  model: 'claude-sonnet-4-5-20250929',
+  triggers: ['Ticket.Created'],
+  capabilities: ['Ticket.assign', 'Message.send', 'Ticket.solve', 'Ticket.escalate'],
+})
+```
+
+## Key Entities
+
+| Entity | Purpose | Key Verbs |
+|--------|---------|-----------|
+| **Workflow** | Automation rules -- event to action | activate, pause, trigger |
+| **Integration** | External connections -- Stripe, GitHub, Slack | connect, disconnect, sync |
+| **Agent** | AI agents that operate autonomously | deploy, pause, configure |
+
+## Workflows
+
+Workflows are event-triggered automations defined as code-as-data:
+
+```typescript
+import { Workflow } from '@headlessly/platform'
+import { Ticket } from '@headlessly/support'
+import { Event } from '@headlessly/analytics'
+
+await Workflow.create({
+  name: 'Deal Won -> Subscription',
+  trigger: 'Deal.Closed',
+  action: async (deal, $) => {
+    await $.Subscription.create({ plan: 'pro', contact: deal.contact })
+    await $.Contact.update(deal.contact, { stage: 'Customer' })
+  },
+})
+
+await Workflow.create({
+  name: 'SLA Breach -> Escalate',
+  trigger: 'Ticket.SLABreached',
+  action: async (ticket) => {
+    await Ticket.escalate({ id: ticket.$id })
+    await Event.create({
+      type: 'Task',
+      subject: `Urgent: SLA breach on ${ticket.subject}`,
+      source: 'crm',
+    })
+  },
+})
+```
+
+## Agents
+
+AI agents that operate the business autonomously:
+
+```typescript
+import { Agent } from '@headlessly/platform'
+
+// Support agent -- handles tickets, writes messages, escalates when stuck
+await Agent.create({
+  name: 'Support Bot',
+  mode: 'Autonomous',
+  model: 'claude-sonnet-4-5-20250929',
+  triggers: ['Ticket.Created'],
+  capabilities: ['Ticket.assign', 'Message.send', 'Ticket.solve', 'Ticket.escalate'],
+})
+
+// Content agent -- writes blog posts, social content
+await Agent.create({
+  name: 'Content Writer',
+  mode: 'Autonomous',
+  triggers: ['Campaign.Launched'],
+  capabilities: ['Content.create', 'Content.publish'],
+})
+```
+
+## Integrations
+
+All integrations live in the `.do` layer:
+
+```typescript
+import { Integration } from '@headlessly/platform'
+
+// Connect external systems
+await Integration.connect('stripe', { apiKey: process.env.STRIPE_KEY })
+await Integration.connect('github', { token: process.env.GITHUB_TOKEN })
+await Integration.connect('slack', { webhook: process.env.SLACK_WEBHOOK })
+
+// Sync status
+const syncs = await Integration.find({ status: 'Active' })
+```

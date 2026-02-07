@@ -1,0 +1,98 @@
+---
+title: Schema System
+description: Understanding the Headless.ly type system — Nouns, Verbs, Actions, and Events.
+icon: FileType
+---
+
+## Meta-Type Foundation
+
+At its core, Headless.ly uses a semantic type system built on four foundational types:
+
+### Noun
+
+Entity type definitions. Every entity in the system is a Noun.
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Contact = Noun('Contact', {
+  name: 'string!',
+  email: 'string?#',
+  stage: 'Lead | Qualified | Customer | Churned | Partner',
+  company: '-> Company.contacts',
+  deals: '<- Deal.contact[]',
+  qualify: 'Qualified',
+})
+```
+
+### Verb
+
+Action predicates that describe what can be done.
+
+```typescript
+Verb: {
+  verb: 'create',
+  activity: 'Creating',
+  event: 'Created',
+  inverse: 'delete',
+  category: 'CRUD',
+}
+```
+
+### Action
+
+Semantic operations combining Subject + Verb + Object (GraphDL notation):
+
+```typescript
+Action: {
+  name: 'Create Contact',
+  subject: 'User',
+  verb: 'create',
+  object: 'Contact',
+  enabled: true,
+}
+```
+
+### Event
+
+Past-tense outcomes that record what happened:
+
+```typescript
+Event: {
+  type: 'ContactCreated',
+  action: 'create-contact',
+  actor: 'user_fX9bL5nRd',
+  target: 'contact_jH6gT3mVa',
+  timestamp: '2026-01-15T12:00:00Z',
+}
+```
+
+## Schema Categories
+
+The full schema spans these domains:
+
+| Category | Entities | Description |
+|----------|----------|-------------|
+| **Identity** | User, Organization, ApiKey | Authentication and tenancy |
+| **CRM** | Contact, Company, Deal | Customer relationship management |
+| **Projects** | Project, Issue, Comment | Project and task management |
+| **Content** | Content, Asset, Site | Content management |
+| **Billing** | Customer, Product, Price, Subscription, Invoice, Payment | Billing and subscriptions |
+| **Support** | Ticket | Customer support |
+| **Analytics** | Event, Metric, Funnel, Goal | Observability and metrics |
+| **Marketing** | Campaign, Segment, Form | Marketing automation |
+| **Experimentation** | Experiment, FeatureFlag | A/B testing and feature flags |
+| **Platform** | Workflow, Integration, Agent | Platform infrastructure |
+
+## Field Notation
+
+| Pattern | Meaning | Example |
+|---------|---------|---------|
+| `'string!'` | Required string | `name: 'string!'` |
+| `'string?'` | Optional string | `phone: 'string?'` |
+| `'string?#'` | Optional, indexed | `email: 'string?#'` |
+| `'-> Type.field'` | Belongs-to relationship | `company: '-> Company.contacts'` |
+| `'<- Type.field[]'` | Has-many relationship | `deals: '<- Deal.contact[]'` |
+| `'A \| B \| C'` | Enum (pipe-separated) | `stage: 'Lead \| Qualified \| Customer'` |
+| `'PascalCase'` | Custom verb | `qualify: 'Qualified'` |
+| `null` | Opt out of CRUD verb | `update: null` (makes immutable) |

@@ -1,0 +1,59 @@
+---
+title: Launch
+description: Go to market with campaigns, landing pages, forms, and audience segments.
+icon: Rocket
+---
+
+You've built the product. Now bring it to market. headless.ly gives you everything you need to launch -- campaigns, landing pages, sign-up forms, and audience segmentation -- all connected to the same graph as your CRM, billing, and analytics.
+
+```typescript
+import { Campaign, Segment, Form } from '@headlessly/marketing'
+import { Content } from '@headlessly/content'
+
+// Create your launch campaign
+await Campaign.create({ name: 'Product Hunt Launch', type: 'Event', status: 'Active' })
+
+// Build your landing page
+await Content.create({ title: 'Pricing', slug: 'pricing', type: 'Page', status: 'Published' })
+
+// Set up a waitlist form
+await Form.create({ name: 'Waitlist', fields: ['name', 'email', 'company'] })
+
+// Define your target audience
+await Segment.create({ name: 'Early Adopters', definition: { source: 'product-hunt' } })
+```
+
+## Key Entities
+
+| Entity | Purpose | Key Verbs |
+|--------|---------|-----------|
+| **Campaign** | Marketing initiatives -- launches, drips, content pushes | launch, pause, complete |
+| **Content** | Landing pages, blog posts, docs (with type: Page, Post, etc.) | publish, unpublish, schedule |
+| **Form** | Data collection -- waitlist, sign-up, contact us | submit, validate |
+| **Segment** | Audience groups -- by source, stage, behavior | recalculate, export |
+
+## The Launch Pipeline
+
+```typescript
+import { Form } from '@headlessly/marketing'
+import { Contact } from '@headlessly/crm'
+import { Event } from '@headlessly/analytics'
+import { Campaign } from '@headlessly/marketing'
+
+// Form submission creates a Contact, attributed to the campaign
+Form.submitted((submission, $) => {
+  $.Contact.create({
+    name: submission.name,
+    email: submission.email,
+    stage: 'Lead',
+    source: 'waitlist',
+  })
+})
+
+// Campaign launched -- track attribution
+Campaign.launched((campaign) => {
+  Event.track({ name: 'campaign_launched', properties: { campaign: campaign.$id } })
+})
+```
+
+Everything connects. A form submission creates a Contact. A Campaign tracks attribution. Analytics track the funnel. Billing converts leads to revenue.

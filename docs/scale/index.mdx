@@ -1,0 +1,103 @@
+---
+title: Scale
+description: Financial metrics, business goals, dashboards, and operational intelligence at scale.
+icon: BarChart3
+---
+
+You're scaling. The same system that worked for a solo founder works for a seed-stage team. No migration. No new tools. The graph grows, agents get smarter, and the immutable event log means nothing is ever lost.
+
+```typescript
+import { Metric, Funnel, Goal } from '@headlessly/analytics'
+
+// Real financial metrics from Stripe
+const mrr = await Metric.get('mrr')          // $12,500
+const churn = await Metric.get('churn_rate')  // 2.1%
+const nrr = await Metric.get('nrr')           // 108%
+const ltv = await Metric.get('ltv')            // $5,950
+
+// Full revenue pipeline funnel
+await Funnel.analyze({ id: 'funnel_pK3xMwDv' })
+
+// Set business goals
+await Goal.create({ name: '$100K MRR', metric: 'mrr', target: 100_000 })
+await Goal.check({ id: 'goal_hR5tLnYm' })
+```
+
+## Financial Metrics (Headless Baremetrics)
+
+Real metrics derived from Stripe data -- not self-reported, not placeholders:
+
+| Metric | Source | Derivation |
+|--------|--------|------------|
+| **MRR** | Stripe subscriptions | Sum of active amounts, normalized monthly |
+| **ARR** | MRR | MRR x 12 |
+| **Churn Rate** | Stripe events | Cancellations / total subscriptions |
+| **NRR** | Stripe events | Including expansions and contractions |
+| **LTV** | Stripe history | Revenue per customer / churn rate |
+| **ARPU** | MRR / subscribers | Average revenue per unit |
+
+```typescript
+import { Metric } from '@headlessly/analytics'
+
+// These are real numbers, not placeholders
+const metrics = await Metric.dashboard()
+// { mrr: 12_500, arr: 150_000, churn: 2.1, nrr: 108, ltv: 5_950, arpu: 49 }
+```
+
+## Dashboards
+
+headless.ly is headless -- no built-in UI dashboards. But one system means one connection shows your entire business.
+
+### For Agents
+
+```typescript
+import { $ } from '@headlessly/sdk'
+import { Agent } from '@headlessly/platform'
+import { Campaign } from '@headlessly/marketing'
+
+const state = await $.status()
+// The agent reasons about the data and acts
+if (state.support.p0 > 0) await Agent.deploy('support-bot', { priority: 'urgent' })
+if (state.revenue.churn > 3) await Campaign.create({ name: 'Win-back', type: 'Email' })
+```
+
+### For Humans
+
+Plug into any visualization tool:
+
+- **Numerics** -- iOS/Mac widgets for real-time KPIs
+- **Grafana** -- time-series dashboards over the Iceberg lakehouse
+- **Retool / Appsmith** -- custom internal tools
+- **Google Sheets** -- live connection or CSV export
+- **Any BI tool** -- standard REST + OpenAPI
+
+One data source. Complete business view. No wiring 10 different tools.
+
+## Goals
+
+Track business objectives:
+
+```typescript
+import { Goal } from '@headlessly/analytics'
+
+await Goal.create({ name: '$100K MRR', metric: 'mrr', target: 100_000 })
+await Goal.create({ name: '1K DAU', metric: 'dau', target: 1_000 })
+await Goal.create({ name: '<2% Churn', metric: 'churn_rate', target: 2.0, direction: 'below' })
+
+// Check progress
+const goals = await Goal.find({ status: 'Active' })
+// [{ name: '$100K MRR', current: 12_500, target: 100_000, progress: 12.5 }]
+```
+
+## The Data Lakehouse
+
+Everything flows to the Iceberg R2 lakehouse:
+
+```
+Browser events  --+
+Stripe webhooks --+--> Iceberg R2 Lakehouse
+GitHub webhooks --+
+API mutations   --+
+```
+
+Over time, the lakehouse enables progressively richer analytics -- replacing external tools one by one as your own capabilities mature.

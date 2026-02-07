@@ -1,0 +1,19 @@
+{
+  "title": "Reference",
+  "description": "Complete technical reference for all entities, interfaces, and integrations.",
+  "root": true,
+  "pages": [
+    "index",
+    "---Concepts---",
+    "concepts",
+    "---Interfaces---",
+    "sdk",
+    "mcp",
+    "cli",
+    "rest",
+    "---Entities---",
+    "entities",
+    "---Integrations---",
+    "integrations"
+  ]
+}
