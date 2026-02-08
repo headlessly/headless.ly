@@ -1,0 +1,59 @@
+{
+  "name": "@headlessly/sdk",
+  "version": "0.1.0",
+  "description": "The unified headless.ly SDK — all 32 entities + $ context",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "pnpm build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "digital-objects": "^1.0.0",
+    "@headlessly/crm": "workspace:*",
+    "@headlessly/billing": "workspace:*",
+    "@headlessly/projects": "workspace:*",
+    "@headlessly/content": "workspace:*",
+    "@headlessly/support": "workspace:*",
+    "@headlessly/analytics": "workspace:*",
+    "@headlessly/marketing": "workspace:*",
+    "@headlessly/experiments": "workspace:*",
+    "@headlessly/platform": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  },
+  "keywords": [
+    "headlessly",
+    "sdk",
+    "digital-objects",
+    "agent-first",
+    "crm",
+    "billing",
+    "projects"
+  ],
+  "author": "headless.ly",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/headlessly/headless.ly",
+    "directory": "packages/sdk"
+  },
+  "homepage": "https://headless.ly"
+}

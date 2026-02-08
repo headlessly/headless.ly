@@ -1,0 +1,48 @@
+{
+  "name": "@headlessly/node",
+  "version": "0.1.0",
+  "description": "Node.js SDK for headless.ly - server-side analytics, errors, and feature flags",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.2",
+    "vitest": "^3.0.2"
+  },
+  "keywords": [
+    "headlessly",
+    "node",
+    "analytics",
+    "errors",
+    "server"
+  ],
+  "author": "headless.ly",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/headlessly/headless.ly"
+  },
+  "homepage": "https://headless.ly"
+}

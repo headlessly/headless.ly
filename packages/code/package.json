@@ -1,0 +1,58 @@
+{
+  "name": "@headlessly/code",
+  "version": "0.1.0",
+  "description": "Code execution client SDK for headless.ly platform - sandboxed environments for AI agents",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./types": {
+      "import": "./dist/types.js",
+      "types": "./dist/types.d.ts"
+    },
+    "./stream": {
+      "import": "./dist/stream.js",
+      "types": "./dist/stream.d.ts"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.2",
+    "vitest": "^3.0.2"
+  },
+  "keywords": [
+    "headlessly",
+    "code",
+    "sandbox",
+    "execution",
+    "ai-agents",
+    "cloudflare",
+    "workers"
+  ],
+  "author": "headless.ly",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/headlessly/headless.ly"
+  },
+  "homepage": "https://code.headless.ly"
+}

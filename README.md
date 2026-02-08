@@ -2,35 +2,84 @@
 
 The operating system for agent-first startups.
 
-Create an org. Get everything. CRM, project management, billing, analytics, content, support — as a single unified system that AI agents can operate autonomously.
-
-```typescript
-import Headlessly from 'headless.ly'
-
-const org = Headlessly({ tenant: 'my-startup' })
-
-// Everything exists. One line.
-await org.Contact.create({ name: 'Alice', email: 'alice@vc.com', stage: 'Lead' })
-await org.Deal.create({ title: 'Seed Round', contact: 'contact_1', value: 500_000 })
-await org.Task.create({ title: 'Build MVP', project: 'project_1', status: 'InProgress' })
-```
+Create an org. Get everything. CRM, project management, billing, analytics, content, support, marketing, experimentation — as a single unified system that AI agents can operate autonomously.
 
 ## Install
 
 ```bash
-npm install headless.ly
+npm install @headlessly/sdk
 ```
 
-## Why headless.ly?
+## Three Ways to Import
 
-**You're building a startup, not configuring software.**
+**1. Universal context (`$`)** — full access to every entity:
 
-Most business tools make you choose modules, design schemas, wire integrations, and learn 15 different APIs. headless.ly gives you one typed graph of everything — contacts, deals, tasks, content, tickets, billing — connected and ready for agents to operate from day zero.
+```typescript
+import { $ } from '@headlessly/sdk'
 
-- **One graph, not 15 SaaS tools** — every entity lives in the same system
-- **Agent-first** — TypeScript SDK is the primary contract, not a bolted-on API
-- **Immutable event log** — nothing is ever deleted, every state is reconstructable
-- **Zero configuration** — create an org and everything works
+await $.Contact.create({ name: 'Alice', stage: 'Lead' })
+await $.Deal.close('deal_fX9bL5nRd')
+```
+
+**2. Direct entity imports** — domain-specific packages:
+
+```typescript
+import { Contact, Deal } from '@headlessly/crm'
+import { Subscription } from '@headlessly/billing'
+
+await Contact.create({ name: 'Alice', stage: 'Lead' })
+await Deal.close('deal_fX9bL5nRd')
+```
+
+**3. Domain namespace imports** — grouping by product domain:
+
+```typescript
+import { crm, billing } from '@headlessly/sdk'
+
+await crm.Contact.create({ name: 'Alice', stage: 'Lead' })
+await billing.Subscription.create({ plan: 'pro', contact: 'contact_k7TmPvQx' })
+```
+
+## Promise Pipelining
+
+Built on [rpc.do](https://rpc.do) + [capnweb](https://github.com/cloudflare/capnweb) — chain dependent operations and they execute in a single round-trip:
+
+```typescript
+// One round-trip, not three
+const deals = await $.Contact
+  .find({ stage: 'Qualified' })
+  .map(contact => contact.deals)
+  .filter(deal => deal.stage === 'Open')
+```
+
+The magic `.map()` uses record-replay: your callback runs once in recording mode, capturing which RPC calls it makes. That recording replays on the server for each item in the list. No serialized code strings. No `eval()`. Just capnweb.
+
+```typescript
+// Automatic batching — concurrent calls become a single request
+const [contacts, deals, metrics] = await Promise.all([
+  $.Contact.find({ stage: 'Lead' }),
+  $.Deal.find({ stage: 'Open' }),
+  $.Metric.get('mrr'),
+])
+```
+
+## 32 Core Entities
+
+Every entity exists because headless.ly needs it to run itself as an autonomous business.
+
+| Domain | Package | Entities |
+|--------|---------|----------|
+| **Identity** | `@headlessly/sdk` | User, Organization, ApiKey |
+| **CRM** | `@headlessly/crm` | Contact, Company, Deal |
+| **Projects** | `@headlessly/projects` | Project, Issue, Comment |
+| **Content** | `@headlessly/content` | Content, Asset, Site |
+| **Billing** | `@headlessly/billing` | Customer, Product, Price, Subscription, Invoice, Payment |
+| **Support** | `@headlessly/support` | Ticket |
+| **Analytics** | `@headlessly/analytics` | Event, Metric, Funnel, Goal |
+| **Marketing** | `@headlessly/marketing` | Campaign, Segment, Form |
+| **Experiments** | `@headlessly/experiments` | Experiment, FeatureFlag |
+| **Platform** | `@headlessly/platform` | Workflow, Integration, Agent |
+| **Communication** | `@headlessly/sdk` | Message |
 
 ## Digital Objects
 
@@ -42,36 +91,18 @@ import { Noun } from 'digital-objects'
 export const Contact = Noun('Contact', {
   name: 'string!',
   email: 'string?#',
-  phone: 'string?',
-  title: 'string?',
   stage: 'Lead | Qualified | Customer | Churned | Partner',
-  source: 'string?',
   company: '-> Company.contacts',
   deals: '<- Deal.contact[]',
-  activities: '<- Activity.contact[]',
-
-  // Custom verbs (CRUD is automatic)
   qualify:  'Qualified',
   capture:  'Captured',
   assign:   'Assigned',
-  merge:    'Merged',
-  enrich:   'Enriched',
 })
 ```
 
-Every property value tells the parser what it is:
+## Verb Conjugation
 
-| Value Pattern | Meaning | Example |
-|--------------|---------|---------|
-| Type string | Data property | `'string!'`, `'number?'`, `'datetime!'` |
-| Arrow syntax | Relationship | `'-> Company.contacts'`, `'<- Deal.contact[]'` |
-| Pipe-separated PascalCase | Enum | `'Lead \| Qualified \| Customer'` |
-| Single PascalCase word | Verb → Event | `'Qualified'`, `'Captured'` |
-| `null` | Opt out of inherited verb | `update: null` (makes entity immutable) |
-
-## Verbs & Event Handlers
-
-Every verb has a full conjugation that maps to the execution lifecycle:
+Every verb has a full lifecycle:
 
 ```
 qualify
@@ -81,18 +112,16 @@ qualify
   └── qualifiedBy    → who performed this action
 ```
 
-Register handlers directly on the entity:
-
 ```typescript
 // BEFORE hook — validate or reject
-org.Contact.qualifying(contact => {
+Contact.qualifying(contact => {
   if (!contact.email) throw new Error('Cannot qualify without email')
   return contact
 })
 
 // AFTER hook — react to what happened
-org.Contact.qualified(contact => {
-  org.Activity.create({
+Contact.qualified(contact => {
+  Activity.create({
     type: 'Task',
     subject: `Follow up with ${contact.name}`,
     contact: contact.$id,
@@ -100,197 +129,97 @@ org.Contact.qualified(contact => {
 })
 
 // Execute
-await org.Contact.qualify('contact_123')
-// → runs .qualifying() → sets stage → persists event → runs .qualified()
+await Contact.qualify('contact_fX9bL5nRd')
 ```
-
-Handlers are serialized via `fn.toString()`, stored in the tenant's database, and executed inside the Durable Object via `ai-evaluate`. No separate infrastructure needed.
-
-## Promise Pipelining
-
-The SDK uses `rpc.do` with capnweb promise pipelining — chain dependent calls without awaiting, and the system batches them into a single round trip:
-
-```typescript
-// One round trip, not three
-const deals = await org.Contact
-  .find({ stage: 'Qualified' })
-  .map(contact => contact.deals)
-  .filter(deal => deal.status === 'Open')
-```
-
-The `.map()` callback executes in "recording mode" locally, captures all RPC invocations, then replays them server-side on the actual data. Results return in a single round trip.
 
 ## Time Travel
 
 Every mutation is an event appended to an immutable log. Any point in time can be reconstructed:
 
 ```typescript
-// Query as of a specific time
-const contacts = await org.Contact.find(
+const contacts = await $.Contact.find(
   { stage: 'Lead' },
   { asOf: '2026-01-15T10:00:00Z' }
 )
 
-// Rollback an action
-await org.Contact.rollback('contact_123', { asOf: '2026-02-06T15:00:00Z' })
+await $.Contact.rollback('contact_fX9bL5nRd', { asOf: '2026-02-06T15:00:00Z' })
 ```
-
-This gives founders confidence to let agents operate freely — anything can be undone.
-
-## Integrations Activate, Not Configure
-
-Every system is always present. They light up with real data when you connect external tools:
-
-| Connect... | ...and this lights up |
-|------------|----------------------|
-| **GitHub** | Repos, issues, PRs → Project Management |
-| **Stripe** | Products, subscriptions, invoices → Billing |
-| **Google Apps** | Email → Activities, Calendar → Scheduling |
-| **Slack/Discord** | Messages → Activities, Channels → Segments |
-
-## ICP Templates
-
-At org creation, select an ICP template that configures defaults without changing the schema:
-
-```typescript
-const org = Headlessly({
-  tenant: 'my-startup',
-  template: 'b2b-saas',
-})
-```
-
-| Template | Pipeline Stages | Key Metrics |
-|----------|----------------|-------------|
-| **B2B SaaS** | Lead → Demo → Trial → Closed → Active → Churned | MRR, CAC, LTV |
-| **B2C / Consumer** | Signup → Activated → Engaged → Monetized → Churned | DAU/MAU, ARPU |
-| **B2D / Developer Tools** | Discovered → Integrated → Active → Scaled | Time-to-first-call, API usage |
-| **B2A / Agent Services** | Connected → Configured → Autonomous → Scaled | Tool invocations, success rate |
-
-Same entities. Same schema. Different default labels and metric calculations.
 
 ## MCP: Search, Fetch, Do
 
 Three primitives for AI agents — not hundreds of tools:
 
-```typescript
-// search — find entities across the graph
-search({ type: 'Contact', filter: { stage: 'Lead' } })
-
-// fetch — get specific entities or schemas
-fetch({ type: 'Contact', id: 'abc123' })
-
-// do — execute any action or code
-do({ method: 'Contact.qualify', args: ['abc123'] })
+```json title="headless.ly/mcp#search"
+{ "type": "Contact", "filter": { "stage": "Lead" } }
 ```
 
-The `do` tool executes typed actions from the Digital Objects schema and runs arbitrary TypeScript via `ai-evaluate` for custom logic.
-
-## Multi-Tenancy
-
-Each tenant gets their own Cloudflare Durable Object — complete data isolation and proximity to the user:
-
-```
-POST   headless.ly/~my-startup/Contact          → create
-GET    headless.ly/~my-startup/Contact?stage=Lead → find
-GET    headless.ly/~my-startup/Contact/abc123    → get
+```json title="headless.ly/mcp#fetch"
+{ "type": "Contact", "id": "contact_fX9bL5nRd", "include": ["deals"] }
 ```
 
-## Core Entities
-
-~20 entities across six domains, all connected in one graph:
-
-| Domain | Entities |
-|--------|----------|
-| **People** | Contact, Company, Activity |
-| **Work** | Project, Task, Milestone, Comment |
-| **Content** | Page, Post, Asset, Collection |
-| **Support** | Ticket, Thread, Reply, Article |
-| **Team** | Member, Invitation, Department |
-| **Meta** | Note, Tag (polymorphic, attachable to anything) |
-
-## The Startup Journey
-
-### Day 0 — "I have an idea"
-
-```typescript
-import Headlessly from 'headless.ly'
-const org = Headlessly({ tenant: 'my-startup' })
-// Everything exists. CRM, PM, Content, Analytics, Support — all ready.
+```ts title="headless.ly/mcp#do"
+const leads = await $.Contact.find({ stage: 'Lead' })
+for (const lead of leads) {
+  await $.Contact.qualify(lead.$id)
+}
 ```
 
-### Day 1-30 — "I'm building"
+## Packages
 
-```typescript
-await org.Contact.create({ name: 'Alice', email: 'alice@vc.com', stage: 'Lead' })
-await org.Task.create({ title: 'Build MVP', project: 'project_1', status: 'InProgress' })
+### SDK & Entry Points
 
-// Everything is connected in one graph
-const alice = await org.Contact.get('contact_1', { populate: ['deals', 'activities'] })
-```
+| Package | Description |
+|---------|-------------|
+| [`@headlessly/sdk`](packages/sdk) | Unified 32-entity SDK with `$` context |
+| [`headless.ly`](packages/headlessly) | Main entry point with `Headlessly()` factory |
+| [`@headlessly/cli`](packages/cli) | Developer and agent CLI |
 
-### Day 30-90 — "I have users"
+### Domain Packages
 
-```typescript
-// Connect Stripe → billing lights up
-// Connect GitHub → project management lights up
-// Agents start operating autonomously
+| Package | Entities |
+|---------|----------|
+| [`@headlessly/crm`](packages/crm) | Contact, Company, Deal |
+| [`@headlessly/billing`](packages/billing) | Customer, Product, Price, Subscription, Invoice, Payment |
+| [`@headlessly/projects`](packages/projects) | Project, Issue, Comment |
+| [`@headlessly/content`](packages/content) | Content, Asset, Site |
+| [`@headlessly/support`](packages/support) | Ticket |
+| [`@headlessly/analytics`](packages/analytics) | Event, Metric, Funnel, Goal |
+| [`@headlessly/marketing`](packages/marketing) | Campaign, Segment, Form |
+| [`@headlessly/experiments`](packages/experiments) | Experiment, FeatureFlag |
+| [`@headlessly/platform`](packages/platform) | Workflow, Integration, Agent |
 
-org.Contact.qualified(contact => {
-  org.Activity.create({ type: 'Task', subject: `Demo with ${contact.name}` })
-})
+### Infrastructure
 
-org.Deal.closed(deal => {
-  org.Contact.update(deal.contact, { stage: 'Customer' })
-})
-```
+| Package | Description |
+|---------|-------------|
+| [`@headlessly/rpc`](packages/rpc) | Preconfigured [rpc.do](https://rpc.do) client with capnweb promise pipelining |
+| [`@headlessly/objects`](packages/objects) | DO-backed NounProvider for digital-objects |
+| [`@headlessly/events`](packages/events) | Event system with time travel |
+| [`@headlessly/mcp`](packages/mcp) | MCP protocol client (search, fetch, do) |
+| [`@headlessly/code`](packages/code) | Sandboxed code execution client |
 
-### Day 90+ — "I'm scaling"
+### Client SDKs
 
-The same system scales from 1 founder to a seed-stage team. No migration. No new tools. The graph grows, agents get smarter, and the immutable event log means nothing is ever lost.
+| Package | Description |
+|---------|-------------|
+| [`@headlessly/js`](packages/js) | Browser SDK (analytics, errors, feature flags) |
+| [`@headlessly/node`](packages/node) | Node.js SDK |
+| [`@headlessly/react`](packages/react) | React hooks and providers |
+| [`@headlessly/ui`](packages/ui) | Schema-driven React CRUD components |
 
 ## Architecture
 
-headless.ly is intentionally minimalistic — the thinnest possible composition layer. All heavy lifting is pushed into lower-level primitives:
-
 ```
-┌─────────────────────────────────────────────────┐
-│                  headless.ly                     │
-│     Tenant management, ICP templates, SDK       │
-│       RPC client with capnweb pipelining        │
-├─────────────────────────────────────────────────┤
-│                  objects.do                      │
-│          Managed Digital Object service          │
-│    Verb conjugation, event subscriptions        │
-├──────────────────┬──────────────────────────────┤
-│  digital-objects  │       .do services           │
-│  (zero-dep schemas)│  payments.do  (Stripe)      │
-│                   │  oauth.do     (auth)         │
-│  Noun() definitions│  events.do    (CDC)         │
-│  ~20 core entities │  database.do  (ParqueDB)    │
-│  Type inference    │  functions.do (execution)   │
-├──────────────────┴──────────────────────────────┤
-│                   @dotdo/do                      │
-│     THE Durable Object for Digital Objects       │
-│   StorageHandler · EventsStore · WebSocket      │
-├─────────────────────────────────────────────────┤
-│              @dotdo/db (ParqueDB)                │
-│     Hybrid Relational-Document-Graph DB          │
-│   Parquet · Iceberg · time travel · inference   │
-├─────────────────────────────────────────────────┤
-│          Cloudflare Infrastructure               │
-│   Workers · Durable Objects · R2 · KV · AI      │
-└─────────────────────────────────────────────────┘
+headless.ly                     SDK entry point, tenant factory
+  └── @headlessly/sdk           32 entities, $ context, domain namespaces
+       └── @headlessly/crm      Noun() definitions (Contact, Company, Deal)
+       └── @headlessly/billing  Noun() definitions (Customer, Subscription, ...)
+       └── ...                  9 domain packages total
+  └── @headlessly/objects       NounProvider → rpc.do → Durable Object
+       └── rpc.do               capnweb promise pipelining, magic .map()
+            └── @dotdo/capnweb  Cap'n Proto for the web
+  └── @headlessly/events        Immutable event log, time travel
 ```
-
-## Package Ecosystem
-
-| Package | What it adds |
-|---------|-------------|
-| `digital-objects` | Pure schemas, zero deps |
-| `business-as-code` | + business definition primitives |
-| `business.org.ai` | + ontology data (NAICS, O*NET, APQC) |
-| `startups.org.ai` | + ICP templates, startup metrics |
-| `headless.ly` | + tenant composition, RPC client, managed service |
 
 ## License
 

@@ -1,0 +1,50 @@
+{
+  "name": "@headlessly/events",
+  "version": "0.1.0",
+  "description": "Event system with time travel for headless.ly Digital Objects",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "pnpm build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vitest": "^3.0.2"
+  },
+  "keywords": [
+    "headlessly",
+    "events",
+    "event-sourcing",
+    "time-travel",
+    "cdc",
+    "agent-first"
+  ],
+  "author": "headless.ly",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/headlessly/headless.ly",
+    "directory": "packages/events"
+  },
+  "homepage": "https://headless.ly"
+}

@@ -1,0 +1,50 @@
+{
+  "name": "@headlessly/platform",
+  "version": "0.1.0",
+  "description": "headless.ly Platform entities — Workflow, Integration, Agent",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "pnpm build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "digital-objects": "^1.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  },
+  "keywords": [
+    "headlessly",
+    "platform",
+    "digital-objects",
+    "workflow",
+    "integration",
+    "agent",
+    "agent-first"
+  ],
+  "author": "headless.ly",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/headlessly/headless.ly",
+    "directory": "packages/platform"
+  },
+  "homepage": "https://headless.ly"
+}

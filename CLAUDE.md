@@ -1,6 +1,6 @@
 # public/ — The @headlessly Package Repository
 
-This repo contains the published `@headlessly/*` packages, documentation, CLI, and tests.
+This repo contains the open source `@headlessly/*` packages — SDK, domain packages, client libraries, and CLI.
 
 ## Editing Policy
 
@@ -9,11 +9,48 @@ Direct edits are welcome. This content is hand-crafted for quality. When the pac
 ## What Lives Here
 
 ```
-docs/           → Fumadocs MDX documentation (headless.ly)
-industries/     → Industry packages (@headlessly/farm-soybeans, etc.)
-processes/      → Process packages (@headlessly/develop-strategy, etc.)
-tasks/          → Task packages (@headlessly/manage-organizational-budgets, etc.)
-departments/    → Department packages (@headlessly/accounts-payable, etc.)
+packages/
+├── sdk/           → @headlessly/sdk — unified 32-entity SDK, $ context
+├── headlessly/    → headless.ly — main entry point, Headlessly() factory
+├── crm/           → @headlessly/crm — Contact, Company, Deal
+├── billing/       → @headlessly/billing — Customer, Product, Price, Subscription, Invoice, Payment
+├── projects/      → @headlessly/projects — Project, Issue, Comment
+├── content/       → @headlessly/content — Content, Asset, Site
+├── support/       → @headlessly/support — Ticket
+├── analytics/     → @headlessly/analytics — Event, Metric, Funnel, Goal
+├── marketing/     → @headlessly/marketing — Campaign, Segment, Form
+├── experiments/   → @headlessly/experiments — Experiment, FeatureFlag
+├── platform/      → @headlessly/platform — Workflow, Integration, Agent
+├── rpc/           → @headlessly/rpc — preconfigured rpc.do with capnweb pipelining
+├── objects/       → @headlessly/objects — DO-backed NounProvider
+├── events/        → @headlessly/events — event system, time travel
+├── mcp/           → @headlessly/mcp — MCP protocol client
+├── cli/           → @headlessly/cli — developer/agent CLI
+├── js/            → @headlessly/js — browser SDK
+├── node/          → @headlessly/node — Node.js SDK
+├── react/         → @headlessly/react — React hooks, providers
+├── ui/            → @headlessly/ui — schema-driven React CRUD components
+└── code/          → @headlessly/code — sandboxed code execution client
+docs/              → Fumadocs MDX documentation (headless.ly)
+```
+
+## RPC Foundation: rpc.do + capnweb
+
+All remote operations use [rpc.do](https://rpc.do) with [capnweb](https://github.com/cloudflare/capnweb) promise pipelining. This is NOT optional HTTP fetch — it's the foundation of the SDK.
+
+Key features:
+- **Promise pipelining**: Chain dependent operations, execute in one round-trip
+- **Magic `.map()`**: Record-replay — callback runs once in recording mode, replays on server per item
+- **Automatic batching**: Concurrent `Promise.all()` calls become a single request
+- **Pass-by-reference**: Server objects (sql, storage, collections) accessed via lightweight proxies
+- **Multiple transports**: HTTP, WebSocket, Cloudflare service bindings
+
+```typescript
+// One round-trip for the entire chain
+const deals = await $.Contact
+  .find({ stage: 'Qualified' })
+  .map(contact => contact.deals)
+  .filter(deal => deal.stage === 'Open')
 ```
 
 ## SDK Conventions (Critical)
@@ -28,7 +65,7 @@ All code examples MUST use the current `@headlessly/*` package naming. We own th
 import { $ } from '@headlessly/sdk'
 
 await $.Contact.create({ name: 'Alice', stage: 'Lead' })
-await $.Deal.close({ id: 'deal_1' })
+await $.Deal.close('deal_fX9bL5nRd')
 ```
 
 **2. Direct entity imports** — domain-specific packages:
@@ -38,7 +75,7 @@ import { Contact, Deal } from '@headlessly/crm'
 import { Subscription } from '@headlessly/billing'
 
 await Contact.create({ name: 'Alice', stage: 'Lead' })
-await Deal.close({ id: 'deal_1' })
+await Deal.close('deal_fX9bL5nRd')
 ```
 
 **3. Domain namespace imports** — grouping by product domain:
@@ -47,7 +84,7 @@ await Deal.close({ id: 'deal_1' })
 import { crm, billing } from '@headlessly/sdk'
 
 await crm.Contact.create({ name: 'Alice', stage: 'Lead' })
-await billing.Subscription.create({ plan: 'pro', contact: 'contact_1' })
+await billing.Subscription.create({ plan: 'pro', contact: 'contact_k7TmPvQx' })
 ```
 
 ### Package Hierarchy
@@ -55,12 +92,12 @@ await billing.Subscription.create({ plan: 'pro', contact: 'contact_1' })
 | Layer | Packages | Purpose |
 |---|---|---|
 | **SDK** | `@headlessly/sdk` | Full 32-entity graph, exports `$` and domain namespaces |
+| **Entry** | `headless.ly` | Headlessly() factory with provider configuration |
 | **CLI** | `@headlessly/cli` | CLI entry point (`npx @headlessly/cli`) |
 | **Domain** | `crm`, `billing`, `projects`, `content`, `support`, `analytics`, `marketing`, `experiments`, `platform` | Each owns a set of entities |
-| **Lifecycle** | `build`, `launch`, `experiment`, `grow`, `sell`, `market`, `automate`, `scale` | Same entities, organized by startup phase |
-| **Business model** | `b2b`, `b2c`, `b2d`, `b2a` | Same entities, organized by business model |
-| **Industry** | `farm-soybeans`, `manufacture-steel`, etc. | Industry-specific Business-as-Code APIs |
-| **Task** | `manage-organizational-budgets`, etc. | Task-specific Business-as-Code APIs |
+| **RPC** | `@headlessly/rpc` | Preconfigured rpc.do client for headless.ly |
+| **Infrastructure** | `objects`, `events`, `mcp`, `code` | Provider, event system, MCP, code execution |
+| **Client SDKs** | `js`, `node`, `react`, `ui` | Browser, Node.js, React, CRUD components |
 
 ### Domain-to-Entity Mapping
 
@@ -83,10 +120,6 @@ Entity IDs use the format `{type}_{sqid}` where the suffix is generated by [sqid
 - Never use obviously fake IDs: `contact_123`, `contact_abc`
 - Keep IDs consistent within a single file
 
-### Tenant Configuration
-
-Tenant is configured via the `HEADLESSLY_TENANT` environment variable. Never pass `{ tenant: '...' }` explicitly.
-
 ### MCP Tool Representation
 
 headless.ly exposes three MCP tools: `search`, `fetch`, `do`. Represent them with titled code blocks:
@@ -96,7 +129,7 @@ headless.ly exposes three MCP tools: `search`, `fetch`, `do`. Represent them wit
 ```
 
 ```json title="headless.ly/mcp#fetch"
-{ "type": "Contact", "id": "contact_123", "include": ["deals"] }
+{ "type": "Contact", "id": "contact_fX9bL5nRd", "include": ["deals"] }
 ```
 
 ```ts title="headless.ly/mcp#do"
@@ -104,12 +137,6 @@ const leads = await $.Contact.find({ stage: 'Lead' })
 for (const lead of leads) {
   await $.Contact.qualify(lead.$id)
 }
-```
-
-### CLI Entry Point
-
-```bash
-npx @headlessly/cli
 ```
 
 ### What NOT to Write
@@ -120,12 +147,15 @@ import Headlessly from 'headless.ly'
 const org = Headlessly({ tenant: 'my-startup' })
 org.Contact.create(...)
 
-// WRONG — headless.ly is not a valid npm package name
+// WRONG — headless.ly is not a valid npm package name for direct imports
 import { Contact } from 'headless.ly'
 
 // WRONG — MCP tools are not function calls
 search({ type: 'Contact', filter: { stage: 'Lead' } })
 do({ method: 'Contact.qualify', args: ['contact_1'] })
+
+// WRONG — raw HTTP fetch instead of rpc.do
+const response = await fetch('https://db.headless.ly/contacts')
 ```
 
 ## Code Style
@@ -139,9 +169,7 @@ do({ method: 'Contact.qualify', args: ['contact_1'] })
 ## Source Relationships
 
 When content here overlaps with source data:
-- Industry MDX source → `.org.ai/industries/`
-- Process MDX source → `.org.ai/processes/`
-- Task MDX source → `.org.ai/tasks/`
-- Department MDX source → `.org.ai/departments/`
-- Schema definitions → `.db/index.ts`
-- Generation scripts → `scripts/generate-packages.ts`
+- Schema definitions → `packages/*/src/index.ts` (Noun definitions)
+- RPC transport → `packages/rpc/` wraps `rpc.do`
+- Provider layer → `packages/objects/` uses `rpc.do` for DO communication
+- Entity documentation → `docs/reference/entities/`

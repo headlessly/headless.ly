@@ -1,0 +1,47 @@
+{
+  "name": "@headlessly/rpc",
+  "version": "0.1.0",
+  "description": "Preconfigured rpc.do client for headless.ly — capnweb promise pipelining, magic .map(), automatic batching",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "pnpm build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "rpc.do": "^0.2.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vitest": "^3.0.2"
+  },
+  "keywords": [
+    "headlessly",
+    "rpc",
+    "capnweb",
+    "promise-pipelining",
+    "rpc.do"
+  ],
+  "author": "headless.ly",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
+}
