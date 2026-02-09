@@ -142,6 +142,159 @@ export function deriveAllVerbs(schema: NounSchema): VerbAction[] {
 }
 
 /**
+ * Derive only filterable columns from a NounSchema.
+ */
+export function deriveFilterableColumns(schema: NounSchema): ColumnDef[] {
+  return deriveColumns(schema).filter((c) => c.filterable)
+}
+
+/**
+ * Derive only sortable columns from a NounSchema.
+ */
+export function deriveSortableColumns(schema: NounSchema): ColumnDef[] {
+  return deriveColumns(schema).filter((c) => c.sortable)
+}
+
+/**
+ * Pick a display title for an entity: name > title > $id.
+ */
+export function deriveEntityTitle(schema: NounSchema, entity: Record<string, unknown>): string {
+  if (schema.fields.has('name') && entity.name != null) return String(entity.name)
+  if (schema.fields.has('title') && entity.title != null) return String(entity.title)
+  return String(entity.$id ?? '')
+}
+
+/**
+ * Validate form data against a NounSchema.
+ * Returns an object mapping field names to error strings (empty if valid).
+ */
+export function validateFormData(schema: NounSchema, data: Record<string, unknown>): Record<string, string> {
+  const errors: Record<string, string> = {}
+
+  for (const [key, prop] of schema.fields) {
+    // Check required
+    if (prop.modifiers?.required && (data[key] === undefined || data[key] === null || data[key] === '')) {
+      errors[key] = `${formatLabel(key)} is required`
+    }
+
+    // Check enum values
+    if (prop.enumValues && prop.enumValues.length > 0 && data[key] !== undefined && data[key] !== null && data[key] !== '') {
+      if (!prop.enumValues.includes(String(data[key]))) {
+        errors[key] = `${formatLabel(key)} must be one of: ${prop.enumValues.join(', ')}`
+      }
+    }
+  }
+
+  return errors
+}
+
+/**
+ * Group columns by kind (meta, field, relationship).
+ */
+export function columnsByKind(schema: NounSchema): { meta: ColumnDef[]; field: ColumnDef[]; relationship: ColumnDef[] } {
+  const columns = deriveColumns(schema)
+  return {
+    meta: columns.filter((c) => c.kind === 'meta'),
+    field: columns.filter((c) => c.kind === 'field'),
+    relationship: columns.filter((c) => c.kind === 'relationship'),
+  }
+}
+
+/**
+ * Group verbs into crud and custom categories.
+ */
+export function deriveVerbsByCategory(schema: NounSchema): { crud: VerbAction[]; custom: VerbAction[] } {
+  const standardVerbs = new Set(['create', 'get', 'update', 'delete', 'find'])
+  const allVerbs = deriveAllVerbs(schema)
+  return {
+    crud: allVerbs.filter((v) => standardVerbs.has(v.name)),
+    custom: allVerbs.filter((v) => !standardVerbs.has(v.name)),
+  }
+}
+
+/**
+ * Extract relationship metadata from a NounSchema.
+ */
+export function deriveRelationships(schema: NounSchema): Array<{ key: string; targetType: string; direction: string }> {
+  const rels: Array<{ key: string; targetType: string; direction: string }> = []
+  for (const [key, prop] of schema.relationships) {
+    rels.push({
+      key,
+      targetType: prop.targetType ?? '',
+      direction: prop.operator === '<-' ? 'backward' : 'forward',
+    })
+  }
+  return rels
+}
+
+/**
+ * Count fields, relationships, and verbs in a schema.
+ */
+export function schemaFieldCount(schema: NounSchema): { fields: number; relationships: number; verbs: number } {
+  return {
+    fields: schema.fields.size,
+    relationships: schema.relationships.size,
+    verbs: schema.verbs.size,
+  }
+}
+
+/**
+ * Derive default form values from a NounSchema.
+ */
+export function deriveDefaultValues(schema: NounSchema): Record<string, unknown> {
+  const defaults: Record<string, unknown> = {}
+  for (const [key, prop] of schema.fields) {
+    if (prop.enumValues && prop.enumValues.length > 0) {
+      defaults[key] = prop.enumValues[0]
+    } else {
+      const type = prop.type?.toLowerCase() ?? 'string'
+      switch (type) {
+        case 'int':
+        case 'integer':
+        case 'float':
+        case 'double':
+        case 'decimal':
+        case 'number':
+          defaults[key] = 0
+          break
+        case 'bool':
+        case 'boolean':
+          defaults[key] = false
+          break
+        default:
+          defaults[key] = ''
+      }
+    }
+  }
+  return defaults
+}
+
+/**
+ * Map a field's type to the best MongoDB query operator.
+ */
+export function fieldToQueryOperator(prop: ParsedProperty): string {
+  if (prop.kind === 'enum' || (prop.enumValues && prop.enumValues.length > 0)) return '$in'
+
+  const type = prop.type?.toLowerCase() ?? 'string'
+  switch (type) {
+    case 'string':
+    case 'text':
+      return '$regex'
+    case 'int':
+    case 'integer':
+    case 'float':
+    case 'double':
+    case 'decimal':
+    case 'number':
+    case 'bool':
+    case 'boolean':
+      return '$eq'
+    default:
+      return '$eq'
+  }
+}
+
+/**
  * Get the input type for an HTML form field based on the property type.
  */
 export function fieldInputType(prop: ParsedProperty): string {
@@ -172,6 +325,13 @@ export function fieldInputType(prop: ParsedProperty): string {
       return 'email'
     case 'url':
       return 'url'
+    case 'textarea':
+      return 'textarea'
+    case 'password':
+      return 'password'
+    case 'tel':
+    case 'phone':
+      return 'tel'
     default:
       return 'text'
   }
@@ -185,15 +345,31 @@ export function isRequired(prop: ParsedProperty): boolean {
 }
 
 /**
- * Format a camelCase or PascalCase key into a human-readable label.
- * e.g., 'firstName' -> 'First Name', '$createdAt' -> 'Created At'
+ * Known acronyms that should be fully uppercased.
+ */
+const ACRONYMS = new Set(['id', 'url', 'api', 'html', 'css', 'json', 'xml', 'http', 'https', 'sql', 'ip'])
+
+/**
+ * Format a camelCase, PascalCase, or snake_case key into a human-readable label.
+ * e.g., 'firstName' -> 'First Name', '$createdAt' -> 'Created At', '$id' -> 'ID'
  */
 export function formatLabel(key: string): string {
   const clean = key.startsWith('$') ? key.slice(1) : key
-  return clean
+
+  // Split on underscores first (snake_case), then on camelCase boundaries
+  const words = clean
+    .replace(/_/g, ' ')
     .replace(/([A-Z])/g, ' $1')
-    .replace(/^./, (s) => s.toUpperCase())
     .trim()
+    .split(/\s+/)
+
+  return words
+    .map((w) => {
+      const lower = w.toLowerCase()
+      if (ACRONYMS.has(lower)) return lower.toUpperCase()
+      return lower.charAt(0).toUpperCase() + lower.slice(1)
+    })
+    .join(' ')
 }
 
 /**
@@ -210,6 +386,25 @@ export function formatCellValue(value: unknown, type?: string): string {
     }
   }
 
+  if (type === 'currency' && typeof value === 'number') {
+    return value.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
+  }
+
+  if (type === 'percent' && typeof value === 'number') {
+    return `${Math.round(value * 100)}%`
+  }
+
+  if (type === 'count' && Array.isArray(value)) {
+    return String(value.length)
+  }
+
   if (typeof value === 'object') return JSON.stringify(value)
+
+  if (type === 'string' || type === undefined) {
+    const str = String(value)
+    if (str.length > 100) return str.slice(0, 100) + '...'
+    return str
+  }
+
   return String(value)
 }

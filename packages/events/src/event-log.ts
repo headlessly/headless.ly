@@ -37,9 +37,28 @@ function generateEventId(): string {
  * - 'Contact.*' — matches all Contact events
  * - '*.created' — matches all created events
  * - 'Deal.closed' — exact match
+ * - 'Contact.*,Deal.*' — comma-separated multi-patterns (OR)
+ * - '!Deal.*' — negation pattern
+ * - 'CRM.**' — double wildcard matches any depth
  */
 export function matchesPattern(pattern: string, eventType: string): boolean {
+  // Comma-separated multi-pattern: any match wins
+  if (pattern.includes(',')) {
+    return pattern.split(',').some((p) => matchesPattern(p.trim(), eventType))
+  }
+
+  // Negation pattern: !Deal.*
+  if (pattern.startsWith('!')) {
+    return !matchesPattern(pattern.slice(1), eventType)
+  }
+
   if (pattern === '*') return true
+
+  // Double wildcard: CRM.** matches CRM.anything.anything
+  if (pattern.endsWith('.**')) {
+    const prefix = pattern.slice(0, -3)
+    return eventType.startsWith(prefix + '.')
+  }
 
   const [patternEntity, patternVerb] = pattern.split('.')
   const [eventEntity, eventVerb] = eventType.split('.')
@@ -66,6 +85,11 @@ export class EventLog {
 
   /** Append an event (immutable — events are never modified) */
   async append(input: NounEventInput): Promise<NounEvent> {
+    // Validate required fields
+    if (!input.entityType) {
+      throw new Error('entityType is required')
+    }
+
     const entityKey = `${input.entityType}:${input.entityId}`
     const currentSeq = this.entitySequences.get(entityKey) ?? 0
     const nextSeq = currentSeq + 1
@@ -200,5 +224,128 @@ export class EventLog {
   /** Total number of events in the log */
   get size(): number {
     return this.events.length
+  }
+
+  /** Snapshot: materialized view of all entities at current state */
+  async snapshot(): Promise<Record<string, Record<string, unknown>>> {
+    const result: Record<string, Record<string, unknown>> = {}
+    for (const event of this.events) {
+      const key = `${event.entityType}:${event.entityId}`
+      if (!result[key]) {
+        result[key] = {}
+      }
+      if (event.after) {
+        Object.assign(result[key], event.after)
+      }
+    }
+    return result
+  }
+
+  /** Compact events for a specific entity into a single snapshot event */
+  async compact(
+    entityType: string,
+    entityId: string,
+  ): Promise<{ originalCount: number; snapshotEvent: NounEvent }> {
+    const history = await this.getEntityHistory(entityType, entityId)
+    const originalCount = history.length
+
+    // Build the merged state
+    const state: Record<string, unknown> = {}
+    for (const event of history) {
+      if (event.after) {
+        Object.assign(state, event.after)
+      }
+    }
+
+    // Create a snapshot event representing the compacted state
+    const snapshotEvent: NounEvent = {
+      $id: generateEventId(),
+      $type: `${entityType}.snapshot`,
+      entityType,
+      entityId,
+      verb: 'snapshot',
+      conjugation: { action: 'snapshot', activity: 'snapshotting', event: 'snapshot' },
+      after: state,
+      timestamp: new Date().toISOString(),
+      sequence: history.length > 0 ? history[history.length - 1].sequence : 0,
+    }
+
+    return { originalCount, snapshotEvent }
+  }
+
+  /** Get multiple events by ID in one call */
+  async getBatch(ids: string[]): Promise<NounEvent[]> {
+    const idSet = new Set(ids)
+    const found = new Map<string, NounEvent>()
+    for (const event of this.events) {
+      if (idSet.has(event.$id)) {
+        found.set(event.$id, event)
+      }
+    }
+    // Return in the order of the requested ids
+    return ids.map((id) => found.get(id)).filter((e): e is NounEvent => e !== undefined)
+  }
+
+  /** Clear all events and reset sequences */
+  async clear(): Promise<void> {
+    this.events = []
+    this.entitySequences.clear()
+    this.subscribers.clear()
+  }
+
+  /** Stream events as an async iterable */
+  async *stream(filter?: { entityType?: string; entityId?: string; verb?: string }): AsyncIterable<NounEvent> {
+    for (const event of this.events) {
+      if (filter?.entityType && event.entityType !== filter.entityType) continue
+      if (filter?.entityId && event.entityId !== filter.entityId) continue
+      if (filter?.verb && event.verb !== filter.verb) continue
+      yield event
+    }
+  }
+
+  /** Count events matching a filter without loading them all */
+  async count(filter?: { entityType?: string; entityId?: string; verb?: string }): Promise<number> {
+    let total = 0
+    for (const event of this.events) {
+      if (filter?.entityType && event.entityType !== filter.entityType) continue
+      if (filter?.entityId && event.entityId !== filter.entityId) continue
+      if (filter?.verb && event.verb !== filter.verb) continue
+      total++
+    }
+    return total
+  }
+
+  /** Get distinct entity type+id pairs */
+  async uniqueEntities(): Promise<Array<{ entityType: string; entityId: string }>> {
+    const seen = new Set<string>()
+    const result: Array<{ entityType: string; entityId: string }> = []
+    for (const event of this.events) {
+      const key = `${event.entityType}:${event.entityId}`
+      if (!seen.has(key)) {
+        seen.add(key)
+        result.push({ entityType: event.entityType, entityId: event.entityId })
+      }
+    }
+    return result
+  }
+
+  /** Serialize the entire log to JSON */
+  toJSON(): string {
+    return JSON.stringify(this.events)
+  }
+
+  /** Reconstruct the log from serialized JSON data */
+  fromJSON(json: string): void {
+    const parsed: NounEvent[] = JSON.parse(json)
+    this.events = []
+    this.entitySequences.clear()
+    for (const event of parsed) {
+      const entityKey = `${event.entityType}:${event.entityId}`
+      const currentSeq = this.entitySequences.get(entityKey) ?? 0
+      if (event.sequence > currentSeq) {
+        this.entitySequences.set(entityKey, event.sequence)
+      }
+      this.events.push(event)
+    }
   }
 }

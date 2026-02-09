@@ -9,11 +9,15 @@ export function getTools(context?: MCPContext): MCPTool[] {
   const nouns = getAllNouns()
   const entityTypes = [...nouns.keys()]
 
+  // Build context-aware description suffix
+  const systemLabel = context?.system ? context.system.toUpperCase() : null
+  const contextSuffix = systemLabel ? ` Scoped to ${systemLabel} context.` : ''
+
   return [
     {
       name: 'search',
       description:
-        'Search for entities across the headless.ly graph. Find contacts, deals, subscriptions, projects, and more. Returns matching entities with their current state.',
+        `Search for entities across the headless.ly graph. Find contacts, deals, subscriptions, projects, and more. Returns matching entities with their current state.${contextSuffix}`,
       inputSchema: {
         type: 'object',
         properties: {
@@ -43,7 +47,7 @@ export function getTools(context?: MCPContext): MCPTool[] {
     },
     {
       name: 'fetch',
-      description: 'Fetch a specific entity, schema definition, events, or metrics from headless.ly. Use for precise lookups.',
+      description: `Fetch a specific entity, schema definition, events, or metrics from headless.ly. Use for precise lookups.${contextSuffix}`,
       inputSchema: {
         type: 'object',
         properties: {
@@ -75,7 +79,7 @@ export function getTools(context?: MCPContext): MCPTool[] {
     },
     {
       name: 'do',
-      description: 'Execute an action on headless.ly. Create entities, execute verbs (qualify, close, pause), run workflows, or evaluate TypeScript code.',
+      description: `Execute an action on headless.ly. Create entities, execute verbs (qualify, close, pause), run workflows, or evaluate TypeScript code.${contextSuffix}`,
       inputSchema: {
         type: 'object',
         properties: {

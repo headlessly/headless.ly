@@ -95,15 +95,27 @@ function toNounInstance(raw: unknown): NounInstance {
 export class DONounProvider implements NounProvider {
   private rpc: RpcProxy<Record<string, unknown>>
   private context: string
+  public readonly endpoint: string
 
   constructor(options: DONounProviderOptions) {
     this.context = options.context ?? 'https://headless.ly'
+    this.endpoint = options.endpoint
 
     if (options.doFetch) {
       // Legacy compatibility: wrap doFetch as a custom transport
       // This path exists for backward compat but should be migrated
       const doFetch = options.doFetch
       const basePath = options.basePath ?? ''
+      const apiKey = options.apiKey
+
+      const buildHeaders = (extra?: Record<string, string>): Record<string, string> => {
+        const headers: Record<string, string> = { 'X-Context': this.context, ...extra }
+        if (apiKey) {
+          headers['Authorization'] = `Bearer ${apiKey}`
+        }
+        return headers
+      }
+
       this.rpc = new Proxy({} as RpcProxy<Record<string, unknown>>, {
         get: (_, prop: string) => {
           return {
@@ -123,7 +135,7 @@ export class DONounProvider implements NounProvider {
                 }
                 path += `?${params.toString()}`
               }
-              const response = await doFetch(path, { method: 'GET', headers: { 'X-Context': this.context } })
+              const response = await doFetch(path, { method: 'GET', headers: buildHeaders() })
               if (!response.ok) throw new DOProviderError(`find failed`, response.status)
               const body = (await response.json()) as Record<string, unknown>
               const data = (body?.data ?? body?.items ?? body) as unknown[]
@@ -133,7 +145,7 @@ export class DONounProvider implements NounProvider {
               const collection = prop
               const response = await doFetch(`${basePath}/${collection}/${encodeURIComponent(id)}`, {
                 method: 'GET',
-                headers: { 'X-Context': this.context },
+                headers: buildHeaders(),
               })
               if (response.status === 404) return null
               if (!response.ok) throw new DOProviderError(`get failed`, response.status)
@@ -144,7 +156,7 @@ export class DONounProvider implements NounProvider {
               const collection = prop
               const response = await doFetch(`${basePath}/${collection}/${encodeURIComponent(id)}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json', 'X-Context': this.context },
+                headers: buildHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify(data),
               })
               if (!response.ok) throw new DOProviderError(`update failed`, response.status)
@@ -155,7 +167,7 @@ export class DONounProvider implements NounProvider {
               const collection = prop
               const response = await doFetch(`${basePath}/${collection}`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-Context': this.context },
+                headers: buildHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify(data),
               })
               if (!response.ok) throw new DOProviderError(`create failed`, response.status)
@@ -166,7 +178,7 @@ export class DONounProvider implements NounProvider {
               const collection = prop
               const response = await doFetch(`${basePath}/${collection}/${encodeURIComponent(id)}`, {
                 method: 'DELETE',
-                headers: { 'X-Context': this.context },
+                headers: buildHeaders(),
               })
               if (response.status === 404) return false
               if (!response.ok) throw new DOProviderError(`delete failed`, response.status)

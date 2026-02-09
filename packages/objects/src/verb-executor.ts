@@ -39,7 +39,45 @@ export interface VerbExecutorOptions {
 }
 
 /**
+ * Derive verb conjugation forms from a verb string.
+ */
+function conjugateVerb(verb: string): { action: string; activity: string; event: string } {
+  const known: Record<string, { action: string; activity: string; event: string }> = {
+    create: { action: 'create', activity: 'creating', event: 'created' },
+    update: { action: 'update', activity: 'updating', event: 'updated' },
+    delete: { action: 'delete', activity: 'deleting', event: 'deleted' },
+  }
+
+  if (known[verb]) return known[verb]
+
+  const action = verb
+  let activity: string
+  let event: string
+
+  if (verb.endsWith('e')) {
+    activity = verb.slice(0, -1) + 'ing'
+    event = verb + 'd'
+  } else if (verb.endsWith('y')) {
+    activity = verb + 'ing'
+    event = verb.slice(0, -1) + 'ied'
+  } else {
+    activity = verb + 'ing'
+    event = verb + 'ed'
+  }
+
+  return { action, activity, event }
+}
+
+/**
  * Execute a verb on an entity with lifecycle hooks and event emission
+ *
+ * Lifecycle:
+ * 1. Emit BEFORE event ({Type}.{activity}, e.g., Contact.qualifying)
+ * 2. Execute the verb via provider.perform
+ * 3. Emit the verb event ({Type}.{verb}, e.g., Contact.qualify)
+ * 4. Emit AFTER event ({Type}.{past}, e.g., Contact.qualified)
+ *
+ * If a BEFORE hook throws, the error propagates and the verb is NOT executed.
  *
  * @param execution - The verb execution request
  * @param options - Provider and event emitter
@@ -55,10 +93,26 @@ export async function executeVerb(execution: VerbExecution, options: VerbExecuto
     validateVerbExists(schema, verb)
   }
 
+  const conj = conjugateVerb(verb)
+
+  // Emit BEFORE event (e.g., Contact.qualifying) — propagate errors to reject the verb
+  if (events) {
+    const beforeEvent: NounEvent = {
+      $id: generateEventId(),
+      $type: `${type}.${conj.activity}`,
+      entityType: type,
+      entityId,
+      verb: conj.activity,
+      data,
+      timestamp: new Date().toISOString(),
+    }
+    await events.emit(beforeEvent)
+  }
+
   // Execute the verb via the provider
   const instance = await provider.perform(type, verb, entityId, data)
 
-  // Emit event if an event bridge is available
+  // Emit the verb event (e.g., Contact.qualify)
   if (events) {
     const event: NounEvent = {
       $id: generateEventId(),
@@ -70,6 +124,20 @@ export async function executeVerb(execution: VerbExecution, options: VerbExecuto
       timestamp: new Date().toISOString(),
     }
     await events.emit(event)
+  }
+
+  // Emit AFTER event (e.g., Contact.qualified)
+  if (events) {
+    const afterEvent: NounEvent = {
+      $id: generateEventId(),
+      $type: `${type}.${conj.event}`,
+      entityType: type,
+      entityId,
+      verb: conj.event,
+      data,
+      timestamp: new Date().toISOString(),
+    }
+    await events.emit(afterEvent)
   }
 
   return instance

@@ -209,6 +209,41 @@ export class LocalNounProvider implements NounProvider {
   }
 
   /**
+   * Count entities of a given type
+   */
+  async count(type: string): Promise<number> {
+    let count = 0
+    for (const instance of this.store.values()) {
+      if (instance.$type === type && instance.$context === this.context) {
+        count++
+      }
+    }
+    return count
+  }
+
+  /**
+   * Find the first entity matching the filter, or null if none match
+   */
+  async findOne(type: string, where?: Record<string, unknown>): Promise<NounInstance | null> {
+    for (const instance of this.store.values()) {
+      if (instance.$type !== type) continue
+      if (instance.$context !== this.context) continue
+      if (where) {
+        let match = true
+        for (const [key, value] of Object.entries(where)) {
+          if (instance[key] !== value) {
+            match = false
+            break
+          }
+        }
+        if (!match) continue
+      }
+      return instance
+    }
+    return null
+  }
+
+  /**
    * Clear all data (for testing)
    */
   clear(): void {

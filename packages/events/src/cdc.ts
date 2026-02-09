@@ -8,7 +8,16 @@
 import type { NounEvent, CDCOptions } from './types.js'
 import type { EventLog } from './event-log.js'
 
+/** Named consumer with auto-tracking cursor */
+export interface CDCConsumer {
+  poll(options?: Omit<CDCOptions, 'after'>): Promise<{ events: NounEvent[]; cursor: string; hasMore: boolean }>
+  checkpoint(): Promise<void>
+}
+
 export class CDCStream {
+  private cursors = new Map<string, string>()
+  private acknowledged = new Map<string, Set<string>>()
+
   constructor(private eventLog: EventLog) {}
 
   /**
@@ -21,6 +30,62 @@ export class CDCStream {
     hasMore: boolean
   }> {
     return this.eventLog.cdc(options)
+  }
+
+  /** Persist a consumer cursor position */
+  async checkpoint(consumerId: string, cursor: string): Promise<void> {
+    this.cursors.set(consumerId, cursor)
+  }
+
+  /** Retrieve a consumer's saved cursor */
+  async getCursor(consumerId: string): Promise<string | undefined> {
+    return this.cursors.get(consumerId)
+  }
+
+  /** Mark specific events as processed by a consumer */
+  async acknowledge(consumerId: string, eventIds: string[]): Promise<void> {
+    if (!this.acknowledged.has(consumerId)) {
+      this.acknowledged.set(consumerId, new Set())
+    }
+    const acked = this.acknowledged.get(consumerId)!
+    for (const id of eventIds) {
+      acked.add(id)
+    }
+  }
+
+  /** Get pending (unacknowledged) events for a consumer */
+  async pending(consumerId: string): Promise<{ events: NounEvent[] }> {
+    const acked = this.acknowledged.get(consumerId) ?? new Set<string>()
+    const all = await this.eventLog.cdc({})
+    const events = all.events.filter((e) => !acked.has(e.$id))
+    return { events }
+  }
+
+  /** Create a named consumer with auto-tracking cursor */
+  createConsumer(name: string): CDCConsumer {
+    let lastCursor: string | undefined = this.cursors.get(name)
+
+    return {
+      poll: async (options?: Omit<CDCOptions, 'after'>) => {
+        const result = await this.eventLog.cdc({ ...options, after: lastCursor })
+        if (result.events.length > 0) {
+          lastCursor = result.cursor
+        }
+        return result
+      },
+      checkpoint: async () => {
+        if (lastCursor) {
+          this.cursors.set(name, lastCursor)
+        }
+      },
+    }
+  }
+
+  /** Get the number of unconsumed events for a consumer */
+  async lag(consumerId: string): Promise<number> {
+    const cursor = this.cursors.get(consumerId)
+    const result = await this.eventLog.cdc({ after: cursor })
+    return result.events.length + (result.hasMore ? 1 : 0)
   }
 
   /**

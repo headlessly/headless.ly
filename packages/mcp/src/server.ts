@@ -23,15 +23,24 @@ export class MCPServer {
     const { method, params, id } = body
 
     switch (method) {
-      case 'initialize':
+      case 'initialize': {
+        const serverInfo: Record<string, unknown> = {
+          name: 'headless.ly',
+          version: '0.0.1',
+        }
+        // Include tenant context in serverInfo when available
+        if (this.context?.tenant) {
+          serverInfo.tenant = this.context.tenant
+        }
+        if (this.context?.subdomain) {
+          serverInfo.subdomain = this.context.subdomain
+        }
         return this.jsonrpc(id, {
           protocolVersion: '2024-11-05',
           capabilities: { tools: {} },
-          serverInfo: {
-            name: 'headless.ly',
-            version: '0.0.1',
-          },
+          serverInfo,
         })
+      }
 
       case 'tools/list':
         return this.jsonrpc(id, {
@@ -44,6 +53,17 @@ export class MCPServer {
         return this.jsonrpc(id, result)
       }
 
+      // MCP lifecycle notifications
+      case 'notifications/initialized':
+        return this.jsonrpc(id, {})
+
+      // Resource and prompt discovery
+      case 'resources/list':
+        return this.jsonrpc(id, { resources: [] })
+
+      case 'prompts/list':
+        return this.jsonrpc(id, { prompts: [] })
+
       default:
         return this.jsonrpc(id, null, { code: -32601, message: `Method not found: ${method}` })
     }
@@ -51,10 +71,47 @@ export class MCPServer {
 
   /** Handle an HTTP request (for use in Hono routes) */
   async handleHTTP(request: Request): Promise<Response> {
-    const body = await request.json()
-    const result = await this.handleRequest(body as Record<string, unknown>)
+    const corsHeaders: Record<string, string> = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    }
+
+    // Handle CORS preflight
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: corsHeaders })
+    }
+
+    let parsed: unknown
+    try {
+      parsed = await request.json()
+    } catch {
+      return new Response(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: null,
+          error: { code: -32700, message: 'Parse error: invalid JSON' },
+        }),
+        {
+          status: 400,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        },
+      )
+    }
+
+    // Handle batch JSON-RPC requests
+    if (Array.isArray(parsed)) {
+      const results = await Promise.all(
+        parsed.map((req: Record<string, unknown>) => this.handleRequest(req)),
+      )
+      return new Response(JSON.stringify(results), {
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      })
+    }
+
+    const result = await this.handleRequest(parsed as Record<string, unknown>)
     return new Response(JSON.stringify(result), {
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
     })
   }
 

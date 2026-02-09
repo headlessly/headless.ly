@@ -189,6 +189,88 @@ export class TimeTraveler {
   }
 
   /**
+   * Get a timeline of all intermediate states for an entity.
+   * Returns one entry per event with the state at that point plus metadata.
+   */
+  async timeline(
+    entityType: string,
+    entityId: string,
+  ): Promise<Array<{ version: number; state: ReconstructedState; event: NounEvent; timestamp: string }>> {
+    const allEvents = await this.eventLog.getEntityHistory(entityType, entityId)
+    const result: Array<{ version: number; state: ReconstructedState; event: NounEvent; timestamp: string }> = []
+
+    for (let i = 0; i < allEvents.length; i++) {
+      const eventsUpToHere = allEvents.slice(0, i + 1)
+      const state = this.replayEvents(eventsUpToHere)
+      if (state) {
+        result.push({
+          version: allEvents[i].sequence,
+          state,
+          event: allEvents[i],
+          timestamp: allEvents[i].timestamp,
+        })
+      }
+    }
+
+    return result
+  }
+
+  /**
+   * Build a projection (custom field view) of an entity at its latest state.
+   */
+  async projection(entityType: string, entityId: string, fields: string[]): Promise<Record<string, unknown>> {
+    const allEvents = await this.eventLog.getEntityHistory(entityType, entityId)
+    const fullState = this.replayEvents(allEvents)
+    if (!fullState) return {}
+
+    const result: Record<string, unknown> = {}
+    for (const field of fields) {
+      if (field in fullState) {
+        result[field] = fullState[field]
+      }
+    }
+    return result
+  }
+
+  /**
+   * Return the current state of every unique entity in the log.
+   */
+  async snapshotAll(): Promise<ReconstructedState[]> {
+    const entities = await this.eventLog.uniqueEntities()
+    const result: ReconstructedState[] = []
+
+    for (const { entityType, entityId } of entities) {
+      const history = await this.eventLog.getEntityHistory(entityType, entityId)
+      const state = this.replayEvents(history)
+      if (state) {
+        result.push(state)
+      }
+    }
+
+    return result
+  }
+
+  /**
+   * Find the event that caused a specific field to change to a given value.
+   */
+  async causedBy(
+    entityType: string,
+    entityId: string,
+    field: string,
+    value: unknown,
+  ): Promise<NounEvent | undefined> {
+    const allEvents = await this.eventLog.getEntityHistory(entityType, entityId)
+
+    for (const event of allEvents) {
+      if (event.after && event.after[field] === value) {
+        return event
+      }
+    }
+
+    return undefined
+  }
+
+  /**
    * Compute field-level changes between two states.
    */
   private computeChanges(before: ReconstructedState | null, after: ReconstructedState | null): Array<{ field: string; from: unknown; to: unknown }> {

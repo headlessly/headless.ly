@@ -45,7 +45,26 @@ export { useSearch, type UseSearchOptions, type UseSearchResult, type SearchResu
 export { useRealtime, type UseRealtimeOptions, type UseRealtimeResult } from './hooks/use-realtime.js'
 
 // Schema utilities
-export { deriveColumns, deriveFormFields, deriveVerbs, deriveAllVerbs, fieldInputType, isRequired, formatLabel, formatCellValue } from './schema-utils.js'
+export {
+  deriveColumns,
+  deriveFormFields,
+  deriveVerbs,
+  deriveAllVerbs,
+  deriveFilterableColumns,
+  deriveSortableColumns,
+  deriveEntityTitle,
+  validateFormData,
+  columnsByKind,
+  deriveVerbsByCategory,
+  deriveRelationships,
+  schemaFieldCount,
+  deriveDefaultValues,
+  fieldToQueryOperator,
+  fieldInputType,
+  isRequired,
+  formatLabel,
+  formatCellValue,
+} from './schema-utils.js'
 
 // Types
 export type {

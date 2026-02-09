@@ -53,6 +53,14 @@ export interface SearchArgs {
   limit?: number
   /** Sort specification */
   sort?: Record<string, 'asc' | 'desc'>
+  /** Offset for pagination */
+  offset?: number
+  /** Cursor for cursor-based pagination */
+  cursor?: string
+  /** If true, return only count without entity data */
+  countOnly?: boolean
+  /** Related entity types to include */
+  include?: string[]
 }
 
 /** Fetch arguments */
@@ -67,6 +75,8 @@ export interface FetchArgs {
   asOf?: string
   /** Schema: get specific noun or all nouns */
   noun?: string
+  /** Related entity types to include */
+  include?: string[]
 }
 
 /** Do arguments */
@@ -81,4 +91,6 @@ export interface DoArgs {
   data?: Record<string, unknown>
   /** TypeScript code to evaluate (for complex operations) */
   code?: string
+  /** Match criteria for upsert */
+  match?: Record<string, unknown>
 }

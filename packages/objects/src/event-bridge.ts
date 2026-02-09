@@ -31,6 +31,8 @@ export interface EventEmitter {
   subscribe(pattern: string, handler: EventHandler): () => void
   /** Query past events */
   query(options: EventQueryOptions): Promise<NounEvent[]>
+  /** Clear all stored events (subscribers are preserved) */
+  clear(): void
 }
 
 /**
@@ -85,11 +87,7 @@ export function createEventBridge(): EventEmitter {
       for (const [pattern, handlers] of subscribers) {
         if (matchesPattern(pattern, event.$type)) {
           for (const handler of handlers) {
-            try {
-              await handler(event)
-            } catch {
-              // Swallow subscriber errors — don't break the emit chain
-            }
+            await handler(event)
           }
         }
       }
@@ -118,6 +116,10 @@ export function createEventBridge(): EventEmitter {
         if (options.since && event.timestamp < options.since) return false
         return true
       })
+    },
+
+    clear(): void {
+      events.length = 0
     },
   }
 }

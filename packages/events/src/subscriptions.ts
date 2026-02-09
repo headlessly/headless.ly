@@ -8,7 +8,7 @@
  */
 
 import type { Subscription, SubscriptionMode, EventHandler, NounEvent } from './types.js'
-import { matchesPattern } from './event-log.js'
+import { matchesPattern, EventLog } from './event-log.js'
 
 // =============================================================================
 // ID Generation
@@ -52,6 +52,8 @@ async function signPayload(payload: string, secret: string): Promise<string> {
 export class SubscriptionManager {
   private subscriptions = new Map<string, Subscription>()
   private codeHandlers = new Map<string, EventHandler>()
+  private attachedLog: EventLog | null = null
+  private detachFn: (() => void) | null = null
 
   /**
    * Register a code-as-data subscription (~0ms latency).
@@ -116,6 +118,33 @@ export class SubscriptionManager {
     return existed
   }
 
+  /** Deactivate a subscription without removing it */
+  deactivate(id: string): boolean {
+    const sub = this.subscriptions.get(id)
+    if (!sub) return false
+    sub.active = false
+    return true
+  }
+
+  /** Activate a previously deactivated subscription */
+  activate(id: string): boolean {
+    const sub = this.subscriptions.get(id)
+    if (!sub) return false
+    sub.active = true
+    return true
+  }
+
+  /** Total number of subscriptions */
+  get count(): number {
+    return this.subscriptions.size
+  }
+
+  /** Remove all subscriptions */
+  clear(): void {
+    this.subscriptions.clear()
+    this.codeHandlers.clear()
+  }
+
   /** List all subscriptions */
   list(options?: { pattern?: string; mode?: SubscriptionMode; active?: boolean }): Subscription[] {
     let results = Array.from(this.subscriptions.values())
@@ -138,8 +167,29 @@ export class SubscriptionManager {
     return this.subscriptions.get(id)
   }
 
+  /** Attach to an EventLog for auto-dispatching on append */
+  attach(eventLog: EventLog): void {
+    this.detach()
+    this.attachedLog = eventLog
+    const unsub = eventLog.subscribe('*', (event) => {
+      this.dispatch(event)
+    })
+    this.detachFn = unsub
+  }
+
+  /** Detach from the attached EventLog */
+  detach(): void {
+    if (this.detachFn) {
+      this.detachFn()
+      this.detachFn = null
+    }
+    this.attachedLog = null
+  }
+
   /** Dispatch an event to all matching subscriptions */
-  async dispatch(event: NounEvent): Promise<void> {
+  async dispatch(event: NounEvent): Promise<{ delivered: number; failed: number }> {
+    let delivered = 0
+    let failed = 0
     const promises: Promise<void>[] = []
 
     for (const [id, subscription] of this.subscriptions) {
@@ -153,8 +203,9 @@ export class SubscriptionManager {
             promises.push(
               Promise.resolve()
                 .then(() => handler(event))
+                .then(() => { delivered++ })
                 .catch(() => {
-                  // Swallow code handler errors — don't break dispatch
+                  failed++
                 }),
             )
           }
@@ -162,21 +213,27 @@ export class SubscriptionManager {
         }
 
         case 'websocket': {
-          // WebSocket dispatch is a placeholder — actual implementation
-          // depends on the runtime (Cloudflare DO WebSocket, Node.js ws, etc.)
-          // The subscription stores the endpoint; the runtime bridges the gap.
-          promises.push(this.dispatchWebSocket(subscription, event))
+          promises.push(
+            this.dispatchWebSocket(subscription, event)
+              .then(() => { delivered++ })
+              .catch(() => { failed++ }),
+          )
           break
         }
 
         case 'webhook': {
-          promises.push(this.dispatchWebhook(subscription, event))
+          promises.push(
+            this.dispatchWebhook(subscription, event)
+              .then(() => { delivered++ })
+              .catch(() => { failed++ }),
+          )
           break
         }
       }
     }
 
     await Promise.all(promises)
+    return { delivered, failed }
   }
 
   /** Dispatch to WebSocket (placeholder for runtime integration) */
