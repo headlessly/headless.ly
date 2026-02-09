@@ -1,34 +1,74 @@
 # @headlessly/objects
 
-DO-backed NounProvider for digital-objects -- bridges `Noun()` to Durable Object storage via rpc.do.
-
-## Install
-
-```bash
-npm install @headlessly/objects
-```
-
-## Usage
+> The bridge between your schema and the edge. Noun() to Durable Object in one line.
 
 ```typescript
-import { DONounProvider, LocalNounProvider } from '@headlessly/objects'
+import { DONounProvider } from '@headlessly/objects'
+import { Contact, Deal } from 'digital-objects'
 import { setProvider } from 'digital-objects'
 
-// Remote mode: rpc.do + capnweb promise pipelining
 const provider = new DONounProvider({
   endpoint: 'https://db.headless.ly/~acme',
   apiKey: 'key_...',
 })
 setProvider(provider)
 
-// Local mode: in-process storage with event emission
-const local = new LocalNounProvider({
-  context: 'https://headless.ly/~acme',
-})
-setProvider(local)
+// Now every Noun() just works — backed by Durable Objects at the edge
+await Contact.create({ name: 'Alice', stage: 'Lead' })
+await Deal.create({ name: 'Acme Enterprise', value: 50000, contact: 'contact_fX9bL5nRd' })
 ```
 
-### Event Bridge
+`digital-objects` defines pure schemas. This package makes them real — connecting `Noun()` definitions to Cloudflare Durable Objects via [rpc.do](https://rpc.do). One provider, and every entity in your graph is stored, versioned, and event-sourced at the edge.
+
+## The Problem
+
+Schema definitions are worthless without a runtime. You can define `Contact` and `Deal` as beautiful TypeScript types, but something needs to actually store them, generate IDs, emit events, and execute verbs.
+
+Most ORMs solve this by coupling your schema to a specific database. Prisma locks you to PostgreSQL. Drizzle locks you to SQL. Mongoose locks you to MongoDB.
+
+`@headlessly/objects` decouples schema from storage entirely. Same `Noun()` definitions work with Durable Objects in production, in-memory storage in development, and anything else you wire up.
+
+## Two Providers
+
+### DONounProvider — Production
+
+Every entity operation routes through [rpc.do](https://rpc.do) to a Cloudflare Durable Object. capnweb promise pipelining means chained operations execute in a single round-trip. Data lives at the edge, isolated per tenant.
+
+```typescript
+import { DONounProvider } from '@headlessly/objects'
+import { setProvider } from 'digital-objects'
+
+const provider = new DONounProvider({
+  endpoint: 'https://db.headless.ly/~acme',
+  apiKey: 'key_...',
+})
+setProvider(provider)
+
+// Operations route to Durable Objects via rpc.do
+const contact = await Contact.create({ name: 'Alice', stage: 'Lead' })
+const deals = await Deal.find({ contact: contact.$id })
+```
+
+### LocalNounProvider — Development
+
+In-memory storage with full event emission. Same API, no network, instant feedback:
+
+```typescript
+import { LocalNounProvider } from '@headlessly/objects'
+import { setProvider } from 'digital-objects'
+
+const provider = new LocalNounProvider({
+  context: 'https://headless.ly/~dev',
+})
+setProvider(provider)
+
+// Same code, runs locally
+await Contact.create({ name: 'Alice', stage: 'Lead' })
+```
+
+## Event Bridge
+
+Every verb — create, update, delete, and custom verbs — emits events. Subscribe with glob patterns:
 
 ```typescript
 import { createEventBridge } from '@headlessly/objects'
@@ -42,29 +82,44 @@ events.on('Contact.created', (event) => {
 events.on('Deal.*', (event) => {
   console.log('Deal event:', event.verb)
 })
+
+events.on('*.qualified', (event) => {
+  console.log(`${event.entityType} qualified:`, event.entityId)
+})
 ```
 
-### Verb Execution
+## Verb Execution
+
+Execute any verb — CRUD or custom — with full lifecycle hooks:
 
 ```typescript
 import { executeVerb } from '@headlessly/objects'
 
 const result = await executeVerb({
   type: 'Contact',
-  id: 'contact_fX9bL5',
+  id: 'contact_fX9bL5nRd',
   verb: 'qualify',
   data: { score: 85 },
 })
+// Fires: Contact.qualifying() → Contact.qualify() → Contact.qualified()
 ```
 
-### ID Generation
+## Entity ID Generation
+
+IDs use the format `{type}_{sqid}` — short, unique, URL-safe, with a built-in blocklist to prevent offensive strings via [sqids](https://sqids.org/):
 
 ```typescript
 import { generateSqid, generateEntityId, generateEventId } from '@headlessly/objects'
 
-const sqid = generateSqid() // 'fX9bL5nRdKpQ'
-const id = generateEntityId('Contact') // 'contact_fX9bL5nRdKpQ'
-const eid = generateEventId() // 'evt_k7TmPvQxW3hN'
+const sqid = generateSqid()              // 'fX9bL5nRdKpQ'
+const id = generateEntityId('Contact')   // 'contact_fX9bL5nRdKpQ'
+const eid = generateEventId()            // 'evt_k7TmPvQxW3hN'
+```
+
+## Install
+
+```bash
+npm install @headlessly/objects
 ```
 
 ## API
@@ -88,10 +143,10 @@ Implements the full `NounProvider` interface:
 ### Utilities
 
 - **`createEventBridge()`** -- in-memory event emitter for verb lifecycle events
-- **`executeVerb(options)`** -- verb execution with event emission
+- **`executeVerb(options)`** -- verb execution with lifecycle hooks (before/action/after)
 - **`generateSqid(length?)`** -- generate a sqid string
-- **`generateEntityId(type)`** -- generate a typed entity ID
-- **`generateEventId()`** -- generate an event ID
+- **`generateEntityId(type)`** -- generate a typed entity ID (`type_sqid`)
+- **`generateEventId()`** -- generate an event ID (`evt_sqid`)
 
 ### Error Handling
 
