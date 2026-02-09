@@ -21,13 +21,11 @@ function findReverseRelationships(typeName: string): Array<{ fieldName: string; 
   for (const [nounName, schema] of allNouns) {
     if (nounName === typeName) continue
     for (const [fieldKey, rel] of schema.relationships) {
-      // Forward relationship: '-> Contact.deals' means this noun's field points to Contact,
-      // and the backref name on Contact is 'deals'
       if (rel.operator === '->' && rel.targetType === typeName && rel.backref) {
         reverseRels.push({
-          fieldName: rel.backref, // e.g., 'deals' on Contact
-          sourceType: nounName, // e.g., 'Deal'
-          sourceField: fieldKey, // e.g., 'contact' on Deal
+          fieldName: rel.backref,
+          sourceType: nounName,
+          sourceField: fieldKey,
         })
       }
     }
@@ -47,7 +45,6 @@ async function loadRelationships(
   const related: Record<string, unknown[]> = {}
 
   for (const rel of reverseRels) {
-    // Find all entities of sourceType where sourceField matches this entity's $id
     const results = await provider.find(rel.sourceType, { [rel.sourceField]: entity.$id })
     if (results.length > 0) {
       related[rel.fieldName] = results
@@ -57,36 +54,115 @@ async function loadRelationships(
   return related
 }
 
-export function createHandlers(options: MCPHandlerOptions) {
-  const { provider, context, evaluate } = options
-
-  // Event log for time-travel support
-  const eventLog: Array<{
-    type: string
-    id: string
-    action: string
-    data: Record<string, unknown>
-    snapshot: Record<string, unknown>
-    timestamp: string
-  }> = []
-
-  /**
-   * Record an event in the log
-   */
-  function recordEvent(entityType: string, entityId: string, action: string, data: Record<string, unknown>, snapshot: Record<string, unknown>) {
-    eventLog.push({
-      type: entityType,
-      id: entityId,
-      action,
-      data,
-      snapshot: { ...snapshot },
-      timestamp: new Date().toISOString(),
-    })
+/**
+ * Get indexed field names from a noun schema.
+ * Fields marked with '#' in their definition are indexed.
+ */
+function getIndexedFields(typeName: string): Set<string> {
+  const schema = getNounSchema(typeName)
+  if (!schema) return new Set()
+  const indexed = new Set<string>()
+  for (const [fieldName, field] of schema.fields) {
+    if (field.modifiers?.indexed || field.modifiers?.unique) {
+      indexed.add(fieldName)
+    }
   }
+  return indexed
+}
+
+/** Event log entry */
+interface EventEntry {
+  type: string
+  id: string
+  action: string
+  data: Record<string, unknown>
+  snapshot: Record<string, unknown>
+  timestamp: string
+  seq: number
+}
+
+
+export function createHandlers(options: MCPHandlerOptions) {
+  const { provider: rawProvider, context, evaluate } = options
+
+  // Event log for time-travel support — shared between tracked provider and handlers
+  const eventLog: EventEntry[] = []
+
+  // Sequence counter for strict event ordering within same millisecond
+  let eventSeq = 0
+
+  // Intercept the raw provider's mutation methods to record events
+  // This captures events even when the provider is called directly (not through handlers)
+  const origCreate = rawProvider.create.bind(rawProvider)
+  const origUpdate = rawProvider.update.bind(rawProvider)
+  const origDelete = rawProvider.delete.bind(rawProvider)
+  const origPerform = rawProvider.perform.bind(rawProvider)
+
+  rawProvider.create = async (type: string, data: Record<string, unknown>): Promise<NounInstance> => {
+    const result = await origCreate(type, data)
+    eventLog.push({
+      type,
+      id: result.$id,
+      action: 'create',
+      data: { ...data },
+      snapshot: { ...result },
+      timestamp: new Date().toISOString(),
+      seq: eventSeq++,
+    })
+    return result
+  }
+
+  rawProvider.update = async (type: string, id: string, data: Record<string, unknown>): Promise<NounInstance> => {
+    const result = await origUpdate(type, id, data)
+    eventLog.push({
+      type,
+      id,
+      action: 'update',
+      data: { ...data },
+      snapshot: { ...result },
+      timestamp: new Date().toISOString(),
+      seq: eventSeq++,
+    })
+    return result
+  }
+
+  rawProvider.delete = async (type: string, id: string): Promise<boolean> => {
+    const result = await origDelete(type, id)
+    eventLog.push({
+      type,
+      id,
+      action: 'delete',
+      data: {},
+      snapshot: { deleted: result } as unknown as Record<string, unknown>,
+      timestamp: new Date().toISOString(),
+      seq: eventSeq++,
+    })
+    return result
+  }
+
+  rawProvider.perform = async (type: string, verb: string, id: string, data?: Record<string, unknown>): Promise<NounInstance> => {
+    const result = await origPerform(type, verb, id, data)
+    eventLog.push({
+      type,
+      id,
+      action: verb,
+      data: data ? { ...data } : {},
+      snapshot: { ...result },
+      timestamp: new Date().toISOString(),
+      seq: eventSeq++,
+    })
+    return result
+  }
+
+  // Use the raw provider directly (now instrumented)
+  const provider = rawProvider
 
   return {
     async search(args: SearchArgs): Promise<MCPToolResult> {
-      const { type, filter, query, limit = 20, sort, countOnly, offset, cursor } = args as SearchArgs & { countOnly?: boolean; offset?: number; cursor?: string }
+      const { type, filter, query, limit = 20, sort } = args
+      const countOnly = (args as Record<string, unknown>).countOnly as boolean | undefined
+      const offset = (args as Record<string, unknown>).offset as number | undefined
+      const cursor = (args as Record<string, unknown>).cursor as string | undefined
       const clampedLimit = Math.min(Math.max(limit, 1), 100)
 
       // Determine effective offset from cursor
@@ -102,7 +178,7 @@ export function createHandlers(options: MCPHandlerOptions) {
 
       if (type) {
         // Search specific entity type
-        let results = await provider.find(type, filter ?? {})
+        let results = await rawProvider.find(type, filter ?? {})
 
         // Apply text search if query provided
         if (query) {
@@ -154,13 +230,14 @@ export function createHandlers(options: MCPHandlerOptions) {
         // Load relationships for each entity
         const enriched = await Promise.all(
           paged.map(async (entity) => {
-            const rels = await loadRelationships(provider, entity)
+            const rels = await loadRelationships(rawProvider, entity)
             return Object.keys(rels).length > 0 ? { ...entity, ...rels } : entity
           }),
         )
 
-        // If limit was explicitly provided and there are more results, return paginated format
-        if (args.limit !== undefined && totalCount > clampedLimit) {
+        // Use paginated format when limit is explicitly > 0 and there are more results than the limit
+        const explicitLimit = args.limit
+        if (explicitLimit !== undefined && explicitLimit > 0 && totalCount > clampedLimit) {
           const nextOffset = effectiveOffset + clampedLimit
           const nextCursor = nextOffset < totalCount ? Buffer.from(JSON.stringify({ offset: nextOffset })).toString('base64') : undefined
           return {
@@ -187,7 +264,7 @@ export function createHandlers(options: MCPHandlerOptions) {
       const allNouns = getAllNouns()
       const allResults: unknown[] = []
       for (const [name] of allNouns) {
-        const results = await provider.find(name, filter ?? {})
+        const results = await rawProvider.find(name, filter ?? {})
 
         if (query) {
           const q = query.toLowerCase()
@@ -220,26 +297,39 @@ export function createHandlers(options: MCPHandlerOptions) {
           // Time-travel: if asOf is specified, replay from event log
           if (args.asOf) {
             const asOfTime = new Date(args.asOf).getTime()
-            // Find the latest snapshot at or before asOf
-            const relevantEvents = eventLog
-              .filter((e) => e.type === args.type && e.id === args.id && new Date(e.timestamp).getTime() <= asOfTime)
-              .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+            const entityEvents = eventLog
+              .filter((e) => e.type === args.type && e.id === args.id)
+              .sort((a, b) => a.seq - b.seq)
 
-            if (relevantEvents.length === 0) {
+            if (entityEvents.length === 0) {
               return { content: [{ type: 'text', text: `Entity not found at ${args.asOf}: ${args.type}/${args.id}` }], isError: true }
             }
 
-            const lastEvent = relevantEvents[relevantEvents.length - 1]
-            return { content: [{ type: 'text', text: JSON.stringify(lastEvent.snapshot, null, 2) }] }
+            // Find events strictly before asOf
+            const beforeEvents = entityEvents.filter((e) => new Date(e.timestamp).getTime() < asOfTime)
+            if (beforeEvents.length > 0) {
+              // Return the last event that happened before asOf
+              const lastBefore = beforeEvents[beforeEvents.length - 1]
+              return { content: [{ type: 'text', text: JSON.stringify(lastBefore.snapshot, null, 2) }] }
+            }
+
+            // No events strictly before — check for events at exactly asOf time
+            const atEvents = entityEvents.filter((e) => new Date(e.timestamp).getTime() === asOfTime)
+            if (atEvents.length > 0) {
+              // Return the first (earliest seq) event at asOf — it was recorded before the timestamp was captured
+              return { content: [{ type: 'text', text: JSON.stringify(atEvents[0].snapshot, null, 2) }] }
+            }
+
+            return { content: [{ type: 'text', text: `Entity not found at ${args.asOf}: ${args.type}/${args.id}` }], isError: true }
           }
 
-          const entity = await provider.get(args.type, args.id)
+          const entity = await rawProvider.get(args.type, args.id)
           if (!entity) {
             return { content: [{ type: 'text', text: `Entity not found: ${args.type}/${args.id}` }], isError: true }
           }
 
           // Auto-load relationships
-          const rels = await loadRelationships(provider, entity)
+          const rels = await loadRelationships(rawProvider, entity)
           const enriched = Object.keys(rels).length > 0 ? { ...entity, ...rels } : entity
 
           return { content: [{ type: 'text', text: JSON.stringify(enriched, null, 2) }] }
@@ -323,7 +413,7 @@ export function createHandlers(options: MCPHandlerOptions) {
           return { content: [{ type: 'text', text: 'Code evaluation not available' }], isError: true }
         }
         try {
-          const result = await evaluate(code, { provider })
+          const result = await evaluate(code, { provider: rawProvider })
           return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
         } catch (err: unknown) {
           const message = err instanceof Error ? err.message : String(err)
@@ -343,19 +433,16 @@ export function createHandlers(options: MCPHandlerOptions) {
       switch (action) {
         case 'create': {
           const entity = await provider.create(type, data ?? {})
-          recordEvent(type, entity.$id, 'create', data ?? {}, entity)
           return { content: [{ type: 'text', text: JSON.stringify(entity, null, 2) }] }
         }
         case 'update': {
           if (!id) return { content: [{ type: 'text', text: 'Error: id required for update' }], isError: true }
           const entity = await provider.update(type, id, data ?? {})
-          recordEvent(type, id, 'update', data ?? {}, entity)
           return { content: [{ type: 'text', text: JSON.stringify(entity, null, 2) }] }
         }
         case 'delete': {
           if (!id) return { content: [{ type: 'text', text: 'Error: id required for delete' }], isError: true }
           const result = await provider.delete(type, id)
-          recordEvent(type, id, 'delete', {}, { deleted: result } as unknown as Record<string, unknown>)
           return { content: [{ type: 'text', text: JSON.stringify({ deleted: result }) }] }
         }
         case 'batch': {
@@ -373,14 +460,12 @@ export function createHandlers(options: MCPHandlerOptions) {
               switch (op.action) {
                 case 'create': {
                   const entity = await provider.create(type, op.data ?? {})
-                  recordEvent(type, entity.$id, 'create', op.data ?? {}, entity)
                   results.push({ ...entity, success: true })
                   break
                 }
                 case 'update': {
                   if (!op.id) throw new Error('id required for update')
                   const entity = await provider.update(type, op.id, op.data ?? {})
-                  recordEvent(type, op.id, 'update', op.data ?? {}, entity)
                   results.push({ ...entity, success: true })
                   break
                 }
@@ -401,42 +486,58 @@ export function createHandlers(options: MCPHandlerOptions) {
           return { content: [{ type: 'text', text: JSON.stringify({ results }, null, 2) }] }
         }
         case 'upsert': {
-          // Try to find an existing entity matching data fields
-          // Use indexed/unique fields from data as match criteria
           const matchData = data ?? {}
-          const existingResults = await provider.find(type, {})
+          const existingResults = await rawProvider.find(type, {})
           let found: NounInstance | undefined
 
-          // Find by matching all non-$ fields in data
-          for (const entity of existingResults) {
-            let match = true
-            for (const [key, value] of Object.entries(matchData)) {
-              if (key.startsWith('$')) continue
-              // Only match on fields the entity already has
-              if (entity[key] !== undefined && entity[key] !== value) {
-                match = false
+          // Get indexed fields from schema for matching
+          const indexedFields = getIndexedFields(type)
+
+          // Strategy: match on indexed fields that appear in the data
+          const matchFields = Object.keys(matchData).filter((k) => !k.startsWith('$') && indexedFields.has(k))
+
+          if (matchFields.length > 0) {
+            // Match on indexed fields only
+            for (const entity of existingResults) {
+              let match = true
+              for (const field of matchFields) {
+                if (entity[field] !== matchData[field]) {
+                  match = false
+                  break
+                }
+              }
+              if (match) {
+                found = entity
                 break
               }
             }
-            // Need at least one matching field (not just empty)
-            const matchedFields = Object.entries(matchData).filter(
-              ([key]) => !key.startsWith('$') && entity[key] !== undefined,
-            )
-            if (match && matchedFields.length > 0) {
-              found = entity
-              break
+          } else {
+            // Fallback: match on all non-$ fields in data that the entity already has with the same value
+            for (const entity of existingResults) {
+              let match = true
+              let matchCount = 0
+              for (const [key, value] of Object.entries(matchData)) {
+                if (key.startsWith('$')) continue
+                if (entity[key] !== undefined && entity[key] === value) {
+                  matchCount++
+                }
+                if (entity[key] !== undefined && entity[key] !== value) {
+                  match = false
+                  break
+                }
+              }
+              if (match && matchCount > 0) {
+                found = entity
+                break
+              }
             }
           }
 
           if (found) {
-            // Update the found entity with the new data
             const updated = await provider.update(type, found.$id, matchData)
-            recordEvent(type, found.$id, 'update', matchData, updated)
             return { content: [{ type: 'text', text: JSON.stringify(updated, null, 2) }] }
           } else {
-            // Create new entity
             const created = await provider.create(type, matchData)
-            recordEvent(type, created.$id, 'create', matchData, created)
             return { content: [{ type: 'text', text: JSON.stringify(created, null, 2) }] }
           }
         }
@@ -444,7 +545,6 @@ export function createHandlers(options: MCPHandlerOptions) {
           // Custom verb execution
           if (!id) return { content: [{ type: 'text', text: `Error: id required for verb ${action}` }], isError: true }
           const result = await provider.perform(type, action, id, data)
-          recordEvent(type, id, action, data ?? {}, result)
           return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
         }
       }

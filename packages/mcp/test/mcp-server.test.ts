@@ -552,6 +552,7 @@ describe('@headlessly/mcp — server & handler tests (RED)', () => {
       const page2 = await handlers.search({
         type: 'Contact',
         limit: 3,
+        cursor: parsed1.nextCursor,
       } as Record<string, unknown> as Parameters<typeof handlers.search>[0])
       const parsed2 = JSON.parse(page2.content[0].text!)
       expect(parsed2.items).toHaveLength(3)
@@ -864,6 +865,7 @@ describe('@headlessly/mcp — server & handler tests (RED)', () => {
       const result = await handlers.search({
         type: 'Contact',
         filter: { stage: 'Lead' },
+        countOnly: true,
       } as Record<string, unknown> as Parameters<typeof handlers.search>[0])
       const parsed = JSON.parse(result.content[0].text!)
       expect(parsed.count).toBe(10)
