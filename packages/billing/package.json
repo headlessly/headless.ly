@@ -45,7 +45,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/headlessly/headless.ly",
-    "directory": "packages/billing"
+    "directory": "public/packages/billing"
   },
   "homepage": "https://headless.ly"
 }
