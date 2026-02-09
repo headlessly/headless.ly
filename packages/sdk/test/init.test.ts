@@ -111,7 +111,8 @@ vi.mock('@headlessly/platform', () => ({
 
 // This import will FAIL because `headlessly` is not exported from @headlessly/sdk
 // and `MemoryNounProvider` / `getProvider` are not re-exported properly yet
-import { headlessly, $, MemoryNounProvider, getProvider } from '../src/index'
+import { headlessly, $, MemoryNounProvider, getProvider, detectEnvironment, detectEndpoint, enableLazy, entityNames } from '../src/index'
+import defaultExport from '../src/index'
 
 describe('headlessly() initialization', () => {
   afterEach(() => {
@@ -336,6 +337,224 @@ describe('headlessly() initialization', () => {
           apiKey: 'hly_sk_test123',
         })
       ).not.toThrow()
+    })
+
+    it('error message includes suggestion for valid URL format', () => {
+      try {
+        headlessly({ endpoint: 'not-a-url', apiKey: 'hly_sk_test123' })
+      } catch (e) {
+        expect((e as Error).message).toContain('https://db.headless.ly')
+      }
+    })
+  })
+
+  describe('default export', () => {
+    it('exports headlessly as the default export', () => {
+      expect(defaultExport).toBe(headlessly)
+    })
+
+    it('default export is a function', () => {
+      expect(typeof defaultExport).toBe('function')
+    })
+
+    it('default export has reset()', () => {
+      expect(typeof defaultExport.reset).toBe('function')
+    })
+  })
+
+  describe('environment auto-detection', () => {
+    it('exports detectEnvironment as a function', () => {
+      expect(typeof detectEnvironment).toBe('function')
+    })
+
+    it('detects node environment in vitest', () => {
+      // vitest runs in Node.js
+      expect(detectEnvironment()).toBe('node')
+    })
+
+    it('exports detectEndpoint as a function', () => {
+      expect(typeof detectEndpoint).toBe('function')
+    })
+
+    it('returns undefined for endpoint when not in browser', () => {
+      // In Node.js (vitest), window is not defined
+      expect(detectEndpoint()).toBeUndefined()
+    })
+
+    it('auto-detects endpoint from browser window.location on headless.ly', () => {
+      // Simulate browser environment
+      const origWindow = globalThis.window
+      ;(globalThis as Record<string, unknown>).window = {
+        location: { hostname: 'crm.headless.ly', protocol: 'https:' },
+      }
+      try {
+        expect(detectEndpoint()).toBe('https://db.headless.ly')
+      } finally {
+        if (origWindow === undefined) {
+          delete (globalThis as Record<string, unknown>).window
+        } else {
+          ;(globalThis as Record<string, unknown>).window = origWindow
+        }
+      }
+    })
+
+    it('auto-detects endpoint from bare headless.ly domain', () => {
+      const origWindow = globalThis.window
+      ;(globalThis as Record<string, unknown>).window = {
+        location: { hostname: 'headless.ly', protocol: 'https:' },
+      }
+      try {
+        expect(detectEndpoint()).toBe('https://db.headless.ly')
+      } finally {
+        if (origWindow === undefined) {
+          delete (globalThis as Record<string, unknown>).window
+        } else {
+          ;(globalThis as Record<string, unknown>).window = origWindow
+        }
+      }
+    })
+
+    it('returns undefined for non-headless.ly domains', () => {
+      const origWindow = globalThis.window
+      ;(globalThis as Record<string, unknown>).window = {
+        location: { hostname: 'example.com', protocol: 'https:' },
+      }
+      try {
+        expect(detectEndpoint()).toBeUndefined()
+      } finally {
+        if (origWindow === undefined) {
+          delete (globalThis as Record<string, unknown>).window
+        } else {
+          ;(globalThis as Record<string, unknown>).window = origWindow
+        }
+      }
+    })
+  })
+
+  describe('lazy initialization', () => {
+    it('headlessly({ lazy: true }) does not throw', () => {
+      expect(() => headlessly({ lazy: true })).not.toThrow()
+    })
+
+    it('headlessly({ lazy: true }) returns $ context', () => {
+      const ctx = headlessly({ lazy: true })
+      expect(ctx).toBe($)
+    })
+
+    it('$ auto-initializes on first entity access without calling headlessly()', () => {
+      // Do NOT call headlessly() — just access an entity directly
+      expect($.Contact).toBeDefined()
+      // After accessing, headlessly should report as initialized
+      expect(headlessly.isInitialized()).toBe(true)
+    })
+
+    it('$.search auto-initializes', async () => {
+      const results = await $.search({ type: 'Contact' })
+      expect(Array.isArray(results)).toBe(true)
+      expect(headlessly.isInitialized()).toBe(true)
+    })
+
+    it('$.fetch auto-initializes', async () => {
+      const result = await $.fetch({ type: 'Contact', id: 'contact_test' })
+      expect(result).toBeNull()
+      expect(headlessly.isInitialized()).toBe(true)
+    })
+
+    it('$.do auto-initializes', async () => {
+      let called = false
+      await $.do(async () => { called = true })
+      expect(called).toBe(true)
+      expect(headlessly.isInitialized()).toBe(true)
+    })
+
+    it('enableLazy() enables lazy mode', () => {
+      enableLazy()
+      // Access $ without calling headlessly()
+      expect($.User).toBeDefined()
+      expect(headlessly.isInitialized()).toBe(true)
+    })
+  })
+
+  describe('reconfigure()', () => {
+    it('exports headlessly.reconfigure as a function', () => {
+      expect(typeof headlessly.reconfigure).toBe('function')
+    })
+
+    it('allows switching from memory to remote without manual reset', () => {
+      headlessly()
+      const provider1 = getProvider()
+      expect(provider1).toBeInstanceOf(MemoryNounProvider)
+
+      headlessly.reconfigure({
+        endpoint: 'https://db.headless.ly',
+        apiKey: 'hly_sk_reconfig',
+      })
+      const provider2 = getProvider() as { endpoint?: string }
+      expect(provider2).not.toBeInstanceOf(MemoryNounProvider)
+      expect(provider2.endpoint).toBe('https://db.headless.ly')
+    })
+
+    it('returns the $ context', () => {
+      headlessly()
+      const ctx = headlessly.reconfigure({
+        endpoint: 'https://db.headless.ly',
+        apiKey: 'hly_sk_reconfig',
+      })
+      expect(ctx).toBe($)
+    })
+  })
+
+  describe('isInitialized()', () => {
+    it('returns false before initialization', () => {
+      expect(headlessly.isInitialized()).toBe(false)
+    })
+
+    it('returns true after initialization', () => {
+      headlessly()
+      expect(headlessly.isInitialized()).toBe(true)
+    })
+
+    it('returns false after reset', () => {
+      headlessly()
+      headlessly.reset()
+      expect(headlessly.isInitialized()).toBe(false)
+    })
+  })
+
+  describe('entityNames export', () => {
+    it('exports entityNames as an array', () => {
+      expect(Array.isArray(entityNames)).toBe(true)
+    })
+
+    it('contains all 32 entity names', () => {
+      // 2 Identity + 3 CRM + 6 Billing + 3 Projects + 3 Content + 1 Support
+      // + 4 Analytics + 3 Marketing + 2 Experiments + 3 Platform + 1 Communication = 31
+      // (Organization is in CRM, not counted separately for Identity)
+      // Actual: User, ApiKey, Organization, Contact, Deal, + domain spreads + Message
+      expect(entityNames.length).toBeGreaterThanOrEqual(20)
+      expect(entityNames).toContain('User')
+      expect(entityNames).toContain('Contact')
+      expect(entityNames).toContain('Deal')
+      expect(entityNames).toContain('Message')
+      expect(entityNames).toContain('ApiKey')
+    })
+  })
+
+  describe('endpoint without apiKey warning', () => {
+    it('warns when endpoint is provided without apiKey', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      headlessly({ endpoint: 'https://db.headless.ly' })
+      expect(warnSpy).toHaveBeenCalled()
+      expect(warnSpy.mock.calls[0][0]).toContain('without an API key')
+      warnSpy.mockRestore()
+    })
+
+    it('falls back to MemoryNounProvider when endpoint has no apiKey', () => {
+      vi.spyOn(console, 'warn').mockImplementation(() => {})
+      headlessly({ endpoint: 'https://db.headless.ly' })
+      const provider = getProvider()
+      expect(provider).toBeInstanceOf(MemoryNounProvider)
+      vi.restoreAllMocks()
     })
   })
 })

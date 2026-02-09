@@ -81,6 +81,11 @@ const allEntities: Record<string, NounEntity> = {
 }
 
 /**
+ * All 32 entity names, for typed iteration and validation
+ */
+export const entityNames = Object.keys(allEntities) as EntityName[]
+
+/**
  * RemoteNounProvider — sends entity operations to a remote headless.ly endpoint
  */
 export class RemoteNounProvider {
@@ -126,6 +131,70 @@ export class RemoteNounProvider {
 }
 
 /**
+ * Runtime environment detection
+ */
+export type RuntimeEnvironment = 'node' | 'browser' | 'cloudflare-worker' | 'unknown'
+
+/**
+ * Detect the current runtime environment
+ *
+ * Returns one of: 'node', 'browser', 'cloudflare-worker', 'unknown'
+ */
+export function detectEnvironment(): RuntimeEnvironment {
+  // Cloudflare Workers: has caches global and no window/process.versions.node
+  if (typeof globalThis !== 'undefined' && 'caches' in globalThis && typeof (globalThis as Record<string, unknown>).Response === 'function') {
+    // Distinguish from browser: Workers have no window.document
+    if (typeof document === 'undefined' && (typeof navigator === 'undefined' || (navigator as Record<string, unknown>).userAgent === 'Cloudflare-Workers')) {
+      return 'cloudflare-worker'
+    }
+  }
+
+  // Browser: has window and document
+  if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+    return 'browser'
+  }
+
+  // Node.js: has process.versions.node
+  if (typeof process !== 'undefined' && process.versions?.node) {
+    return 'node'
+  }
+
+  return 'unknown'
+}
+
+/**
+ * Auto-detect endpoint from the browser environment
+ *
+ * When running in a browser on *.headless.ly, infers the db endpoint.
+ * Returns undefined if not in a browser or not on a headless.ly domain.
+ */
+export function detectEndpoint(): string | undefined {
+  if (typeof window === 'undefined' || typeof window.location === 'undefined') {
+    return undefined
+  }
+
+  const { hostname, protocol } = window.location
+
+  // On any *.headless.ly subdomain, use db.headless.ly as the endpoint
+  if (hostname === 'headless.ly' || hostname.endsWith('.headless.ly')) {
+    return `${protocol}//db.headless.ly`
+  }
+
+  return undefined
+}
+
+/**
+ * Read an environment variable safely across runtimes
+ */
+function readEnv(name: string): string | undefined {
+  // Node.js / Cloudflare Workers (via wrangler.jsonc vars)
+  if (typeof process !== 'undefined' && process.env) {
+    return process.env[name] || undefined
+  }
+  return undefined
+}
+
+/**
  * Options for headlessly() initialization
  */
 export interface HeadlesslyOptions {
@@ -133,23 +202,57 @@ export interface HeadlesslyOptions {
   endpoint?: string
   /** API key for authentication (e.g. hly_sk_...) */
   apiKey?: string
+  /**
+   * Enable lazy initialization: auto-init with MemoryNounProvider on first $ access.
+   * When true, headlessly() does not need to be called explicitly.
+   * @default false
+   */
+  lazy?: boolean
 }
 
 // Singleton state
 let _initialized = false
+let _lazyEnabled = false
 
 /**
- * Validate that a string is a valid URL
+ * Validate that a string is a valid URL with helpful error messages
  */
 function validateEndpoint(endpoint: string): void {
   if (!endpoint) {
-    throw new Error('Invalid endpoint: endpoint must not be empty')
+    throw new Error('Invalid endpoint: endpoint must not be empty. Expected a URL like "https://db.headless.ly" or "http://localhost:8787".')
   }
   try {
-    new URL(endpoint)
-  } catch {
-    throw new Error(`Invalid endpoint URL: ${endpoint}`)
+    const url = new URL(endpoint)
+    if (!['http:', 'https:'].includes(url.protocol)) {
+      throw new Error(
+        `Invalid endpoint URL protocol "${url.protocol}" in "${endpoint}". Use https:// for production or http:// for local development.`,
+      )
+    }
+  } catch (e) {
+    if (e instanceof Error && e.message.includes('protocol')) throw e
+    throw new Error(
+      `Invalid endpoint URL: "${endpoint}". Expected a valid URL like "https://db.headless.ly" or "http://localhost:8787".`,
+    )
   }
+}
+
+/**
+ * Perform lazy auto-initialization with MemoryNounProvider.
+ * Called on first $ property access when lazy mode is enabled or
+ * when headlessly() has never been called.
+ */
+function _autoInit(): void {
+  if (_initialized) return
+  setProvider(new MemoryNounProvider())
+  _initialized = true
+}
+
+/**
+ * Enable lazy initialization so $ can be used without calling headlessly() first.
+ * On first property access, auto-initializes with MemoryNounProvider.
+ */
+export function enableLazy(): void {
+  _lazyEnabled = true
 }
 
 /**
@@ -159,6 +262,7 @@ function validateEndpoint(endpoint: string): void {
  * - No args or no endpoint/apiKey: MemoryNounProvider (local in-memory)
  * - With endpoint + apiKey: RemoteNounProvider (calls db.headless.ly)
  * - Reads HEADLESSLY_ENDPOINT and HEADLESSLY_API_KEY env vars as fallbacks
+ * - In browsers on *.headless.ly, auto-detects endpoint
  *
  * Returns the $ universal context.
  *
@@ -166,22 +270,38 @@ function validateEndpoint(endpoint: string): void {
  * ```ts
  * import { headlessly, $ } from '@headlessly/sdk'
  *
- * // Local memory mode
+ * // Local memory mode (auto-detected)
  * headlessly()
  * await $.Contact.create({ name: 'Alice', stage: 'Lead' })
  *
  * // Remote mode
  * headlessly({ endpoint: 'https://db.headless.ly', apiKey: 'hly_sk_...' })
+ *
+ * // Lazy mode — no init call needed
+ * headlessly({ lazy: true })
+ * await $.Contact.create({ name: 'Alice', stage: 'Lead' }) // auto-inits on access
+ *
+ * // Zero-config — just use $ (auto-inits with memory provider)
+ * import { $ } from '@headlessly/sdk'
+ * await $.Contact.create({ name: 'Alice', stage: 'Lead' })
  * ```
  */
 function _headlessly(options?: HeadlesslyOptions): HeadlessContext {
   if (_initialized) {
-    throw new Error('headlessly() already initialized. Use headlessly.reset() to re-initialize.')
+    throw new Error(
+      'headlessly() already initialized. Call headlessly.reset() before re-initializing, or use headlessly.reconfigure() to update options.',
+    )
   }
 
-  // Resolve endpoint and apiKey from options or env vars
-  const endpoint = options?.endpoint || (typeof process !== 'undefined' ? process.env.HEADLESSLY_ENDPOINT : undefined) || ''
-  const apiKey = options?.apiKey || (typeof process !== 'undefined' ? process.env.HEADLESSLY_API_KEY : undefined) || ''
+  // Handle lazy mode
+  if (options?.lazy) {
+    _lazyEnabled = true
+    return $
+  }
+
+  // Resolve endpoint: explicit option > env var > browser auto-detect
+  const endpoint = options?.endpoint || readEnv('HEADLESSLY_ENDPOINT') || detectEndpoint() || ''
+  const apiKey = options?.apiKey || readEnv('HEADLESSLY_API_KEY') || ''
 
   // Validate endpoint if provided
   if (endpoint) {
@@ -190,12 +310,19 @@ function _headlessly(options?: HeadlesslyOptions): HeadlessContext {
 
   // If explicit endpoint option was empty string, that's an error when apiKey is given
   if (options?.endpoint === '') {
-    throw new Error('Invalid endpoint: endpoint must not be empty')
+    throw new Error('Invalid endpoint: endpoint must not be empty. Expected a URL like "https://db.headless.ly" or "http://localhost:8787".')
   }
 
   // Configure provider
   if (endpoint && apiKey) {
     setProvider(new RemoteNounProvider(endpoint, apiKey))
+  } else if (endpoint && !apiKey) {
+    // Endpoint without apiKey — warn the developer
+    console.warn(
+      `[headlessly] Endpoint "${endpoint}" provided without an API key. Falling back to MemoryNounProvider. ` +
+        'Set apiKey in options or HEADLESSLY_API_KEY env var for remote access.',
+    )
+    setProvider(new MemoryNounProvider())
   } else {
     setProvider(new MemoryNounProvider())
   }
@@ -209,22 +336,137 @@ function _headlessly(options?: HeadlesslyOptions): HeadlessContext {
  */
 _headlessly.reset = function reset(): void {
   _initialized = false
+  _lazyEnabled = false
   setProvider(null as unknown as typeof MemoryNounProvider)
+}
+
+/**
+ * Reconfigure the SDK without resetting — useful for switching providers mid-session
+ */
+_headlessly.reconfigure = function reconfigure(options: HeadlesslyOptions): HeadlessContext {
+  _headlessly.reset()
+  return _headlessly(options)
+}
+
+/**
+ * Check if the SDK has been initialized
+ */
+_headlessly.isInitialized = function isInitialized(): boolean {
+  return _initialized
 }
 
 export const headlessly = _headlessly
 
+// Default export for ESM convenience: import headlessly from '@headlessly/sdk'
+export default headlessly
+
+/**
+ * Entity name union type — all 32 entity names
+ */
+export type EntityName =
+  | 'User'
+  | 'ApiKey'
+  | 'Organization'
+  | 'Contact'
+  | 'Company'
+  | 'Deal'
+  | 'Customer'
+  | 'Product'
+  | 'Price'
+  | 'Subscription'
+  | 'Invoice'
+  | 'Payment'
+  | 'Project'
+  | 'Issue'
+  | 'Comment'
+  | 'Content'
+  | 'Asset'
+  | 'Site'
+  | 'Ticket'
+  | 'Event'
+  | 'Metric'
+  | 'Funnel'
+  | 'Goal'
+  | 'Campaign'
+  | 'Segment'
+  | 'Form'
+  | 'Experiment'
+  | 'FeatureFlag'
+  | 'Workflow'
+  | 'Integration'
+  | 'Agent'
+  | 'Message'
+
 /**
  * Typed interface for the $ universal context
+ *
+ * Provides typed access to all 32 entities plus search/fetch/do operations.
  */
 export interface HeadlessContext {
+  // --- MCP-like operations ---
+
   /** Search entities across the graph */
-  search(query: { type: string; filter?: Record<string, unknown> }): Promise<NounInstance[]>
+  search(query: { type: EntityName | string; filter?: Record<string, unknown> }): Promise<NounInstance[]>
   /** Fetch a specific entity */
-  fetch(query: { type: string; id: string; include?: string[] }): Promise<NounInstance | null>
+  fetch(query: { type: EntityName | string; id: string; include?: string[] }): Promise<NounInstance | null>
   /** Execute arbitrary code with full entity access */
-  do(fn: (ctx: Record<string, NounEntity>) => Promise<unknown>): Promise<unknown>
-  /** Access any entity by name */
+  do(fn: (ctx: Record<EntityName | string, NounEntity>) => Promise<unknown>): Promise<unknown>
+
+  // --- Identity ---
+  User: NounEntity
+  ApiKey: NounEntity
+
+  // --- CRM ---
+  Organization: NounEntity
+  Contact: NounEntity
+  Company: NounEntity
+  Deal: NounEntity
+
+  // --- Billing ---
+  Customer: NounEntity
+  Product: NounEntity
+  Price: NounEntity
+  Subscription: NounEntity
+  Invoice: NounEntity
+  Payment: NounEntity
+
+  // --- Projects ---
+  Project: NounEntity
+  Issue: NounEntity
+  Comment: NounEntity
+
+  // --- Content ---
+  Content: NounEntity
+  Asset: NounEntity
+  Site: NounEntity
+
+  // --- Support ---
+  Ticket: NounEntity
+
+  // --- Analytics ---
+  Event: NounEntity
+  Metric: NounEntity
+  Funnel: NounEntity
+  Goal: NounEntity
+
+  // --- Marketing ---
+  Campaign: NounEntity
+  Segment: NounEntity
+  Form: NounEntity
+
+  // --- Experiments ---
+  Experiment: NounEntity
+  FeatureFlag: NounEntity
+
+  // --- Platform ---
+  Workflow: NounEntity
+  Integration: NounEntity
+  Agent: NounEntity
+
+  // --- Communication ---
+  Message: NounEntity
+
+  /** Access any entity by name (fallback index) */
   [key: string]: NounEntity | ((...args: unknown[]) => unknown)
 }
 
@@ -236,10 +478,22 @@ export interface HeadlessContext {
  *   $.search({ type: 'Contact', filter: { stage: 'Lead' } })
  *   $.fetch({ type: 'Contact', id: 'contact_abc123' })
  *   $.do(async ($) => { ... })
+ *
+ * Auto-initializes with MemoryNounProvider on first access if headlessly()
+ * has not been called. This means you can skip the init call entirely
+ * for quick prototyping:
+ *
+ *   import { $ } from '@headlessly/sdk'
+ *   await $.Contact.create({ name: 'Alice', stage: 'Lead' })
  */
 export const $: HeadlessContext = new Proxy({} as HeadlessContext, {
   get(_target, prop) {
     if (typeof prop === 'symbol') return undefined
+
+    // Lazy auto-init: if $ is accessed before headlessly() was called, auto-init
+    if (!_initialized && (prop in allEntities || prop === 'search' || prop === 'fetch' || prop === 'do')) {
+      _autoInit()
+    }
 
     // MCP-like operations
     if (prop === 'search') {
