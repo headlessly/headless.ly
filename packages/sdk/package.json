@@ -20,6 +20,8 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "clean": "rm -rf dist",
     "prepublishOnly": "pnpm build",
     "typecheck": "tsc --noEmit"
@@ -37,7 +39,8 @@
     "@headlessly/platform": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.0"
   },
   "keywords": [
     "headlessly",
