@@ -33,6 +33,10 @@ export interface HeadlessConfig {
   captureWebVitals?: boolean
   /** Error callback */
   onError?: (error: Error) => void
+  /** Respect navigator.doNotTrack (default: false) */
+  respectDoNotTrack?: boolean
+  /** TTL for cached feature flags in ms */
+  flagsTTL?: number
 }
 
 // =============================================================================
@@ -55,6 +59,7 @@ export interface AnalyticsEvent {
   url?: string
   path?: string
   referrer?: string
+  title?: string
   userAgent?: string
 }
 

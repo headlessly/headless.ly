@@ -51,6 +51,13 @@ export type {
 
 export { HeadlessClient } from './client.js'
 
+// Factory function for independent client instances
+export const createClient = (config: HeadlessConfig): HeadlessClient => {
+  const client = new HeadlessClient()
+  client.init(config)
+  return client
+}
+
 // Singleton API
 export const init = (config: HeadlessConfig) => headless.init(config)
 export const page = (name?: string, properties?: Record<string, unknown>) => headless.page(name, properties)
@@ -59,7 +66,7 @@ export const identify = (userId: string, traits?: Record<string, unknown>) => he
 export const alias = (userId: string, previousId?: string) => headless.alias(userId, previousId)
 export const group = (groupId: string, traits?: Record<string, unknown>) => headless.group(groupId, traits)
 
-export const captureException = (error: Error, context?: { tags?: Record<string, string>; extra?: Record<string, unknown> }) =>
+export const captureException = (error: unknown, context?: { tags?: Record<string, string>; extra?: Record<string, unknown> }) =>
   headless.captureException(error, context)
 export const captureMessage = (message: string, level?: Severity) => headless.captureMessage(message, level)
 
@@ -73,6 +80,7 @@ export const getFeatureFlag = (key: string) => headless.getFeatureFlag(key)
 export const isFeatureEnabled = (key: string) => headless.isFeatureEnabled(key)
 export const getAllFlags = () => headless.getAllFlags()
 export const reloadFeatureFlags = () => headless.reloadFeatureFlags()
+export const onFlagChange = (key: string, callback: (value: FlagValue) => void) => headless.onFlagChange(key, callback)
 
 export const captureWebVitals = (metrics: Partial<WebVitals>) => headless.captureWebVitals(metrics)
 
@@ -106,6 +114,7 @@ export default {
   isFeatureEnabled,
   getAllFlags,
   reloadFeatureFlags,
+  onFlagChange,
   captureWebVitals,
   optOut,
   optIn,
@@ -116,4 +125,5 @@ export default {
   flush,
   shutdown,
   getInstance,
+  createClient,
 }

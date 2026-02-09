@@ -42,20 +42,23 @@ export class HeadlessClient {
   private endpoint!: string
   private queue: (AnalyticsEvent | ErrorEvent)[] = []
   private retryQueue: PendingBatch[] = []
-  private flushTimer?: number
-  private retryTimer?: number
+  private flushTimer?: ReturnType<typeof setInterval>
+  private retryTimer?: ReturnType<typeof setTimeout>
 
   private anonymousId!: string
   private userId?: string
   private sessionId!: string
-  private user: User | null = null
+  user: User | null = null
   private tags: Record<string, string> = {}
   private extras: Record<string, unknown> = {}
   private breadcrumbs: Breadcrumb[] = []
   private featureFlags = new Map<string, FeatureFlag>()
+  private flagChangeListeners = new Map<string, Set<(value: FlagValue) => void>>()
+  private flagsFetchedAt = 0
 
   private optedOut = false
   private initialized = false
+  private _preflushed = false
 
   // ===========================================================================
   // Initialization
@@ -64,7 +67,14 @@ export class HeadlessClient {
   init(config: HeadlessConfig): void {
     if (this.initialized) {
       console.warn('@headlessly/js: Already initialized')
+      // Re-apply config for re-initialization
+      this.config = { ...this.config, ...config }
+      this.endpoint = config.endpoint ?? this.endpoint
       return
+    }
+
+    if (!config?.apiKey) {
+      throw new Error('@headlessly/js: apiKey is required')
     }
 
     this.config = {
@@ -83,51 +93,79 @@ export class HeadlessClient {
 
     // Initialize IDs
     const storage = this.getStorage()
-    this.anonymousId = getOrCreateId('hl_anon', storage)
-    this.sessionId = getOrCreateId('hl_session', sessionStorage)
+    if (storage) {
+      this.anonymousId = getOrCreateId('hl_anon', storage)
+    } else {
+      this.anonymousId = this.anonymousId || uid()
+    }
+    try {
+      this.sessionId = getOrCreateId('hl_session', sessionStorage)
+    } catch {
+      this.sessionId = this.sessionId || uid()
+    }
 
     // Check opt-out
     try {
-      this.optedOut = storage.getItem('hl_opt_out') === 'true'
+      if (storage) this.optedOut = storage.getItem('hl_opt_out') === 'true'
     } catch {}
 
+    // Respect Do Not Track
+    if (this.config.respectDoNotTrack) {
+      try {
+        if (typeof navigator !== 'undefined' && navigator?.doNotTrack === '1') {
+          this.optedOut = true
+        }
+      } catch {}
+    }
+
     // Set up flush interval
-    this.flushTimer = setInterval(() => this.flush(), this.config.flushInterval) as unknown as number
+    this.flushTimer = setInterval(() => this.flush(), this.config.flushInterval)
 
     // Page lifecycle
-    if (typeof window !== 'undefined') {
-      window.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'hidden') this.flush(true)
-      })
-      window.addEventListener('pagehide', () => this.flush(true))
+    if (typeof window !== 'undefined' && window) {
+      try {
+        window.addEventListener('visibilitychange', () => {
+          if (typeof document !== 'undefined' && document?.visibilityState === 'hidden') this.flush(true)
+        })
+        window.addEventListener('pagehide', () => this.flush(true))
+      } catch {}
 
       // Auto error capture
       if (this.config.captureErrors) {
-        window.addEventListener('error', (e) => this.captureException(e.error || new Error(e.message)))
-        window.addEventListener('unhandledrejection', (e) => {
-          this.captureException(e.reason instanceof Error ? e.reason : new Error(String(e.reason)))
-        })
+        try {
+          window.addEventListener('error', (e: ErrorEvent | { error?: Error; message?: string }) => {
+            const err = (e as { error?: Error }).error || new Error((e as { message?: string }).message || 'Unknown error')
+            this.captureException(err)
+          })
+          window.addEventListener('unhandledrejection', (e: { reason?: unknown }) => {
+            this.captureException(e.reason instanceof Error ? e.reason : new Error(String(e.reason)))
+          })
+        } catch {}
       }
 
       // Web vitals
       if (this.config.captureWebVitals) this.setupWebVitals()
-
-      // Load feature flags
-      this.loadFeatureFlags()
     }
+
+    // Load feature flags
+    this.loadFeatureFlags()
 
     this.initialized = true
     this.debug('Initialized')
   }
 
-  private getStorage(): Storage {
-    if (this.config.persistence === 'sessionStorage') return sessionStorage
-    if (this.config.persistence === 'memory') return sessionStorage // fallback
-    return localStorage
+  private getStorage(): Storage | null {
+    try {
+      if (this.config.persistence === 'sessionStorage') return sessionStorage
+      if (this.config.persistence === 'memory') return sessionStorage // fallback
+      return localStorage
+    } catch {
+      return null
+    }
   }
 
   private debug(msg: string, ctx?: Record<string, unknown>): void {
-    if (this.config.debug) console.log(`[@headlessly/js] ${msg}`, ctx ?? '')
+    if (this.config?.debug) console.log(`[@headlessly/js] ${msg}`, ctx ?? '')
   }
 
   private shouldSample(): boolean {
@@ -149,7 +187,9 @@ export class HeadlessClient {
     }
 
     this.enqueue(event)
-    this.addBreadcrumb({ category: 'navigation', message: name || location.pathname })
+    try {
+      this.addBreadcrumb({ category: 'navigation', message: name || (typeof location !== 'undefined' ? location.pathname : '') })
+    } catch {}
     this.debug('page', { name })
   }
 
@@ -172,7 +212,13 @@ export class HeadlessClient {
     if (this.optedOut) return
 
     this.userId = userId
-    if (traits) this.user = { id: userId, ...traits }
+    if (traits) {
+      this.user = { ...this.user, id: userId, ...traits }
+    } else if (!this.user) {
+      this.user = { id: userId }
+    } else {
+      this.user = { ...this.user, id: userId }
+    }
 
     const event: AnalyticsEvent = {
       type: 'identify',
@@ -214,15 +260,42 @@ export class HeadlessClient {
   }
 
   private baseEvent(): Omit<AnalyticsEvent, 'type'> {
+    let url: string | undefined
+    let path: string | undefined
+    let referrer: string | undefined
+    let title: string | undefined
+    let userAgent: string | undefined
+
+    try {
+      if (typeof location !== 'undefined' && location) {
+        url = location.href
+        path = location.pathname
+      }
+    } catch {}
+
+    try {
+      if (typeof document !== 'undefined' && document) {
+        referrer = document.referrer
+        title = document.title
+      }
+    } catch {}
+
+    try {
+      if (typeof navigator !== 'undefined' && navigator) {
+        userAgent = navigator.userAgent
+      }
+    } catch {}
+
     return {
       ts: new Date().toISOString(),
       anonymousId: this.anonymousId,
       userId: this.userId,
       sessionId: this.sessionId,
-      url: location?.href,
-      path: location?.pathname,
-      referrer: document?.referrer,
-      userAgent: navigator?.userAgent,
+      url,
+      path,
+      referrer,
+      title,
+      userAgent,
     }
   }
 
@@ -230,8 +303,15 @@ export class HeadlessClient {
   // Errors
   // ===========================================================================
 
-  captureException(error: Error, context?: { tags?: Record<string, string>; extra?: Record<string, unknown> }): string {
+  captureException(error: unknown, context?: { tags?: Record<string, string>; extra?: Record<string, unknown> }): string {
     if (this.optedOut) return ''
+
+    let err: Error
+    if (error instanceof Error) {
+      err = error
+    } else {
+      err = new Error(String(error))
+    }
 
     const id = eventId()
     const event: ErrorEvent = {
@@ -240,20 +320,20 @@ export class HeadlessClient {
       ts: new Date().toISOString(),
       level: 'error',
       exception: {
-        type: error.name,
-        value: error.message,
-        stacktrace: error.stack ? this.parseStack(error.stack) : undefined,
+        type: err.name,
+        value: err.message,
+        stacktrace: err.stack ? this.parseStack(err.stack) : undefined,
       },
       user: this.user || undefined,
       tags: { ...this.tags, ...context?.tags },
       extra: { ...this.extras, ...context?.extra },
       breadcrumbs: [...this.breadcrumbs],
-      release: this.config.release,
-      environment: this.config.environment,
+      release: this.config?.release,
+      environment: this.config?.environment,
     }
 
     this.enqueue(event)
-    this.debug('captureException', { error: error.message, id })
+    this.debug('captureException', { error: err.message, id })
     return id
   }
 
@@ -271,8 +351,8 @@ export class HeadlessClient {
       tags: { ...this.tags },
       extra: { ...this.extras },
       breadcrumbs: [...this.breadcrumbs],
-      release: this.config.release,
-      environment: this.config.environment,
+      release: this.config?.release,
+      environment: this.config?.environment,
     }
 
     this.enqueue(event)
@@ -322,6 +402,14 @@ export class HeadlessClient {
   // ===========================================================================
 
   getFeatureFlag(key: string): FlagValue | undefined {
+    // Check if TTL has expired
+    if (this.config?.flagsTTL && this.flagsFetchedAt > 0) {
+      const age = Date.now() - this.flagsFetchedAt
+      if (age > this.config.flagsTTL) {
+        this.loadFeatureFlags()
+      }
+    }
+
     const flag = this.featureFlags.get(key)
     if (flag) {
       this.track('$feature_flag_called', { $feature_flag: key, $feature_flag_response: flag.value })
@@ -344,6 +432,13 @@ export class HeadlessClient {
     await this.loadFeatureFlags()
   }
 
+  onFlagChange(key: string, callback: (value: FlagValue) => void): void {
+    if (!this.flagChangeListeners.has(key)) {
+      this.flagChangeListeners.set(key, new Set())
+    }
+    this.flagChangeListeners.get(key)!.add(callback)
+  }
+
   private async loadFeatureFlags(): Promise<void> {
     try {
       const res = await fetch(`${this.endpoint}/flags`, {
@@ -355,9 +450,25 @@ export class HeadlessClient {
         const data = await res.json()
         if (data.flags) {
           for (const [k, v] of Object.entries(data.flags)) {
+            const oldFlag = this.featureFlags.get(k)
+            const oldValue = oldFlag?.value
             this.featureFlags.set(k, { key: k, value: v as FlagValue })
+            // Notify change listeners
+            if (oldValue !== undefined && oldValue !== v) {
+              const listeners = this.flagChangeListeners.get(k)
+              if (listeners) {
+                for (const cb of listeners) cb(v as FlagValue)
+              }
+            } else if (oldValue === undefined && this.flagChangeListeners.has(k)) {
+              // First load but listener was registered — notify with initial value
+              const listeners = this.flagChangeListeners.get(k)
+              if (listeners) {
+                for (const cb of listeners) cb(v as FlagValue)
+              }
+            }
           }
         }
+        this.flagsFetchedAt = Date.now()
         this.debug('Flags loaded', { count: this.featureFlags.size })
       }
     } catch (e) {
@@ -398,10 +509,24 @@ export class HeadlessClient {
         }
       }).observe({ type: 'layout-shift', buffered: true })
 
-      window.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'hidden' && cls > 0) this.captureWebVitals({ cls })
-      })
+      if (typeof window !== 'undefined' && window) {
+        window.addEventListener('visibilitychange', () => {
+          if (typeof document !== 'undefined' && document?.visibilityState === 'hidden' && cls > 0) this.captureWebVitals({ cls })
+        })
+      }
     } catch {}
+  }
+
+  // ===========================================================================
+  // Consent
+  // ===========================================================================
+
+  consentGranted(): void {
+    this.optedOut = false
+  }
+
+  consentRevoked(): void {
+    this.optedOut = true
   }
 
   // ===========================================================================
@@ -411,14 +536,16 @@ export class HeadlessClient {
   optOut(): void {
     this.optedOut = true
     try {
-      this.getStorage().setItem('hl_opt_out', 'true')
+      const storage = this.getStorage()
+      if (storage) storage.setItem('hl_opt_out', 'true')
     } catch {}
   }
 
   optIn(): void {
     this.optedOut = false
     try {
-      this.getStorage().removeItem('hl_opt_out')
+      const storage = this.getStorage()
+      if (storage) storage.removeItem('hl_opt_out')
     } catch {}
   }
 
@@ -432,9 +559,23 @@ export class HeadlessClient {
     this.anonymousId = uid()
     this.sessionId = uid()
     this.featureFlags.clear()
+    this.flagChangeListeners.clear()
+    this.flagsFetchedAt = 0
     this.breadcrumbs = []
+    this.queue = []
+    this.retryQueue = []
+    this.optedOut = false
+    this.tags = {}
+    this.extras = {}
+    this.initialized = false
+    this._preflushed = false
+    if (this.flushTimer) clearInterval(this.flushTimer)
+    if (this.retryTimer) clearTimeout(this.retryTimer)
+    this.flushTimer = undefined
+    this.retryTimer = undefined
     try {
-      this.getStorage().removeItem('hl_anon')
+      const storage = this.getStorage()
+      if (storage) storage.removeItem('hl_anon')
       sessionStorage.removeItem('hl_session')
     } catch {}
   }
@@ -453,7 +594,7 @@ export class HeadlessClient {
 
   private enqueue(event: AnalyticsEvent | ErrorEvent): void {
     this.queue.push(event)
-    if (this.queue.length >= (this.config.batchSize ?? 10)) this.flush()
+    if (this.queue.length >= (this.config?.batchSize ?? 10)) this.flush()
   }
 
   async flush(beacon = false): Promise<void> {
@@ -461,9 +602,19 @@ export class HeadlessClient {
 
     const events = this.queue.splice(0)
 
-    if (beacon && navigator?.sendBeacon) {
-      navigator.sendBeacon(this.endpoint, JSON.stringify({ events }))
-      return
+    if (beacon) {
+      try {
+        if (typeof navigator !== 'undefined' && navigator?.sendBeacon) {
+          navigator.sendBeacon(this.endpoint, JSON.stringify({ events }))
+          return
+        }
+      } catch {}
+    }
+
+    // Refresh flags before first network send (fire-and-forget so send is not delayed)
+    if (!this._preflushed) {
+      this._preflushed = true
+      this.loadFeatureFlags()
     }
 
     await this.send(events)
@@ -478,7 +629,15 @@ export class HeadlessClient {
         keepalive: true,
       })
 
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) {
+        // Do not retry on 4xx client errors
+        if (res.status >= 400 && res.status < 500) {
+          this.debug('Client error, not retrying', { status: res.status })
+          this.config.onError?.(new Error(`HTTP ${res.status}`))
+          return
+        }
+        throw new Error(`HTTP ${res.status}`)
+      }
       this.debug('Sent', { count: events.length })
     } catch (err) {
       this.debug('Send failed', { error: err, attempt })
@@ -501,7 +660,7 @@ export class HeadlessClient {
         this.processRetry()
       },
       Math.max(0, next.nextRetry - Date.now()),
-    ) as unknown as number
+    )
   }
 
   private async processRetry(): Promise<void> {
