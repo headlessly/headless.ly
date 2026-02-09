@@ -1,9 +1,9 @@
 ---
 title: Identity
-description: User, Organization, ApiKey — authentication and tenancy. Powered by WorkOS.
+description: User, ApiKey — authentication and tenancy.
 ---
 
-Identity is backed by WorkOS via [oauth.do](https://oauth.do). Users authenticate, Organizations are tenants, ApiKeys enable programmatic access.
+Identity is backed by WorkOS via [oauth.do](https://oauth.do). Users authenticate, ApiKeys enable programmatic access. Organization is defined in the [CRM](/entities/crm) domain.
 
 ## User
 
@@ -14,14 +14,13 @@ import { Noun } from 'digital-objects'
 
 export const User = Noun('User', {
   name: 'string!',
-  email: 'string!#',
-  avatar: 'string?',
-  role: 'Owner | Admin | Member | Viewer',
-  status: 'Active | Invited | Suspended',
-  organization: '-> Organization.members',
-  invite:  'Invited',
+  email: 'string!##',
+  avatar: 'string',
+  role: 'Admin | Member | Viewer',
+  status: 'Active | Suspended | Invited',
+  invite: 'Invited',
   suspend: 'Suspended',
-  restore: 'Restored',
+  activate: 'Activated',
 })
 ```
 
@@ -29,24 +28,7 @@ export const User = Noun('User', {
 |------|-------|-------------|
 | `invite` | `Invited` | Send invite to join organization |
 | `suspend` | `Suspended` | Temporarily disable access |
-| `restore` | `Restored` | Re-enable a suspended user |
-
-## Organization
-
-Tenants — each org gets a complete isolated instance of all 35 entities.
-
-```typescript
-export const Organization = Noun('Organization', {
-  name: 'string!#',
-  slug: 'string!#',
-  domain: 'string?#',
-  plan: '-> Price',
-  members: '<- User.organization[]',
-  apiKeys: '<- ApiKey.organization[]',
-})
-```
-
-The `slug` becomes the tenant namespace: `https://headless.ly/~{slug}`. If `domain` is set, that custom domain resolves to the same org.
+| `activate` | `Activated` | Activate a user account |
 
 ## ApiKey
 
@@ -55,20 +37,13 @@ Programmatic access — SDK, CI/CD, agent authentication.
 ```typescript
 export const ApiKey = Noun('ApiKey', {
   name: 'string!',
-  key: 'string!#',
-  organization: '-> Organization.apiKeys',
-  scopes: 'json?',
-  expiresAt: 'datetime?',
-  lastUsedAt: 'datetime?',
+  keyPrefix: 'string!##',
+  scopes: 'string',
+  status: 'Active | Revoked | Expired',
   revoke: 'Revoked',
-  rotate: 'Rotated',
-  delete: null,
 })
 ```
 
 | Verb | Event | Description |
 |------|-------|-------------|
 | `revoke` | `Revoked` | Permanently disable the key |
-| `rotate` | `Rotated` | Generate new key, invalidate old |
-
-ApiKeys are never deleted — only revoked. The audit trail is preserved.

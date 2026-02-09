@@ -4,10 +4,10 @@ description: Capture leads, qualify contacts, close deals -- the full sales pipe
 icon: Users
 ---
 
-Track every relationship from first touch to closed deal. Contact, Company, and Deal form a connected graph that agents and humans operate through the same verbs.
+Track every relationship from first touch to closed deal. Contact, Organization, and Deal form a connected graph that agents and humans operate through the same verbs.
 
 ```typescript
-import { Contact, Company, Deal } from '@headlessly/crm'
+import { Contact, Organization, Deal } from '@headlessly/crm'
 
 // Capture a lead from a form submission
 const contact = await Contact.create({
@@ -17,13 +17,13 @@ const contact = await Contact.create({
   source: 'website',
 })
 
-// Link to a company
-const company = await Company.create({
+// Link to an organization
+const org = await Organization.create({
   name: 'Acme Dev',
   domain: 'acme.dev',
   industry: 'Software',
 })
-await Contact.update(contact.$id, { company: company.$id })
+await Contact.update(contact.$id, { organization: org.$id })
 
 // Qualify the lead
 await Contact.qualify({ id: contact.$id })
@@ -33,7 +33,7 @@ await Deal.create({
   name: 'Acme Enterprise',
   value: 48_000,
   contact: contact.$id,
-  company: company.$id,
+  organization: org.$id,
   stage: 'Discovery',
 })
 ```
@@ -92,17 +92,17 @@ Contact.qualified((contact, $) => {
 })
 ```
 
-## Company Enrichment
+## Organization Enrichment
 
-Enrich companies with external data to build a complete picture:
+Enrich organizations with external data to build a complete picture:
 
 ```typescript
-import { Company } from '@headlessly/crm'
+import { Organization } from '@headlessly/crm'
 
-await Company.enrich({ id: 'company_Nw8rTxJv' })
+await Organization.enrich({ id: 'org_Nw8rTxJv' })
 
-Company.enriched(company => {
-  console.log(`${company.name}: ${company.size} employees, ${company.industry}`)
+Organization.enriched(org => {
+  console.log(`${org.name}: ${org.employeeCount} employees, ${org.industry}`)
 })
 ```
 
@@ -196,6 +196,6 @@ npx @headlessly/cli Deal.find --stage Negotiation --sort value:desc
 
 ## Next Steps
 
-- [Billing and Subscriptions](/docs/grow/billing) -- turn closed deals into recurring revenue
-- [Business Analytics](/docs/grow/analytics) -- track pipeline metrics and conversion rates
-- [CRM Entity Reference](/docs/entities/crm) -- full Noun definitions and relationships
+- [Billing and Subscriptions](/grow/billing) -- turn closed deals into recurring revenue
+- [Business Analytics](/grow/analytics) -- track pipeline metrics and conversion rates
+- [CRM Entity Reference](/entities/crm) -- full Noun definitions and relationships

@@ -140,10 +140,6 @@ interface SupportStatus {
     avgResolutionMs: number // Average time to resolution (milliseconds)
   }
   satisfaction: number      // CSAT score (0-100)
-  articles: {
-    total: number
-    published: number
-  }
 }
 ```
 
@@ -186,7 +182,7 @@ interface Alert {
 }
 ```
 
-Alerts are generated automatically when metrics cross configured thresholds. Configure thresholds via [Metric watches](/docs/reference/sdk/events#metric-watches).
+Alerts are generated automatically when metrics cross configured thresholds. Configure thresholds via [Metric watches](/reference/sdk/events#metric-watches).
 
 ## Per-Metric Access
 

@@ -1,79 +1,216 @@
 ---
 title: CRM
-description: Contact, Company, Deal — people and relationships.
+description: Organization, Contact, Lead, Deal, Activity, Pipeline — people, relationships, and revenue pipeline.
 ---
 
 Track developers who sign up, startups using the platform, investor conversations, partner deals.
+
+## Organization
+
+Companies and organizations — startups, enterprises, partners, vendors.
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Organization = Noun('Organization', {
+  name: 'string!',
+  legalName: 'string',
+  slug: 'string##',
+  domain: 'string##',
+  website: 'string',
+  description: 'string',
+  logo: 'string',
+  type: 'Prospect | Customer | Partner | Vendor | Competitor',
+  status: 'Active | Inactive | Churned | Archived',
+  tier: 'Enterprise | Business | Startup | SMB',
+  source: 'string',
+  industry: 'string',
+  naicsCode: 'string',
+  employeeCount: 'number',
+  annualRevenue: 'number',
+  foundedYear: 'number',
+  address: 'string',
+  city: 'string',
+  state: 'string',
+  country: 'string',
+  postalCode: 'string',
+  timezone: 'string',
+  parent: '-> Organization.subsidiaries',
+  subsidiaries: '<- Organization.parent[]',
+  contacts: '<- Contact.organization[]',
+  deals: '<- Deal.organization[]',
+  subscriptions: '<- Subscription.organization[]',
+  lifetimeValue: 'number',
+  healthScore: 'number',
+  npsScore: 'number',
+  linkedinUrl: 'string',
+  twitterHandle: 'string',
+})
+```
 
 ## Contact
 
 People — developers, founders, VCs, partners.
 
 ```typescript
-import { Noun } from 'digital-objects'
-
 export const Contact = Noun('Contact', {
   name: 'string!',
-  email: 'string?#',
-  phone: 'string?',
-  title: 'string?',
-  stage: 'Lead | Qualified | Customer | Churned | Partner',
-  source: 'string?',
-  company: '-> Company.contacts',
-  deals: '<- Deal.contact[]',
-  tickets: '<- Ticket.contact[]',
-  customer: '<- Customer.contact',
-  messages: '<- Message.contact[]',
-  qualify:  'Qualified',
-  capture:  'Captured',
-  assign:   'Assigned',
-  merge:    'Merged',
-  enrich:   'Enriched',
+  firstName: 'string',
+  lastName: 'string',
+  email: 'string##',
+  phone: 'string',
+  mobile: 'string',
+  avatar: 'string',
+  title: 'string',
+  department: 'string',
+  organization: '-> Organization.contacts',
+  role: 'DecisionMaker | Influencer | Champion | Blocker | User',
+  status: 'Active | Inactive | Bounced | Unsubscribed',
+  source: 'string',
+  leadScore: 'number',
+  preferredChannel: 'Email | Phone | SMS | Chat',
+  timezone: 'string',
+  language: 'string',
+  leads: '<- Lead.contact[]',
+  activities: '<- Activity.contact[]',
+  manager: '-> Contact.reports',
+  reports: '<- Contact.manager[]',
+  linkedinUrl: 'string',
+  twitterHandle: 'string',
+  marketingConsent: 'string',
+  lastEngagement: 'datetime',
+  qualify: 'Qualified',
 })
 ```
 
 | Verb | Event | Description |
 |------|-------|-------------|
 | `qualify` | `Qualified` | Move from Lead to Qualified |
-| `capture` | `Captured` | Capture from form or import |
-| `assign` | `Assigned` | Assign to a team member |
-| `merge` | `Merged` | Merge duplicate contacts |
-| `enrich` | `Enriched` | Enrich with external data |
 
-## Company
+## Lead
 
-Organizations — startups, enterprises, partners.
+Inbound leads with BANT qualification and campaign attribution.
 
 ```typescript
-export const Company = Noun('Company', {
-  name: 'string!#',
-  domain: 'string?#',
-  industry: 'string?',
-  size: 'number?',
-  contacts: '<- Contact.company[]',
-  deals: '<- Deal.company[]',
-  enrich: 'Enriched',
-  score:  'Scored',
+export const Lead = Noun('Lead', {
+  name: 'string!',
+  contact: '-> Contact.leads',
+  organization: '-> Organization',
+  owner: '-> Contact',
+  status: 'New | Contacted | Qualified | Converted | Lost',
+  source: 'string!',
+  sourceDetail: 'string',
+  campaign: '-> Campaign.leads',
+  score: 'number',
+  budget: 'number',
+  authority: 'string',
+  need: 'string',
+  timeline: 'string',
+  deal: '-> Deal.leads',
+  convertedAt: 'datetime',
+  lostReason: 'string',
+  lostAt: 'datetime',
+  firstTouchAt: 'datetime',
+  lastActivityAt: 'datetime',
+  convert: 'Converted',
+  lose: 'Lost',
 })
 ```
 
+| Verb | Event | Description |
+|------|-------|-------------|
+| `convert` | `Converted` | Convert lead to a deal |
+| `lose` | `Lost` | Mark lead as lost |
+
 ## Deal
 
-Sales opportunities with value and pipeline stage.
+Sales opportunities with value, pipeline stage, and close tracking.
 
 ```typescript
 export const Deal = Noun('Deal', {
   name: 'string!',
+  organization: '-> Organization.deals',
+  contact: '-> Contact',
+  owner: '-> Contact',
   value: 'number!',
-  stage: 'Discovery | Proposal | Negotiation | Closed | Lost',
-  probability: 'number?',
-  closeDate: 'datetime?',
-  contact: '-> Contact.deals',
-  company: '-> Company.deals',
-  messages: '<- Message.deal[]',
-  advance: 'Advanced',
-  close:   'Closed',
-  lose:    'Lost',
-  reopen:  'Reopened',
+  currency: 'string',
+  recurringValue: 'number',
+  recurringInterval: 'Monthly | Quarterly | Yearly',
+  stage: 'Prospecting | Qualification | Proposal | Negotiation | ClosedWon | ClosedLost',
+  probability: 'number',
+  expectedCloseDate: 'date',
+  actualCloseDate: 'date',
+  description: 'string',
+  nextStep: 'string',
+  competitorNotes: 'string',
+  lostReason: 'string',
+  wonReason: 'string',
+  leads: '<- Lead.deal[]',
+  source: 'string',
+  campaign: '-> Campaign',
+  activities: '<- Activity.deal[]',
+  lastActivityAt: 'datetime',
+  close: 'Closed',
+  win: 'Won',
+  lose: 'Lost',
+})
+```
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `close` | `Closed` | Close the deal |
+| `win` | `Won` | Mark deal as won |
+| `lose` | `Lost` | Mark deal as lost |
+
+## Activity
+
+Interactions — calls, emails, meetings, demos, follow-ups.
+
+```typescript
+export const Activity = Noun('Activity', {
+  subject: 'string!',
+  type: 'Call | Email | Meeting | Task | Note | Demo | FollowUp',
+  description: 'string',
+  deal: '-> Deal.activities',
+  contact: '-> Contact.activities',
+  organization: '-> Organization',
+  campaign: '-> Campaign',
+  assignee: '-> Contact',
+  createdBy: '-> Contact',
+  dueAt: 'datetime',
+  startAt: 'datetime',
+  endAt: 'datetime',
+  duration: 'number',
+  allDay: 'string',
+  timezone: 'string',
+  status: 'Pending | InProgress | Completed | Cancelled',
+  priority: 'Low | Medium | High | Urgent',
+  completedAt: 'datetime',
+  outcome: 'string',
+  recordingUrl: 'string',
+  meetingLink: 'string',
+  reminderAt: 'datetime',
+  complete: 'Completed',
+  cancel: 'Cancelled',
+})
+```
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `complete` | `Completed` | Mark activity as completed |
+| `cancel` | `Cancelled` | Cancel the activity |
+
+## Pipeline
+
+Sales pipeline configuration with stages and deal rotting thresholds.
+
+```typescript
+export const Pipeline = Noun('Pipeline', {
+  name: 'string!',
+  slug: 'string##',
+  description: 'string',
+  isDefault: 'string',
+  stages: 'string',
+  dealRotting: 'number',
 })
 ```

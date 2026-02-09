@@ -12,7 +12,7 @@ const contact = await Contact.create({
   name: 'Alice',
   email: 'alice@vc.com',
   stage: 'Lead',
-  company: 'company_R3nWjHdL',
+  organization: 'org_R3nWjHdL',
 })
 // Returns: { $id: 'contact_uLoSfycy', name: 'Alice', stage: 'Lead', ... }
 ```
@@ -28,7 +28,7 @@ const contact = await Contact.get('contact_uLoSfycy')
 
 // With relationship population
 const full = await Contact.get('contact_uLoSfycy', {
-  populate: ['deals', 'messages', 'company'],
+  populate: ['deals', 'messages', 'organization'],
 })
 ```
 

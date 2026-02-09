@@ -28,17 +28,17 @@ Every Digital Object carries these `$` meta-fields automatically — you never d
 
 | Domain | Package | Entities | Count |
 |--------|---------|----------|-------|
-| [Identity](/docs/entities/identity) | `@headlessly/sdk` | User, ApiKey | 2 |
-| [CRM](/docs/entities/crm) | `@headlessly/crm` | Organization, Contact, Lead, Deal, Activity, Pipeline | 6 |
-| [Billing](/docs/entities/billing) | `@headlessly/billing` | Customer, Product, Plan, Price, Subscription, Invoice, Payment | 7 |
-| [Projects](/docs/entities/projects) | `@headlessly/projects` | Project, Issue, Comment | 3 |
-| [Content](/docs/entities/content) | `@headlessly/content` | Content, Asset, Site | 3 |
-| [Support](/docs/entities/support) | `@headlessly/support` | Ticket | 1 |
-| [Analytics](/docs/entities/analytics) | `@headlessly/analytics` | Event, Metric, Funnel, Goal | 4 |
-| [Marketing](/docs/entities/marketing) | `@headlessly/marketing` | Campaign, Segment, Form | 3 |
-| [Experimentation](/docs/entities/experimentation) | `@headlessly/experiments` | Experiment, FeatureFlag | 2 |
-| [Platform](/docs/entities/platform) | `@headlessly/platform` | Workflow, Integration, Agent | 3 |
-| [Communication](/docs/entities/communication) | `@headlessly/sdk` | Message | 1 |
+| [Identity](/entities/identity) | `@headlessly/sdk` | User, ApiKey | 2 |
+| [CRM](/entities/crm) | `@headlessly/crm` | Organization, Contact, Lead, Deal, Activity, Pipeline | 6 |
+| [Billing](/entities/billing) | `@headlessly/billing` | Customer, Product, Plan, Price, Subscription, Invoice, Payment | 7 |
+| [Projects](/entities/projects) | `@headlessly/projects` | Project, Issue, Comment | 3 |
+| [Content](/entities/content) | `@headlessly/content` | Content, Asset, Site | 3 |
+| [Support](/entities/support) | `@headlessly/support` | Ticket | 1 |
+| [Analytics](/entities/analytics) | `@headlessly/analytics` | Event, Metric, Funnel, Goal | 4 |
+| [Marketing](/entities/marketing) | `@headlessly/marketing` | Campaign, Segment, Form | 3 |
+| [Experimentation](/entities/experimentation) | `@headlessly/experiments` | Experiment, FeatureFlag | 2 |
+| [Platform](/entities/platform) | `@headlessly/platform` | Workflow, Integration, Agent | 3 |
+| [Communication](/entities/communication) | `@headlessly/sdk` | Message | 1 |
 
 All entities share the same interface: `create`, `get`, `find`, `update`, `delete`, `count`, plus custom verbs defined on each Noun.
 
@@ -49,23 +49,23 @@ The complete entity reference, alphabetical. Every entity supports CRUD automati
 | # | Entity | Domain | Custom Verbs |
 |---|--------|--------|-------------|
 | 1 | **Activity** | CRM | `complete`, `cancel` |
-| 2 | **Agent** | Platform | `deploy`, `pause`, `resume` |
+| 2 | **Agent** | Platform | `deploy`, `pause`, `retire` |
 | 3 | **ApiKey** | Identity | `revoke` |
-| 4 | **Asset** | Content | `publish`, `archive` |
+| 4 | **Asset** | Content | — |
 | 5 | **Campaign** | Marketing | `launch`, `pause`, `complete` |
 | 6 | **Comment** | Projects | — |
-| 7 | **Contact** | CRM | `qualify`, `capture`, `assign`, `merge`, `enrich` |
+| 7 | **Contact** | CRM | `qualify` |
 | 8 | **Content** | Content | `publish`, `archive`, `schedule` |
 | 9 | **Customer** | Billing | — |
 | 10 | **Deal** | CRM | `close`, `win`, `lose` |
 | 11 | **Event** | Analytics | — |
-| 12 | **Experiment** | Experiments | `start`, `stop`, `conclude` |
-| 13 | **FeatureFlag** | Experiments | `enable`, `disable` |
+| 12 | **Experiment** | Experimentation | `start`, `conclude`, `pause` |
+| 13 | **FeatureFlag** | Experimentation | `rollout`, `enable`, `disable` |
 | 14 | **Form** | Marketing | `publish`, `archive` |
 | 15 | **Funnel** | Analytics | — |
-| 16 | **Goal** | Analytics | `complete` |
-| 17 | **Integration** | Platform | `activate`, `deactivate` |
-| 18 | **Invoice** | Billing | `send`, `pay`, `void` |
+| 16 | **Goal** | Analytics | `achieve` |
+| 17 | **Integration** | Platform | `connect`, `disconnect` |
+| 18 | **Invoice** | Billing | `pay`, `void` |
 | 19 | **Issue** | Projects | `assign`, `close`, `reopen` |
 | 20 | **Lead** | CRM | `convert`, `lose` |
 | 21 | **Message** | Communication | `send`, `deliver`, `read` |
@@ -73,13 +73,13 @@ The complete entity reference, alphabetical. Every entity supports CRUD automati
 | 23 | **Organization** | CRM | — |
 | 24 | **Payment** | Billing | `refund` |
 | 25 | **Pipeline** | CRM | — |
-| 26 | **Plan** | Billing | `activate`, `retire` |
+| 26 | **Plan** | Billing | — |
 | 27 | **Price** | Billing | — |
-| 28 | **Product** | Billing | `publish`, `archive` |
+| 28 | **Product** | Billing | — |
 | 29 | **Project** | Projects | `archive`, `complete` |
 | 30 | **Segment** | Marketing | — |
-| 31 | **Site** | Content | `publish`, `takedown` |
-| 32 | **Subscription** | Billing | `activate`, `pause`, `resume`, `cancel` |
-| 33 | **Ticket** | Support | `assign`, `escalate`, `resolve`, `close`, `reopen` |
+| 31 | **Site** | Content | — |
+| 32 | **Subscription** | Billing | `pause`, `cancel`, `reactivate`, `upgrade`, `downgrade` |
+| 33 | **Ticket** | Support | `resolve`, `escalate`, `close`, `reopen` |
 | 34 | **User** | Identity | `invite`, `suspend`, `activate` |
-| 35 | **Workflow** | Platform | `activate`, `deactivate`, `trigger` |
+| 35 | **Workflow** | Platform | `activate`, `pause`, `archive` |

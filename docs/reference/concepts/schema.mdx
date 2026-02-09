@@ -19,7 +19,7 @@ export const Contact = Noun('Contact', {
   name: 'string!',
   email: 'string?#',
   stage: 'Lead | Qualified | Customer | Churned | Partner',
-  company: '-> Company.contacts',
+  organization: '-> Organization.contacts',
   deals: '<- Deal.contact[]',
   qualify: 'Qualified',
 })
@@ -73,16 +73,17 @@ The full schema spans these domains:
 
 | Category | Entities | Description |
 |----------|----------|-------------|
-| **Identity** | User, Organization, ApiKey | Authentication and tenancy |
-| **CRM** | Contact, Company, Deal | Customer relationship management |
-| **Projects** | Project, Issue, Comment | Project and task management |
+| **Identity** | User, ApiKey | Authentication and API access |
+| **CRM** | Organization, Contact, Lead, Deal, Activity, Pipeline | Customer relationship management |
+| **Billing** | Customer, Product, Plan, Price, Subscription, Invoice, Payment | Billing and subscriptions |
+| **Projects** | Project, Issue, Comment | Project and issue tracking |
 | **Content** | Content, Asset, Site | Content management |
-| **Billing** | Customer, Product, Price, Subscription, Invoice, Payment | Billing and subscriptions |
 | **Support** | Ticket | Customer support |
 | **Analytics** | Event, Metric, Funnel, Goal | Observability and metrics |
 | **Marketing** | Campaign, Segment, Form | Marketing automation |
 | **Experimentation** | Experiment, FeatureFlag | A/B testing and feature flags |
 | **Platform** | Workflow, Integration, Agent | Platform infrastructure |
+| **Communication** | Message | Messaging |
 
 ## Field Notation
 
@@ -91,7 +92,7 @@ The full schema spans these domains:
 | `'string!'` | Required string | `name: 'string!'` |
 | `'string?'` | Optional string | `phone: 'string?'` |
 | `'string?#'` | Optional, indexed | `email: 'string?#'` |
-| `'-> Type.field'` | Belongs-to relationship | `company: '-> Company.contacts'` |
+| `'-> Type.field'` | Belongs-to relationship | `organization: '-> Organization.contacts'` |
 | `'<- Type.field[]'` | Has-many relationship | `deals: '<- Deal.contact[]'` |
 | `'A \| B \| C'` | Enum (pipe-separated) | `stage: 'Lead \| Qualified \| Customer'` |
 | `'PascalCase'` | Custom verb | `qualify: 'Qualified'` |

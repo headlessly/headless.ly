@@ -76,19 +76,30 @@ All IDs follow the `{type}_{sqid}` pattern. The prefix is the lowercase entity t
 
 ## Entities by Domain
 
-### CRM
+### Identity
 
-`@headlessly/crm` -- Contact, Company, Deal, Activity
+`@headlessly/sdk` -- User, ApiKey
 
 | Entity | Custom Verbs |
 |---|---|
+| **User** | `activate`, `suspend`, `deactivate` |
+| **ApiKey** | `rotate`, `revoke` |
+
+### CRM
+
+`@headlessly/crm` -- Organization, Contact, Lead, Deal, Activity, Pipeline
+
+| Entity | Custom Verbs |
+|---|---|
+| **Organization** | `verify`, `enrich` |
 | **Contact** | `qualify`, `convert`, `churn`, `reactivate` |
-| **Company** | `verify`, `enrich` |
+| **Lead** | `qualify`, `disqualify`, `convert` |
 | **Deal** | `advance`, `close`, `lose` |
 | **Activity** | `complete`, `cancel` |
+| **Pipeline** | `activate`, `archive` |
 
 ```typescript
-import { Contact, Company, Deal, Activity } from '@headlessly/crm'
+import { Contact, Organization, Deal, Activity } from '@headlessly/crm'
 
 await Contact.qualify({ id: 'contact_fX9bL5nRd' })
 await Deal.close({ id: 'deal_k7TmPvQx' })
@@ -97,12 +108,14 @@ await Activity.complete({ id: 'activity_jR5nLwXp' })
 
 ### Billing
 
-`@headlessly/billing` -- Product, Plan, Subscription, Invoice, Payment
+`@headlessly/billing` -- Customer, Product, Plan, Price, Subscription, Invoice, Payment
 
 | Entity | Custom Verbs |
 |---|---|
+| **Customer** | `verify`, `suspend`, `reactivate` |
 | **Product** | `publish`, `archive` |
 | **Plan** | `activate`, `deprecate` |
+| **Price** | `activate`, `archive` |
 | **Subscription** | `upgrade`, `downgrade`, `cancel`, `renew` |
 | **Invoice** | `finalize`, `void`, `refund` |
 | **Payment** | `capture`, `refund` |
@@ -116,42 +129,38 @@ await Invoice.finalize({ id: 'invoice_mW3vRtYn' })
 
 ### Projects
 
-`@headlessly/projects` -- Project, Task, Milestone, Comment
+`@headlessly/projects` -- Project, Issue, Comment
 
 | Entity | Custom Verbs |
 |---|---|
 | **Project** | `archive`, `complete` |
-| **Task** | `assign`, `start`, `complete`, `block` |
-| **Milestone** | `complete`, `extend` |
+| **Issue** | `assign`, `start`, `complete`, `block` |
 | **Comment** | `resolve`, `pin` |
 
 ```typescript
-import { Task, Project } from '@headlessly/projects'
+import { Issue, Project } from '@headlessly/projects'
 
-await Task.assign({ id: 'task_bN7xKmRw', assignee: 'contact_fX9bL5nRd' })
+await Issue.assign({ id: 'issue_bN7xKmRw', assignee: 'contact_fX9bL5nRd' })
 await Project.complete({ id: 'project_e5JhLzXc' })
 ```
 
 ### Content
 
-`@headlessly/content` -- Page, Post, Asset, Collection
+`@headlessly/content` -- Content, Asset, Site
 
 | Entity | Custom Verbs |
 |---|---|
-| **Page** | `publish`, `unpublish`, `archive` |
-| **Post** | `publish`, `schedule`, `archive` |
+| **Content** | `publish`, `unpublish`, `schedule`, `archive` |
 | **Asset** | `process`, `tag` |
-| **Collection** | `publish`, `reorder` |
+| **Site** | `publish`, `deploy` |
 
 ### Support
 
-`@headlessly/support` -- Ticket, Article, Reply
+`@headlessly/support` -- Ticket
 
 | Entity | Custom Verbs |
 |---|---|
 | **Ticket** | `assign`, `escalate`, `resolve`, `reopen` |
-| **Article** | `publish`, `archive` |
-| **Reply** | `send`, `retract` |
 
 ### Analytics
 
@@ -199,3 +208,11 @@ import { Workflow, Agent } from '@headlessly/platform'
 await Workflow.activate({ id: 'workflow_tP6yMnVk' })
 await Agent.deploy({ id: 'agent_wQ2xLrHj' })
 ```
+
+### Communication
+
+`@headlessly/sdk` -- Message
+
+| Entity | Custom Verbs |
+|---|---|
+| **Message** | `send`, `deliver`, `read`, `archive` |

@@ -3,7 +3,7 @@ title: Analytics
 description: Event, Metric, Funnel, Goal — insights and measurement.
 ---
 
-Events captured via the browser SDK. Financial metrics derived from Stripe. Funnels track the revenue pipeline. Event absorbs the old Activity entity — all interactions are events.
+Events captured via the browser SDK. Financial metrics derived from Stripe. Funnels track conversion flows. Goals track business objectives.
 
 ## Event
 
@@ -14,26 +14,24 @@ import { Noun } from 'digital-objects'
 
 export const Event = Noun('Event', {
   name: 'string!',
-  type: 'Track | Page | Identify | Group | Screen',
-  source: 'string?',
-  properties: 'json?',
-  contact: '-> Contact?',
+  type: 'string!',
+  data: 'string',
+  source: 'Browser | Node | API | Snippet',
+  sessionId: 'string',
+  userId: 'string',
+  anonymousId: 'string',
+  organization: '-> Organization',
   timestamp: 'datetime!',
+  url: 'string',
+  path: 'string',
+  referrer: 'string',
+  properties: 'string',
   update: null,
   delete: null,
 })
 ```
 
-Event is immutable — append-only. The `source` field tracks where the event originated:
-
-| Source | Description |
-|--------|-------------|
-| `browser` | Client-side SDK (pageviews, clicks) |
-| `api` | Server-side API calls |
-| `crm` | CRM interactions (replaces old Activity entity) |
-| `stripe` | Stripe webhook events |
-| `github` | GitHub webhook events |
-| `agent` | AI agent actions |
+Event is immutable — append-only. No updates, no deletes.
 
 ## Metric
 
@@ -41,28 +39,27 @@ Real values — MRR, churn, NRR from Stripe; DAU, NPS from events.
 
 ```typescript
 export const Metric = Noun('Metric', {
-  name: 'string!#',
-  type: 'Counter | Gauge | Histogram | Rate',
+  name: 'string!',
   value: 'number!',
-  unit: 'string?',
-  dimensions: 'json?',
-  record: 'Recorded',
-  reset:  'Reset',
+  type: 'Counter | Gauge | Histogram | Summary',
+  unit: 'string',
+  dimensions: 'string',
+  organization: '-> Organization',
+  timestamp: 'datetime',
 })
 ```
 
-Financial metrics auto-derive from Stripe. `Metric.get('mrr')` returns a real number.
-
 ## Funnel
 
-Conversion flows — visitor → signup → activate → pay.
+Conversion flows — visitor to signup to activate to pay.
 
 ```typescript
 export const Funnel = Noun('Funnel', {
   name: 'string!',
-  steps: 'json!',
-  conversionRate: 'number?',
-  analyze: 'Analyzed',
+  description: 'string',
+  steps: 'string',
+  organization: '-> Organization',
+  conversionRate: 'number',
 })
 ```
 
@@ -73,13 +70,17 @@ Business objectives — revenue targets, user targets, milestone deadlines.
 ```typescript
 export const Goal = Noun('Goal', {
   name: 'string!',
+  description: 'string',
   target: 'number!',
-  current: 'number?',
-  metric: '-> Metric?',
-  deadline: 'datetime?',
-  status: 'Active | Completed | Missed',
-  complete: 'Completed',
-  miss:     'Missed',
-  reset:    'Reset',
+  current: 'number',
+  unit: 'string',
+  period: 'Daily | Weekly | Monthly | Quarterly | Yearly',
+  status: 'OnTrack | AtRisk | Behind | Achieved',
+  organization: '-> Organization',
+  achieve: 'Achieved',
 })
 ```
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `achieve` | `Achieved` | Mark goal as achieved |

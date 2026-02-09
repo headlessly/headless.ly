@@ -63,10 +63,10 @@ The `--context` flag sets the default system scope without changing the availabl
 Every `*.headless.ly` subdomain resolves to the same Cloudflare Worker. The subdomain determines the default context for search results and schema discovery, but all three tools can always reach any entity in the graph.
 
 ```
-crm.headless.ly/mcp           # CRM context -- Contact, Company, Deal prominent
+crm.headless.ly/mcp           # CRM context -- Organization, Contact, Deal prominent
 billing.headless.ly/mcp       # Billing context -- Product, Subscription, Invoice prominent
 healthcare.headless.ly/mcp    # Healthcare industry context
-build.headless.ly/mcp         # Build journey -- Projects, Tasks, Content prominent
+build.headless.ly/mcp         # Build journey -- Projects, Issues, Content prominent
 ```
 
 Paths provide secondary dimensions. `crm.headless.ly/healthcare` and `healthcare.headless.ly/crm` resolve to the same composed context.
@@ -134,7 +134,7 @@ Find entities across the graph with MongoDB-style filters, sorting, and paginati
 Get a single entity by ID, a schema definition, a named metric, or the full business status snapshot.
 
 ```json title="headless.ly/mcp#fetch"
-{ "type": "Contact", "id": "contact_fX9bL5nRd", "include": ["deals", "company"] }
+{ "type": "Contact", "id": "contact_fX9bL5nRd", "include": ["deals", "organization"] }
 ```
 
 ### do

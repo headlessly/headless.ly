@@ -3,25 +3,41 @@ title: Platform
 description: Workflow, Integration, Agent — automation and AI-powered infrastructure.
 ---
 
-Automation, integrations, AI agents that run the business. Agent is redesigned with the full autonomous-agents interface — not a thin stub.
+Automation, integrations, AI agents that run the business.
 
 ## Workflow
 
-Automation rules — event → action.
+Automation rules — event-triggered multi-step workflows with retry and error handling.
 
 ```typescript
 import { Noun } from 'digital-objects'
 
 export const Workflow = Noun('Workflow', {
   name: 'string!',
+  description: 'string',
+  organization: '-> Organization',
   trigger: 'string!',
-  action: 'json!',
-  status: 'Active | Paused',
+  steps: 'string',
+  retryPolicy: 'string',
+  errorHandling: 'Stop | Continue | Fallback',
+  timeout: 'number',
+  status: 'Draft | Active | Paused | Archived',
+  version: 'number',
+  lastRunAt: 'datetime',
+  runCount: 'number',
+  successCount: 'number',
+  failureCount: 'number',
   activate: 'Activated',
-  pause:    'Paused',
-  trigger:  'Triggered',
+  pause: 'Paused',
+  archive: 'Archived',
 })
 ```
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `activate` | `Activated` | Set workflow to active |
+| `pause` | `Paused` | Temporarily suspend |
+| `archive` | `Archived` | Archive for reference |
 
 ## Integration
 
@@ -30,91 +46,72 @@ External connections — Stripe, GitHub, Slack, WorkOS.
 ```typescript
 export const Integration = Noun('Integration', {
   name: 'string!',
-  type: 'string!',
-  status: 'Active | Inactive | Error',
-  config: 'json?',
-  connect:    'Connected',
+  slug: 'string##',
+  description: 'string',
+  provider: 'string!',
+  providerUrl: 'string',
+  providerLogo: 'string',
+  category: 'Payment | CRM | Marketing | Analytics | Communication | Storage | AI | Other',
+  authType: 'OAuth2 | ApiKey | Basic | Custom',
+  oauthScopes: 'string',
+  configSchema: 'string',
+  status: 'Available | ComingSoon | Deprecated',
+  featured: 'string',
+  apiBaseUrl: 'string',
+  webhookSupport: 'string',
+  connect: 'Connected',
   disconnect: 'Disconnected',
-  sync:       'Synced',
 })
 ```
 
+| Verb | Event | Description |
+|------|-------|-------------|
+| `connect` | `Connected` | Establish the integration |
+| `disconnect` | `Disconnected` | Remove the integration |
+
 ## Agent
 
-AI agents with the full autonomous-agents interface. Agents can do work, ask questions, make decisions, approve requests, notify humans, delegate to other agents, escalate when stuck, and learn from outcomes.
+AI agents with model configuration, tool access, and usage tracking.
 
 ```typescript
 export const Agent = Noun('Agent', {
   name: 'string!',
-  role: 'string!',
-  description: 'text?',
-  mode: 'Autonomous | Supervised | Manual',
-  status: 'Idle | Thinking | Acting | Waiting | Error',
-  model: 'string?',
-  system: 'text?',
-  skills: 'json?',
-  tools: 'json?',
-
-  // Core verbs
-  do:       'Done',
-  ask:      'Asked',
-  decide:   'Decided',
-  approve:  'Approved',
-  notify:   'Notified',
-  delegate: 'Delegated',
-  escalate: 'Escalated',
-
-  // Learning
-  learn:   'Learned',
-  reflect: 'Reflected',
-
-  // Lifecycle
+  slug: 'string##',
+  description: 'string',
+  avatar: 'string',
+  organization: '-> Organization',
+  owner: '-> Contact',
+  model: 'string',
+  systemPrompt: 'string',
+  instructions: 'string',
+  persona: 'string',
+  type: 'Assistant | Autonomous | Workflow | Specialist | Router',
+  status: 'Draft | Active | Paused | Archived',
+  visibility: 'Private | Team | Organization | Public',
+  temperature: 'number',
+  maxTokens: 'number',
+  tools: 'string',
+  functions: 'string',
+  knowledgeBases: 'string',
+  memory: 'None | Session | Persistent',
+  memoryWindow: 'number',
+  totalTokens: 'number',
+  totalCost: 'number',
+  averageLatency: 'number',
+  successRate: 'number',
+  rating: 'number',
+  ratingCount: 'number',
+  version: 'number',
+  publishedAt: 'datetime',
+  tags: 'string',
   deploy: 'Deployed',
-  pause:  'Paused',
-  stop:   'Stopped',
+  pause: 'Paused',
+  retire: 'Retired',
 })
 ```
-
-### Core Verbs
-
-| Verb | Event | Description |
-|------|-------|-------------|
-| `do` | `Done` | Execute a task autonomously |
-| `ask` | `Asked` | Ask a question (to human or another agent) |
-| `decide` | `Decided` | Choose between options with reasoning |
-| `approve` | `Approved` | Approve or reject a request |
-| `notify` | `Notified` | Send a notification via any channel |
-| `delegate` | `Delegated` | Hand off work to another agent |
-| `escalate` | `Escalated` | Escalate to a higher-tier agent or human |
-
-### Learning Verbs
-
-| Verb | Event | Description |
-|------|-------|-------------|
-| `learn` | `Learned` | Record an insight from an interaction |
-| `reflect` | `Reflected` | Self-analyze past actions for improvement |
-
-### Lifecycle Verbs
 
 | Verb | Event | Description |
 |------|-------|-------------|
 | `deploy` | `Deployed` | Activate the agent |
 | `pause` | `Paused` | Temporarily suspend |
-| `stop` | `Stopped` | Shut down the agent |
-
-### Modes
-
-| Mode | Description |
-|------|-------------|
-| `Autonomous` | Agent acts independently, escalates only when stuck |
-| `Supervised` | Agent proposes actions, human approves before execution |
-| `Manual` | Agent provides recommendations, human executes |
-
-### Durable Object Backing
-
-Each Agent is backed by a Durable Object with persistent:
-- **Memory** — long-term storage with importance scoring and semantic recall
-- **Conversations** — message history and context across sessions
-- **Goals** — objectives with progress tracking and sub-goals
-- **Learning** — insights categorized as behavior, knowledge, skill, preference, or error
-- **Actions** — registered capabilities with execution tracking and feedback
+| `retire` | `Retired` | Retire the agent |

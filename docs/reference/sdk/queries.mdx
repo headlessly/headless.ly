@@ -169,7 +169,7 @@ import { Deal } from '@headlessly/crm'
 // Find deals where the associated contact is in the Lead stage
 const deals = await Deal.find({
   'contact.stage': 'Lead',
-  'contact.company.industry': 'Technology',
+  'contact.organization.industry': 'Technology',
 })
 ```
 
@@ -182,7 +182,7 @@ import { Contact } from '@headlessly/crm'
 
 const contacts = await Contact.find(
   { stage: 'Qualified' },
-  { include: ['deals', 'company', 'activities'] },
+  { include: ['deals', 'organization', 'activities'] },
 )
 
 // contacts[0].deals is an array of Deal objects, not just IDs

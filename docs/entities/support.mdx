@@ -3,7 +3,7 @@ title: Support
 description: Ticket — help desk and customer support.
 ---
 
-Answer questions, resolve bugs, track customer issues. Knowledge base articles are now [Content](/docs/entities/content) with `type: 'Article'`. Replies are now [Messages](/docs/entities/communication) — cross-channel communication that works everywhere.
+Answer questions, resolve bugs, track customer issues.
 
 ## Ticket
 
@@ -14,30 +14,28 @@ import { Noun } from 'digital-objects'
 
 export const Ticket = Noun('Ticket', {
   subject: 'string!',
-  body: 'text!',
-  status: 'Open | Waiting | Resolved | Closed',
-  priority: 'Urgent | High | Medium | Low',
-  contact: '-> Contact.tickets',
-  assignee: '-> User?',
-  comments: '<- Comment.ticket[]',
-  messages: '<- Message.ticket[]',
-  assign:   'Assigned',
-  resolve:  'Resolved',
-  close:    'Closed',
-  reopen:   'Reopened',
+  description: 'string',
+  status: 'Open | Pending | InProgress | Resolved | Closed',
+  priority: 'Low | Medium | High | Urgent',
+  category: 'string',
+  assignee: '-> Contact',
+  requester: '-> Contact',
+  organization: '-> Organization',
+  channel: 'Email | Chat | Phone | Web | API',
+  tags: 'string',
+  firstResponseAt: 'datetime',
+  resolvedAt: 'datetime',
+  satisfaction: 'number',
+  resolve: 'Resolved',
   escalate: 'Escalated',
+  close: 'Closed',
+  reopen: 'Reopened',
 })
 ```
 
 | Verb | Event | Description |
 |------|-------|-------------|
-| `assign` | `Assigned` | Assign to a team member |
 | `resolve` | `Resolved` | Mark as resolved |
+| `escalate` | `Escalated` | Escalate to higher tier |
 | `close` | `Closed` | Close the ticket |
 | `reopen` | `Reopened` | Reopen after resolution |
-| `escalate` | `Escalated` | Escalate to higher tier |
-
-### What moved
-
-- **Article** → `Content` with `type: 'Article'`. Knowledge base is just typed Content in a Docs Site.
-- **Reply** → `Message` with `ticket` relationship. Replies are Messages that arrive on any channel (email, Slack, web chat, SMS).

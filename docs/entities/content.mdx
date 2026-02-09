@@ -1,30 +1,42 @@
 ---
 title: Content
-description: Content, Asset, Site — typed MDX publishing powered by mdxui.
+description: Content, Asset, Site — typed publishing with SEO and multi-language support.
 ---
 
-Everything is Content — landing pages, blog posts, docs, articles, even startup frameworks like Lean Canvas and StoryBrand. Each Content has a `$type` that maps to a Zod schema from mdxui, giving strongly-typed props that render automatically.
+Content management with typed documents, media assets, and site configuration.
 
 ## Content
 
-Typed MDX documents. The `type` field selects a Zod schema — `Content.$type: 'LandingPage'` gets strongly-typed props (headline, subheadline, cta, features) that mdxui auto-renders.
+Typed documents — pages, posts, articles, guides — with SEO fields, scheduling, and visibility controls.
 
 ```typescript
 import { Noun } from 'digital-objects'
 
 export const Content = Noun('Content', {
   title: 'string!',
-  slug: 'string!#',
-  type: 'Page | Post | Doc | Article | LandingPage | LeanCanvas | StoryBrand | SWOT | BMC | JTBD | Custom',
-  body: 'text?',
-  props: 'json?',
-  status: 'Draft | Published | Archived',
+  slug: 'string##',
+  excerpt: 'string',
+  body: 'string',
   site: '-> Site.content',
-  author: '-> User?',
-  comments: '<- Comment.content[]',
+  type: 'Page | Post | Article | Guide',
+  categories: 'string',
+  tags: 'string',
+  status: 'Draft | Published | Scheduled | Archived',
+  publishedAt: 'datetime',
+  scheduledAt: 'datetime',
+  author: '-> Contact',
+  seoTitle: 'string',
+  seoDescription: 'string',
+  ogImage: 'string',
+  noIndex: 'string',
+  canonicalUrl: 'string',
+  featuredImage: '-> Asset',
+  readingTime: 'number',
+  viewCount: 'number',
+  visibility: 'Public | Private | Members',
   publish: 'Published',
   archive: 'Archived',
-  draft:   'Drafted',
+  schedule: 'Scheduled',
 })
 ```
 
@@ -32,61 +44,55 @@ export const Content = Noun('Content', {
 |------|-------|-------------|
 | `publish` | `Published` | Make publicly visible |
 | `archive` | `Archived` | Remove from public view |
-| `draft` | `Drafted` | Return to draft state |
-
-### Content Types
-
-The `type` field is a discriminator. Each type has a Zod schema defining its `props`:
-
-| Type | Props | Use Case |
-|------|-------|----------|
-| `Page` | title, body | Static pages — pricing, about |
-| `Post` | title, body, tags, publishedAt | Blog posts, tutorials, changelog |
-| `Doc` | title, body, section | Documentation pages |
-| `Article` | title, body, category | Knowledge base / help center |
-| `LandingPage` | headline, subheadline, cta, features, testimonials | Marketing pages |
-| `LeanCanvas` | problem, solution, uvp, channels, customerSegments, costStructure, revenueStreams | Lean Canvas framework |
-| `StoryBrand` | heroWants, villain, guide, plan, cta, failure, success, oneLiner | StoryBrand messaging |
-| `SWOT` | strengths, weaknesses, opportunities, threats | SWOT analysis |
-| `BMC` | keyPartners, keyActivities, valuePropositions, customerRelationships, customerSegments, keyResources, channels, costStructure, revenueStreams | Business Model Canvas |
-| `JTBD` | functionalJob, emotionalJob, socialJob, context, currentSolutions, painPoints, desiredOutcomes | Jobs to Be Done |
-
-All Content types are AI-generatable (props are structured data) and auto-rendered through mdxui's component system.
+| `schedule` | `Scheduled` | Schedule for future publication |
 
 ## Asset
 
-Files — images, videos, documents, audio.
+Files — images, videos, documents, audio, archives.
 
 ```typescript
 export const Asset = Noun('Asset', {
   name: 'string!',
+  filename: 'string!',
   url: 'string!',
-  type: 'Image | Video | Document | Audio | Other',
-  size: 'number?',
-  mimeType: 'string?',
-  upload:  'Uploaded',
-  process: 'Processed',
+  type: 'Image | Video | Document | Audio | Archive | Other',
+  mimeType: 'string!',
+  extension: 'string',
+  size: 'number!',
+  width: 'number',
+  height: 'number',
+  alt: 'string',
+  caption: 'string',
+  duration: 'number',
+  thumbnail: 'string',
+  tags: 'string',
+  uploadedBy: '-> Contact',
+  source: 'string',
+  license: 'string',
 })
 ```
 
 ## Site
 
-mdxui site configuration — determines how Content renders. Maps to one of 14 mdxui site types with auto-wired components.
+Site configuration — determines how Content renders.
 
 ```typescript
 export const Site = Noun('Site', {
   name: 'string!',
-  type: 'Marketing | Docs | Blog | Directory | Marketplace | API | Agent | Agency | Platform | SaaS | App | Dashboard | Portal | Custom',
-  domain: 'string?#',
-  theme: 'json?',
+  subdomain: 'string##',
+  title: 'string',
+  description: 'string',
+  tagline: 'string',
+  logo: 'string',
+  favicon: 'string',
+  primaryColor: 'string',
+  accentColor: 'string',
+  status: 'Draft | Published | Maintenance',
+  visibility: 'Public | Private | Password',
+  ogImage: 'string',
   content: '<- Content.site[]',
-  deploy:    'Deployed',
-  configure: 'Configured',
+  defaultLanguage: 'string',
+  supportedLanguages: 'string',
+  timezone: 'string',
 })
 ```
-
-Site types auto-wire Content to components:
-- `Blog` → maps Posts to a blog layout with feeds, tags, pagination
-- `Docs` → maps Docs to a documentation layout with sidebar, search
-- `Marketing` → maps Pages and LandingPages to a marketing site
-- `Directory` → maps structured Content to a searchable listing

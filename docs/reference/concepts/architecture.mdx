@@ -189,10 +189,10 @@ Request: https://crm.headless.ly/~acme/Contact
 Worker extracts subdomain: "crm"
   │
   ▼
-Registry lookup: crm → { entities: [Contact, Company, Deal, Activity] }
+Registry lookup: crm → { entities: [Organization, Contact, Lead, Deal, Activity, Pipeline] }
   │
   ▼
-Route generation: /api/contacts, /api/companies, /api/deals, /api/activities
+Route generation: /api/organizations, /api/contacts, /api/leads, /api/deals, /api/activities, /api/pipelines
   │
   ▼
 DO lookup: tenant "acme" → Durable Object stub
@@ -249,7 +249,7 @@ Three tools -- not hundreds. Designed for AI agents:
 ```
 
 ```json title="headless.ly/mcp#fetch"
-{ "type": "Contact", "id": "contact_fX9bL5nRd", "include": ["deals", "company"] }
+{ "type": "Contact", "id": "contact_fX9bL5nRd", "include": ["deals", "organization"] }
 ```
 
 ```ts title="headless.ly/mcp#do"

@@ -31,9 +31,9 @@ Contact.qualifying(contact => {
 // AFTER hook — runs after execution
 Contact.qualified((contact, $) => {
   $.Issue.create({
-    type: 'Task',
-    subject: `Follow up with ${contact.name}`,
+    title: `Follow up with ${contact.name}`,
     contact: contact.$id,
+    status: 'Open',
   })
 })
 
@@ -114,7 +114,7 @@ import { Subscription } from '@headlessly/billing'
 // Reject invalid operations
 Contact.qualifying(contact => {
   if (!contact.email) throw new Error('Cannot qualify without email')
-  if (!contact.company) throw new Error('Contact must belong to a company')
+  if (!contact.organization) throw new Error('Contact must belong to an organization')
   return contact
 })
 
@@ -140,10 +140,11 @@ Deal.closed((deal, $) => {
   // Cross-domain: update the contact stage
   $.Contact.update(deal.contact, { stage: 'Customer' })
 
-  // Cross-domain: create a support article
-  $.Article.create({
+  // Cross-domain: create onboarding content
+  $.Content.create({
     title: `Onboarding: ${deal.name}`,
-    contact: deal.contact,
+    type: 'Article',
+    status: 'Draft',
   })
 })
 ```
@@ -216,8 +217,8 @@ All custom verbs across the 35 core entities:
 | Contact | `assign` | `Assigned` | Assign to team member |
 | Contact | `merge` | `Merged` | Merge duplicate records |
 | Contact | `enrich` | `Enriched` | Enrich with external data |
-| Company | `enrich` | `Enriched` | Enrich with external data |
-| Company | `score` | `Scored` | Update company score |
+| Organization | `enrich` | `Enriched` | Enrich with external data |
+| Organization | `score` | `Scored` | Update organization score |
 | Deal | `advance` | `Advanced` | Move to next pipeline stage |
 | Deal | `close` | `Closed` | Close as won |
 | Deal | `lose` | `Lost` | Close as lost |
@@ -231,22 +232,19 @@ All custom verbs across the 35 core entities:
 |--------|------|-------|-------------|
 | Project | `archive` | `Archived` | Archive a project |
 | Project | `activate` | `Activated` | Activate a project |
-| Task | `assign` | `Assigned` | Assign to team member |
-| Task | `complete` | `Completed` | Mark task complete |
-| Task | `reopen` | `Reopened` | Reopen a completed task |
-| Milestone | `complete` | `Completed` | Mark milestone complete |
+| Issue | `assign` | `Assigned` | Assign to team member |
+| Issue | `close` | `Closed` | Close the issue |
+| Issue | `reopen` | `Reopened` | Reopen a closed issue |
 | Comment | `resolve` | `Resolved` | Resolve a comment thread |
 
 ### Content
 
 | Entity | Verb | Event | Description |
 |--------|------|-------|-------------|
-| Page | `publish` | `Published` | Publish a page |
-| Page | `unpublish` | `Unpublished` | Take a page offline |
-| Post | `publish` | `Published` | Publish a post |
-| Post | `schedule` | `Scheduled` | Schedule for future publish |
+| Content | `publish` | `Published` | Publish content |
+| Content | `archive` | `Archived` | Archive content |
+| Content | `schedule` | `Scheduled` | Schedule for future publish |
 | Asset | `process` | `Processed` | Process uploaded asset |
-| Collection | `publish` | `Published` | Publish a collection |
 
 ### Billing
 
@@ -269,8 +267,7 @@ All custom verbs across the 35 core entities:
 | Ticket | `escalate` | `Escalated` | Escalate priority |
 | Ticket | `resolve` | `Resolved` | Resolve the ticket |
 | Ticket | `reopen` | `Reopened` | Reopen a resolved ticket |
-| Article | `publish` | `Published` | Publish help article |
-| Reply | `send` | `Sent` | Send a reply |
+| Ticket | `close` | `Closed` | Close the ticket |
 
 ### Analytics
 

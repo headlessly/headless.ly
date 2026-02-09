@@ -33,7 +33,7 @@ headless.ly's MCP server is built on `@modelcontextprotocol/sdk` with an HTTP St
 ### `search` — Find entities across the graph
 
 ```json title="headless.ly/mcp#search"
-{ "type": "Contact", "filter": { "stage": "Lead", "company": { "$exists": true } }, "limit": 10 }
+{ "type": "Contact", "filter": { "stage": "Lead", "organization": { "$exists": true } }, "limit": 10 }
 ```
 
 Under the hood, `search` resolves the entity type against the current system's entity registry, constructs a query path with MongoDB-style filter encoding, and delegates to the system's Durable Object. The agent does not need to know any of this. It just says what it wants to find.
@@ -84,13 +84,13 @@ This is why three tools can cover 52 systems. The tools are polymorphic. The con
 **Step 1: Search for unqualified leads**
 
 ```json title="headless.ly/mcp#search"
-{ "type": "Contact", "filter": { "stage": "Lead", "company": { "$exists": true } }, "limit": 5 }
+{ "type": "Contact", "filter": { "stage": "Lead", "organization": { "$exists": true } }, "limit": 5 }
 ```
 
-**Step 2: Fetch the company details for context**
+**Step 2: Fetch the organization details for context**
 
 ```json title="headless.ly/mcp#fetch"
-{ "type": "Company", "id": "company_e5JhLzXc" }
+{ "type": "Organization", "id": "org_e5JhLzXc" }
 ```
 
 **Step 3: Qualify the lead and create a deal**
@@ -99,7 +99,7 @@ This is why three tools can cover 52 systems. The tools are polymorphic. The con
 await $.Contact.qualify('contact_fX9bL5nRd')
 await $.Deal.create({
   contact: 'contact_fX9bL5nRd',
-  company: 'company_e5JhLzXc',
+  organization: 'org_e5JhLzXc',
   value: 24000,
   stage: 'Qualified'
 })
@@ -133,7 +133,7 @@ A conventional MCP server exposing the same CRM capability as individual tools:
 
 ```
 search_contacts, get_contact, create_contact, update_contact, delete_contact,
-search_companies, get_company, create_company, ...
+search_organizations, get_organization, create_organization, ...
 (7 entity types x 5 operations each = 35 tools)
 ───────────────────────────────────────────────────────
 Total (35 tools):     ~4,550 tokens

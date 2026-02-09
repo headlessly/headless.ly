@@ -42,7 +42,7 @@ The first thing an agent should do is call the `explore` tool to discover the fu
 { "type": "schema" }
 ```
 
-This returns all 35 entities across 11 product domains -- CRM, Billing, Projects, Content, Support, Analytics, Marketing, Experiments, and Platform -- with their verbs, relationships, and field definitions. No documentation lookup required. The system describes itself.
+This returns all 35 entities across 11 product domains -- Identity, CRM, Billing, Projects, Content, Support, Analytics, Marketing, Experimentation, Platform, and Communication -- with their verbs, relationships, and field definitions. No documentation lookup required. The system describes itself.
 
 ## Search and Fetch
 
@@ -55,7 +55,7 @@ At L0, agents can read everything. Search finds entities across the graph:
 Fetch retrieves a specific entity with related data:
 
 ```json title="headless.ly/mcp#fetch"
-{ "type": "Contact", "id": "contact_uLoSfycy", "include": ["deals", "company"] }
+{ "type": "Contact", "id": "contact_uLoSfycy", "include": ["deals", "organization"] }
 ```
 
 Fetch also retrieves system-level information:

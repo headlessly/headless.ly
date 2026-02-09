@@ -4,7 +4,7 @@ description: 'Get a specific entity, schema, metric, or the full business status
 ---
 
 ```json title="headless.ly/mcp#fetch"
-{ "type": "Contact", "id": "contact_fX9bL5nRd", "include": ["deals", "company"] }
+{ "type": "Contact", "id": "contact_fX9bL5nRd", "include": ["deals", "organization"] }
 ```
 
 The `fetch` tool retrieves a single entity by ID, a schema definition, a named metric, or a full business status snapshot. It is the read-side complement to `search` -- use `search` to find entities, `fetch` to get the details.
@@ -36,7 +36,7 @@ Response:
   "name": "Alice Chen",
   "email": "alice@startup.io",
   "stage": "Qualified",
-  "company": "company_e5JhLzXc",
+  "organization": "org_e5JhLzXc",
   "createdAt": "2025-11-15T09:30:00Z",
   "updatedAt": "2025-11-18T14:22:00Z"
 }
@@ -47,7 +47,7 @@ Response:
 The `include` parameter eagerly loads related entities inline, replacing the foreign key ID with the full entity object.
 
 ```json title="headless.ly/mcp#fetch"
-{ "type": "Contact", "id": "contact_fX9bL5nRd", "include": ["company", "deals"] }
+{ "type": "Contact", "id": "contact_fX9bL5nRd", "include": ["organization", "deals"] }
 ```
 
 Response:
@@ -59,9 +59,9 @@ Response:
   "name": "Alice Chen",
   "email": "alice@startup.io",
   "stage": "Qualified",
-  "company": {
-    "$id": "company_e5JhLzXc",
-    "$type": "Company",
+  "organization": {
+    "$id": "org_e5JhLzXc",
+    "$type": "Organization",
     "name": "Startup Inc",
     "industry": "Technology",
     "size": 25
@@ -136,7 +136,7 @@ Response:
       "values": ["Lead", "Qualified", "Customer", "Churned", "Partner"],
       "default": "Lead"
     },
-    "company": { "type": "relation", "target": "Company", "inverse": "contacts" },
+    "organization": { "type": "relation", "target": "Organization", "inverse": "contacts" },
     "deals": { "type": "relation", "target": "Deal", "cardinality": "many", "inverse": "contact" }
   },
   "verbs": {
@@ -159,15 +159,17 @@ Response:
 {
   "$type": "Schema",
   "entities": [
-    "Contact", "Company", "Deal", "Activity",
-    "Project", "Task", "Milestone", "Comment",
-    "Page", "Post", "Asset", "Collection",
-    "Product", "Plan", "Subscription", "Invoice", "Payment",
-    "Ticket", "Article", "Reply",
+    "User", "ApiKey",
+    "Organization", "Contact", "Lead", "Deal", "Activity", "Pipeline",
+    "Customer", "Product", "Plan", "Price", "Subscription", "Invoice", "Payment",
+    "Project", "Issue", "Comment",
+    "Content", "Asset", "Site",
+    "Ticket",
     "Event", "Metric", "Funnel", "Goal",
     "Campaign", "Segment", "Form",
     "Experiment", "FeatureFlag",
-    "Workflow", "Integration", "Agent"
+    "Workflow", "Integration", "Agent",
+    "Message"
   ],
   "context": "crm.headless.ly"
 }
@@ -307,7 +309,7 @@ Error response body:
 {
   "type": "Deal",
   "id": "deal_k7TmPvQx",
-  "include": ["contact", "company"]
+  "include": ["contact", "organization"]
 }
 ```
 

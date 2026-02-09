@@ -49,15 +49,17 @@ The `do` tool requires L1+ authentication. Unauthenticated calls return:
 
 | Domain | Entities on `$` |
 |--------|-----------------|
-| CRM | `$.Contact`, `$.Company`, `$.Deal`, `$.Activity` |
-| Projects | `$.Project`, `$.Task`, `$.Milestone`, `$.Comment` |
-| Content | `$.Page`, `$.Post`, `$.Asset`, `$.Collection` |
-| Billing | `$.Product`, `$.Plan`, `$.Subscription`, `$.Invoice`, `$.Payment` |
-| Support | `$.Ticket`, `$.Article`, `$.Reply` |
+| Identity | `$.User`, `$.ApiKey` |
+| CRM | `$.Organization`, `$.Contact`, `$.Lead`, `$.Deal`, `$.Activity`, `$.Pipeline` |
+| Projects | `$.Project`, `$.Issue`, `$.Comment` |
+| Content | `$.Content`, `$.Asset`, `$.Site` |
+| Billing | `$.Customer`, `$.Product`, `$.Plan`, `$.Price`, `$.Subscription`, `$.Invoice`, `$.Payment` |
+| Support | `$.Ticket` |
 | Analytics | `$.Event`, `$.Metric`, `$.Funnel`, `$.Goal` |
 | Marketing | `$.Campaign`, `$.Segment`, `$.Form` |
 | Experiments | `$.Experiment`, `$.FeatureFlag` |
 | Platform | `$.Workflow`, `$.Integration`, `$.Agent` |
+| Communication | `$.Message` |
 
 ## CRUD Operations
 
@@ -110,7 +112,7 @@ await $.FeatureFlag.rollout('flag_nB2wRtLp', { percentage: 50 })
 ```
 
 ```ts title="headless.ly/mcp#do"
-await $.Task.assign('task_qW8eYuHn', { assignee: 'member_dQz8FhLm' })
+await $.Issue.assign('issue_qW8eYuHn', { assignee: 'member_dQz8FhLm' })
 ```
 
 Verbs follow the conjugation lifecycle. Calling `$.Contact.qualify(id)` fires `qualifying` (BEFORE hook), executes the transition, then fires `qualified` (AFTER hook). All three events are recorded in the immutable event log.
@@ -158,7 +160,7 @@ const leads = await $.Contact.find({
 const results = { qualified: 0, skipped: 0 }
 
 for (const lead of leads) {
-  if (!lead.email || !lead.company) {
+  if (!lead.email || !lead.organization) {
     results.skipped++
     continue
   }
@@ -166,7 +168,7 @@ for (const lead of leads) {
   await $.Contact.qualify(lead.$id)
   await $.Deal.create({
     contact: lead.$id,
-    company: lead.company,
+    organization: lead.organization,
     value: 25000,
     stage: 'Qualified'
   })
@@ -237,7 +239,7 @@ return { atRisk, count: atRisk.length, totalMrrAtRisk: atRisk.reduce((s, r) => s
 const segment = await $.Segment.get('segment_hN5pWcRd')
 const contacts = await $.Contact.find({
   stage: { $in: ['Lead', 'Qualified'] },
-  'company.industry': segment.industry
+  'organization.industry': segment.industry
 })
 
 const campaign = await $.Campaign.create({

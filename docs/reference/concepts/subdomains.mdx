@@ -16,13 +16,13 @@ When a request arrives at `crm.headless.ly`:
 2. Looks up the context in the registry
 3. The context defines available entities:
    ```
-   crm -> Contact, Company, Deal
+   crm -> Organization, Contact, Lead, Deal, Activity, Pipeline
    ```
 4. API routes are automatically generated:
    ```
-   /api/contacts    -> Contact
-   /api/companies   -> Company
-   /api/deals       -> Deal
+   /api/organizations -> Organization
+   /api/contacts      -> Contact
+   /api/deals         -> Deal
    ```
 
 ## URL Structure

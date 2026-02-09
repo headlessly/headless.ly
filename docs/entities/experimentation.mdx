@@ -7,41 +7,44 @@ Test with real revenue data. Validate business hypotheses. Roll out progressivel
 
 ## Experiment
 
-A/B tests, multivariate tests, and business hypothesis validation.
+A/B tests, multivariate tests, feature flag experiments, ML experiments, and prompt experiments.
 
 ```typescript
 import { Noun } from 'digital-objects'
 
 export const Experiment = Noun('Experiment', {
   name: 'string!',
-  type: 'ABTest | Multivariate | Hypothesis',
-  status: 'Draft | Running | Analyzing | Completed',
-  hypothesis: 'text?',
-  control: 'json?',
-  variants: 'json?',
-  metric: '-> Metric?',
-  results: 'json?',
-  start:    'Started',
-  stop:     'Stopped',
+  slug: 'string##',
+  description: 'string',
+  hypothesis: 'string',
+  type: 'ABTest | Multivariate | FeatureFlag | MLExperiment | PromptExperiment',
+  status: 'Draft | Running | Paused | Completed | Archived',
+  organization: '-> Organization',
+  owner: '-> Contact',
+  startAt: 'datetime',
+  endAt: 'datetime',
+  targetAudience: 'string',
+  trafficAllocation: 'number',
+  variants: 'string',
+  metrics: 'string',
+  primaryMetric: 'string',
+  results: 'string',
+  winner: 'string',
+  confidence: 'number',
+  sampleSize: 'number',
+  conversions: 'number',
+  tags: 'string',
+  start: 'Started',
   conclude: 'Concluded',
+  pause: 'Paused',
 })
 ```
 
 | Verb | Event | Description |
 |------|-------|-------------|
 | `start` | `Started` | Begin running the experiment |
-| `stop` | `Stopped` | Halt the experiment early |
 | `conclude` | `Concluded` | Declare results and winner |
-
-### Experiment Types
-
-| Type | Use Case |
-|------|----------|
-| `ABTest` | Compare two variants (pricing page, onboarding flow) |
-| `Multivariate` | Test multiple variables simultaneously |
-| `Hypothesis` | Validate business assumptions (does this ICP convert?) |
-
-The `Hypothesis` type bridges the startup-builder's validation loop — test assumptions against real data before committing.
+| `pause` | `Paused` | Temporarily pause the experiment |
 
 ## FeatureFlag
 
@@ -49,19 +52,27 @@ Progressive rollouts, beta access, kill switches.
 
 ```typescript
 export const FeatureFlag = Noun('FeatureFlag', {
-  key: 'string!#',
-  description: 'text?',
-  enabled: 'boolean!',
-  rules: 'json?',
-  percentage: 'number?',
-  enable:  'Enabled',
-  disable: 'Disabled',
+  key: 'string!##',
+  name: 'string!',
+  description: 'string',
+  organization: '-> Organization',
+  experiment: '-> Experiment',
+  type: 'Boolean | String | Number | JSON',
+  defaultValue: 'string',
+  variants: 'string',
+  targetingRules: 'string',
+  status: 'Draft | Active | Paused | Archived',
+  rolloutPercentage: 'number',
+  evaluations: 'number',
+  lastEvaluatedAt: 'datetime',
   rollout: 'RolledOut',
+  enable: 'Enabled',
+  disable: 'Disabled',
 })
 ```
 
 | Verb | Event | Description |
 |------|-------|-------------|
+| `rollout` | `RolledOut` | Increase percentage rollout |
 | `enable` | `Enabled` | Turn on the flag |
 | `disable` | `Disabled` | Turn off the flag |
-| `rollout` | `RolledOut` | Increase percentage rollout |

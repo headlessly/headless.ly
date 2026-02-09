@@ -1,67 +1,101 @@
 ---
 title: Billing
-description: Customer, Product, Price, Subscription, Invoice, Payment — revenue powered by Stripe.
+description: Customer, Product, Plan, Price, Subscription, Invoice, Payment — revenue powered by Stripe.
 ---
 
 All Billing entities are Stripe-backed. Creating a Subscription in headless.ly creates a Stripe subscription. Stripe webhooks flow back as events.
 
 ## Customer
 
-Stripe Customer — the billing identity. Links a Contact to Stripe.
+Stripe Customer — the billing identity. Links an Organization to Stripe.
 
 ```typescript
 import { Noun } from 'digital-objects'
 
 export const Customer = Noun('Customer', {
-  contact: '-> Contact.customer',
-  stripeId: 'string?#',
+  name: 'string!',
+  email: 'string!#',
+  organization: '-> Organization',
+  stripeCustomerId: 'string##',
   subscriptions: '<- Subscription.customer[]',
   invoices: '<- Invoice.customer[]',
-  sync: 'Synced',
+  payments: '<- Payment.customer[]',
+  paymentMethod: 'string',
+  currency: 'string',
+  taxExempt: 'string',
 })
 ```
 
-Creating a Customer automatically creates a Stripe customer. The `stripeId` is set by the webhook.
-
 ## Product
 
-What you sell.
+What you sell — software, services, addons, bundles.
 
 ```typescript
 export const Product = Noun('Product', {
   name: 'string!',
-  description: 'text?',
-  type: 'Software | Service | Physical',
-  stripeId: 'string?#',
-  prices: '<- Price.product[]',
-  activate: 'Activated',
-  archive:  'Archived',
+  slug: 'string##',
+  description: 'string',
+  tagline: 'string',
+  type: 'Software | Service | Addon | Bundle',
+  icon: 'string',
+  image: 'string',
+  features: 'string',
+  highlights: 'string',
+  status: 'Draft | Active | Archived',
+  visibility: 'Public | Private | Hidden',
+  featured: 'string',
+  plans: '<- Plan.product[]',
+  stripeProductId: 'string##',
+})
+```
+
+## Plan
+
+Pricing tiers with trial configuration and feature limits.
+
+```typescript
+export const Plan = Noun('Plan', {
+  name: 'string!',
+  slug: 'string##',
+  description: 'string',
+  product: '-> Product.plans',
+  prices: '<- Price.plan[]',
+  trialDays: 'number',
+  features: 'string',
+  limits: 'string',
+  status: 'Draft | Active | Grandfathered | Archived',
+  isDefault: 'string',
+  isFree: 'string',
+  isEnterprise: 'string',
+  badge: 'string',
+  order: 'number',
 })
 ```
 
 ## Price
 
-Pricing configuration — maps to Stripe Prices. Replaces the concept of "Plan" with Stripe's more flexible model.
+Pricing configuration — maps to Stripe Prices.
 
 ```typescript
 export const Price = Noun('Price', {
-  name: 'string!',
   amount: 'number!',
-  interval: 'Monthly | Annual | OneTime | Usage',
-  product: '-> Product.prices',
-  subscriptions: '<- Subscription.price[]',
-  stripeId: 'string?#',
-  activate: 'Activated',
-  archive:  'Archived',
+  currency: 'string',
+  interval: 'Monthly | Quarterly | Yearly | OneTime',
+  intervalCount: 'number',
+  originalAmount: 'number',
+  discountPercent: 'number',
+  active: 'string',
+  plan: '-> Plan.prices',
+  stripeId: 'string##',
 })
 ```
 
 | Interval | Description |
 |----------|-------------|
 | `Monthly` | Recurring monthly charge |
-| `Annual` | Recurring yearly charge |
+| `Quarterly` | Recurring quarterly charge |
+| `Yearly` | Recurring yearly charge |
 | `OneTime` | Single purchase |
-| `Usage` | Metered billing based on consumption |
 
 ## Subscription
 
@@ -69,27 +103,42 @@ Active paying relationships.
 
 ```typescript
 export const Subscription = Noun('Subscription', {
-  status: 'Active | Paused | Cancelled | Trialing | PastDue',
-  price: '-> Price.subscriptions',
+  status: 'Active | PastDue | Canceled | Trialing | Paused | Incomplete',
+  organization: '-> Organization.subscriptions',
   customer: '-> Customer.subscriptions',
-  stripeId: 'string?#',
-  startDate: 'datetime!',
-  invoices: '<- Invoice.subscription[]',
-  upgrade:   'Upgraded',
+  plan: '-> Plan',
+  currentPeriodStart: 'datetime!',
+  currentPeriodEnd: 'datetime!',
+  cancelAtPeriodEnd: 'string',
+  trialStart: 'datetime',
+  trialEnd: 'datetime',
+  startedAt: 'datetime!',
+  canceledAt: 'datetime',
+  pausedAt: 'datetime',
+  resumesAt: 'datetime',
+  endedAt: 'datetime',
+  cancelReason: 'string',
+  cancelFeedback: 'string',
+  quantity: 'number',
+  paymentMethod: 'string',
+  collectionMethod: 'string',
+  stripeSubscriptionId: 'string##',
+  stripeCustomerId: 'string',
+  pause: 'Paused',
+  cancel: 'Cancelled',
+  reactivate: 'Reactivated',
+  upgrade: 'Upgraded',
   downgrade: 'Downgraded',
-  cancel:    'Cancelled',
-  pause:     'Paused',
-  resume:    'Resumed',
 })
 ```
 
 | Verb | Event | Description |
 |------|-------|-------------|
-| `upgrade` | `Upgraded` | Move to a higher-value Price |
-| `downgrade` | `Downgraded` | Move to a lower-value Price |
-| `cancel` | `Cancelled` | End the subscription |
 | `pause` | `Paused` | Temporarily suspend billing |
-| `resume` | `Resumed` | Restart a paused subscription |
+| `cancel` | `Cancelled` | End the subscription |
+| `reactivate` | `Reactivated` | Restart a cancelled subscription |
+| `upgrade` | `Upgraded` | Move to a higher-value plan |
+| `downgrade` | `Downgraded` | Move to a lower-value plan |
 
 ## Invoice
 
@@ -97,35 +146,56 @@ Bills — monthly/annual.
 
 ```typescript
 export const Invoice = Noun('Invoice', {
-  amount: 'number!',
-  status: 'Draft | Open | Paid | Void',
-  dueDate: 'datetime!',
-  subscription: '-> Subscription.invoices',
+  number: 'string!##',
+  organization: '-> Organization',
   customer: '-> Customer.invoices',
-  payments: '<- Payment.invoice[]',
-  stripeId: 'string?#',
-  pay:    'Paid',
-  refund: 'Refunded',
-  void:   'Voided',
+  subscription: '-> Subscription',
+  subtotal: 'number!',
+  tax: 'number',
+  discount: 'number',
+  total: 'number!',
+  amountPaid: 'number',
+  amountDue: 'number!',
+  currency: 'string',
+  status: 'Draft | Open | Paid | Void | Uncollectible',
+  periodStart: 'datetime',
+  periodEnd: 'datetime',
+  issuedAt: 'datetime',
+  dueAt: 'datetime',
+  paidAt: 'datetime',
+  voidedAt: 'datetime',
+  lineItems: 'string',
+  receiptUrl: 'string',
+  pdfUrl: 'string',
+  hostedUrl: 'string',
+  stripeInvoiceId: 'string##',
+  pay: 'Paid',
+  void: 'Voided',
 })
 ```
 
+| Verb | Event | Description |
+|------|-------|-------------|
+| `pay` | `Paid` | Mark invoice as paid |
+| `void` | `Voided` | Void the invoice |
+
 ## Payment
 
-Money movement — charges, refunds, credits.
+Money movement — charges, refunds.
 
 ```typescript
 export const Payment = Noun('Payment', {
   amount: 'number!',
-  type: 'Charge | Refund | Credit',
-  status: 'Pending | Completed | Failed',
-  invoice: '-> Invoice.payments',
-  stripeId: 'string?#',
-  capture: 'Captured',
-  refund:  'Refunded',
-  update: null,
-  delete: null,
+  currency: 'string',
+  status: 'Pending | Succeeded | Failed | Refunded',
+  method: 'string',
+  customer: '-> Customer.payments',
+  invoice: '-> Invoice',
+  stripePaymentId: 'string##',
+  refund: 'Refunded',
 })
 ```
 
-Payment is immutable — the ledger is append-only.
+| Verb | Event | Description |
+|------|-------|-------------|
+| `refund` | `Refunded` | Refund the payment |

@@ -26,11 +26,11 @@ import { Contact } from '@headlessly/crm'
 
 // Get a contact with all their deals
 const contact = await Contact.get('contact_uLoSfycy', {
-  populate: ['deals', 'messages', 'company'],
+  populate: ['deals', 'messages', 'organization'],
 })
 
 // Traverse the graph
-const company = await Contact.get('contact_uLoSfycy').company
+const org = await Contact.get('contact_uLoSfycy').organization
 const deals = await Contact.get('contact_uLoSfycy').deals
 ```
 

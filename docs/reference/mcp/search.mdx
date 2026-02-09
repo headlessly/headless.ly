@@ -13,14 +13,14 @@ The `search` tool finds entities matching MongoDB-style filters. It returns a pa
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| `type` | string | Yes | -- | Entity type to search. Any of the 35 entity types: `Contact`, `Company`, `Deal`, `Project`, `Task`, `Subscription`, `Invoice`, `Ticket`, `Campaign`, etc. |
+| `type` | string | Yes | -- | Entity type to search. Any of the 35 entity types: `Organization`, `Contact`, `Lead`, `Deal`, `Project`, `Issue`, `Subscription`, `Invoice`, `Ticket`, `Campaign`, etc. |
 | `filter` | object | No | `{}` | MongoDB-style query object. Keys are field names, values are exact matches or operator expressions. |
 | `sort` | string | No | `-createdAt` | Field to sort by. Prefix with `-` for descending order. |
 | `limit` | number | No | `25` | Maximum number of results to return. Range: 1-100. |
 | `offset` | number | No | `0` | Number of results to skip. Use for simple pagination. Mutually exclusive with `cursor`. |
 | `cursor` | string | No | -- | Opaque pagination cursor from a previous response. More efficient than `offset` for deep pagination. Mutually exclusive with `offset`. |
 | `asOf` | string | No | -- | ISO 8601 timestamp. Returns results as they existed at that point in time. Requires event-sourced entities. |
-| `include` | string[] | No | `[]` | Relationship fields to eagerly load on each result. e.g., `["company", "deals"]`. |
+| `include` | string[] | No | `[]` | Relationship fields to eagerly load on each result. e.g., `["organization", "deals"]`. |
 
 ## Filter Operators
 
@@ -74,7 +74,7 @@ Combine multiple conditions with `$and` and `$or`:
   "filter": {
     "$and": [
       { "stage": { "$in": ["Lead", "Qualified"] } },
-      { "company": { "$exists": true } },
+      { "organization": { "$exists": true } },
       { "email": { "$regex": "@enterprise\\.com$" } }
     ]
   }
@@ -98,7 +98,7 @@ When multiple fields appear at the top level of `filter`, they are implicitly co
       "name": "Alice Chen",
       "email": "alice@startup.io",
       "stage": "Lead",
-      "company": "company_e5JhLzXc",
+      "organization": "org_e5JhLzXc",
       "createdAt": "2025-11-15T09:30:00Z",
       "updatedAt": "2025-11-18T14:22:00Z"
     }
@@ -124,8 +124,8 @@ Use dot notation to filter on related entity fields:
 {
   "type": "Contact",
   "filter": {
-    "company.industry": "Technology",
-    "company.size": { "$gte": 50 }
+    "organization.industry": "Technology",
+    "organization.size": { "$gte": 50 }
   }
 }
 ```
@@ -135,7 +135,7 @@ Use dot notation to filter on related entity fields:
   "type": "Deal",
   "filter": {
     "contact.stage": "Qualified",
-    "contact.company.industry": "Healthcare"
+    "contact.organization.industry": "Healthcare"
   }
 }
 ```
@@ -258,16 +258,16 @@ Find high-value deals in late stages, or any deal updated in the last 7 days:
 
 ### Cross-Entity with Include
 
-Find leads at technology companies and include their deals:
+Find leads at technology organizations and include their deals:
 
 ```json title="headless.ly/mcp#search"
 {
   "type": "Contact",
   "filter": {
     "stage": "Lead",
-    "company.industry": "Technology"
+    "organization.industry": "Technology"
   },
-  "include": ["deals", "company"],
+  "include": ["deals", "organization"],
   "limit": 10
 }
 ```

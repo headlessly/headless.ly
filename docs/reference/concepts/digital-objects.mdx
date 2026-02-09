@@ -22,7 +22,7 @@ export const Contact = Noun('Contact', {
   stage: 'Lead | Qualified | Customer | Churned | Partner',
 
   // Relationships
-  company: '-> Company.contacts',
+  organization: '-> Organization.contacts',
   deals: '<- Deal.contact[]',
   tickets: '<- Ticket.contact[]',
   messages: '<- Message.contact[]',
@@ -45,7 +45,7 @@ Every value in a Noun definition is a string (or `null`) that the parser classif
 | Pattern | Classification | Detection Rule | Example |
 |---------|---------------|----------------|---------|
 | Lowercase type with modifiers | Data property | Starts with a known base type | `'string!'`, `'number?'`, `'datetime!#'` |
-| Arrow syntax | Relationship | Starts with `->` or `<-` | `'-> Company.contacts'` |
+| Arrow syntax | Relationship | Starts with `->` or `<-` | `'-> Organization.contacts'` |
 | Pipe-separated PascalCase | Enum | Contains `\|` with PascalCase values | `'Lead \| Qualified \| Customer'` |
 | Single PascalCase word | Verb declaration | One PascalCase token, no pipes | `'Qualified'`, `'Captured'` |
 | `null` | CRUD opt-out | Literal `null` | `update: null` |
@@ -87,8 +87,8 @@ Relationships use arrow syntax to declare typed, bidirectional links between ent
 Many-to-one. The current entity holds a foreign key pointing to one instance of the target entity.
 
 ```typescript
-// Contact belongs to one Company
-company: '-> Company.contacts'
+// Contact belongs to one Organization
+organization: '-> Organization.contacts'
 ```
 
 The string after the dot (`contacts`) names the inverse field on the target entity, enabling bidirectional traversal.
@@ -121,7 +121,7 @@ Relationships work across product domains. A Contact (CRM) can reference a Custo
 
 ```typescript
 export const Contact = Noun('Contact', {
-  company: '-> Company.contacts',       // CRM -> CRM
+  organization: '-> Organization.contacts', // CRM -> CRM
   customer: '<- Customer.contact',       // CRM <- Billing
   tickets: '<- Ticket.contact[]',        // CRM <- Support
   deals: '<- Deal.contact[]',           // CRM <- CRM
@@ -150,7 +150,7 @@ export const Deal = Noun('Deal', {
   value: 'number!',
   stage: 'Discovery | Proposal | Negotiation | Closed | Lost',
   contact: '-> Contact.deals',
-  company: '-> Company.deals',
+  organization: '-> Organization.deals',
 
   advance: 'Advanced',   // Deal.advance() emits Deal.Advanced
   close:   'Closed',     // Deal.close()   emits Deal.Closed
@@ -206,15 +206,17 @@ All 35 core entities compose into a single connected graph via relationships:
 
 | Domain | Entities | Key Relationships |
 |--------|----------|-------------------|
-| **CRM** | Contact, Company, Deal, Activity | Contact -> Company, Deal -> Contact |
-| **Projects** | Project, Task, Milestone, Comment | Task -> Project, Comment -> Task |
-| **Content** | Page, Post, Asset, Collection | Post -> Collection, Asset -> Page |
-| **Billing** | Product, Plan, Subscription, Invoice, Payment | Subscription -> Plan, Invoice -> Subscription |
-| **Support** | Ticket, Article, Reply | Ticket -> Contact, Reply -> Ticket |
+| **Identity** | User, ApiKey | ApiKey -> User |
+| **CRM** | Organization, Contact, Lead, Deal, Activity, Pipeline | Contact -> Organization, Deal -> Contact |
+| **Billing** | Customer, Product, Plan, Price, Subscription, Invoice, Payment | Subscription -> Plan, Invoice -> Subscription |
+| **Projects** | Project, Issue, Comment | Issue -> Project, Comment -> Issue |
+| **Content** | Content, Asset, Site | Content -> Site, Asset -> Content |
+| **Support** | Ticket | Ticket -> Contact |
 | **Analytics** | Event, Metric, Funnel, Goal | Event -> Funnel, Metric -> Goal |
 | **Marketing** | Campaign, Segment, Form | Campaign -> Segment, Form -> Campaign |
 | **Experimentation** | Experiment, FeatureFlag | Experiment -> FeatureFlag |
 | **Platform** | Workflow, Integration, Agent | Workflow -> Agent, Integration -> Workflow |
+| **Communication** | Message | Message -> Contact |
 
 Because relationships are bidirectional, traversal works in any direction:
 
@@ -222,11 +224,11 @@ Because relationships are bidirectional, traversal works in any direction:
 import { $ } from '@headlessly/sdk'
 
 const contact = await $.Contact.get('contact_fX9bL5nRd', {
-  include: ['deals', 'tickets', 'company']
+  include: ['deals', 'tickets', 'organization']
 })
-// contact.deals     -> Deal[]
-// contact.tickets   -> Ticket[]
-// contact.company   -> Company
+// contact.deals        -> Deal[]
+// contact.tickets      -> Ticket[]
+// contact.organization -> Organization
 ```
 
 ## SDK Usage
@@ -252,5 +254,5 @@ await Contact.qualify({ id: 'contact_fX9bL5nRd' })
 ```
 
 ```json title="headless.ly/mcp#fetch"
-{ "type": "Contact", "id": "contact_fX9bL5nRd", "include": ["deals", "company"] }
+{ "type": "Contact", "id": "contact_fX9bL5nRd", "include": ["deals", "organization"] }
 ```

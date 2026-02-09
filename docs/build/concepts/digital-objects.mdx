@@ -20,7 +20,7 @@ export const Contact = Noun('Contact', {
   title: 'string?',
   stage: 'Lead | Qualified | Customer | Churned | Partner',
   source: 'string?',
-  company: '-> Company.contacts',
+  organization: '-> Organization.contacts',
   deals: '<- Deal.contact[]',
   messages: '<- Message.contact[]',
 
@@ -39,7 +39,7 @@ Every property value tells the parser what it is:
 | Pattern | Meaning | Example |
 |---------|---------|---------|
 | Type string | Data property | `'string!'`, `'number?'`, `'datetime!'` |
-| Arrow syntax | Relationship | `'-> Company.contacts'`, `'<- Deal.contact[]'` |
+| Arrow syntax | Relationship | `'-> Organization.contacts'`, `'<- Deal.contact[]'` |
 | Pipe-separated PascalCase | Enum | `'Lead \| Qualified \| Customer'` |
 | Single PascalCase word | Verb declaration | `'Qualified'`, `'Captured'` |
 | `null` | Opt out of inherited verb | `update: null` |
@@ -55,7 +55,7 @@ Every property value tells the parser what it is:
 ## Relationships
 
 ```typescript
-company: '-> Company.contacts'     // belongs to Company
+organization: '-> Organization.contacts'     // belongs to Organization
 deals: '<- Deal.contact[]'         // has many Deals
 ```
 
