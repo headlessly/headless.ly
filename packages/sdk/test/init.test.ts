@@ -59,6 +59,38 @@ vi.mock('digital-objects', () => {
   }
 })
 
+// Track rpc.do calls for remote provider tests
+const rpcCalls: Array<{ collection: string; method: string; args: unknown[] }> = []
+let lastRpcUrl = ''
+let lastRpcOptions: Record<string, unknown> = {}
+
+vi.mock('rpc.do', () => {
+  function RPC(url: string, options?: Record<string, unknown>) {
+    lastRpcUrl = url
+    lastRpcOptions = options ?? {}
+    // Return a proxy that records collection.method() calls
+    return new Proxy(
+      {},
+      {
+        get(_target, collection: string) {
+          return new Proxy(
+            {},
+            {
+              get(_t, method: string) {
+                return (...args: unknown[]) => {
+                  rpcCalls.push({ collection, method, args })
+                  return Promise.resolve({ $type: 'Mock', $id: 'mock_123', ...((args[0] as Record<string, unknown>) ?? {}) })
+                }
+              },
+            },
+          )
+        },
+      },
+    )
+  }
+  return { RPC }
+})
+
 // Mock domain packages — each returns plain objects representing Nouns
 vi.mock('@headlessly/crm', async () => {
   const { Noun } = await import('digital-objects')
@@ -130,6 +162,9 @@ describe('headlessly() initialization', () => {
     if (typeof headlessly?.reset === 'function') {
       headlessly.reset()
     }
+    rpcCalls.length = 0
+    lastRpcUrl = ''
+    lastRpcOptions = {}
     vi.unstubAllEnvs()
   })
 
@@ -195,18 +230,8 @@ describe('headlessly() initialization', () => {
       expect(provider.apiKey).toBe('hly_sk_test123')
     })
 
-    it('routes $.Contact.create() through the remote provider, not local memory', async () => {
-      const fetchSpy = vi.fn().mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            $type: 'Contact',
-            $id: 'contact_fX9bL5nRd',
-            name: 'Alice',
-          }),
-          { status: 200 },
-        ),
-      )
-      vi.stubGlobal('fetch', fetchSpy)
+    it('routes $.Contact.create() through rpc.do, not raw fetch', async () => {
+      rpcCalls.length = 0
 
       headlessly({
         endpoint: 'https://db.headless.ly',
@@ -215,10 +240,29 @@ describe('headlessly() initialization', () => {
 
       await $.Contact.create({ name: 'Alice' })
 
-      // fetch should have been called with the remote endpoint
-      expect(fetchSpy).toHaveBeenCalled()
-      const callUrl = fetchSpy.mock.calls[0][0]
-      expect(String(callUrl)).toContain('db.headless.ly')
+      // rpc.do should have been called with the collection method
+      expect(rpcCalls.length).toBeGreaterThan(0)
+      const call = rpcCalls.find((c) => c.method === 'create')
+      expect(call).toBeDefined()
+      expect(call!.collection).toBe('contacts')
+    })
+
+    it('initializes rpc.do with the correct endpoint', () => {
+      headlessly({
+        endpoint: 'https://db.headless.ly',
+        apiKey: 'hly_sk_test123',
+      })
+
+      expect(lastRpcUrl).toBe('https://db.headless.ly')
+    })
+
+    it('passes apiKey as auth option to rpc.do', () => {
+      headlessly({
+        endpoint: 'https://db.headless.ly',
+        apiKey: 'hly_sk_test123',
+      })
+
+      expect(lastRpcOptions.auth).toBe('hly_sk_test123')
     })
   })
 

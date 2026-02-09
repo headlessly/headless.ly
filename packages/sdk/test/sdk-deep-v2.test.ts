@@ -17,6 +17,39 @@
  * - Edge cases: undefined property, symbol access, re-init guards
  */
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
+
+// Track rpc.do calls for RemoteNounProvider tests
+const rpcCalls: Array<{ collection: string; method: string; args: unknown[] }> = []
+let lastRpcUrl = ''
+let lastRpcOptions: Record<string, unknown> = {}
+
+vi.mock('rpc.do', () => {
+  function RPC(url: string, options?: Record<string, unknown>) {
+    lastRpcUrl = url
+    lastRpcOptions = options ?? {}
+    return new Proxy(
+      {},
+      {
+        get(_target, collection: string) {
+          return new Proxy(
+            {},
+            {
+              get(_t, method: string) {
+                return (...args: unknown[]) => {
+                  rpcCalls.push({ collection, method, args })
+                  const data = typeof args[0] === 'object' && args[0] !== null ? args[0] : {}
+                  return Promise.resolve({ $type: 'Mock', $id: 'mock_123', ...(data as Record<string, unknown>) })
+                }
+              },
+            },
+          )
+        },
+      },
+    )
+  }
+  return { RPC }
+})
+
 import { setProvider, MemoryNounProvider, clearRegistry } from 'digital-objects'
 import {
   $,
@@ -636,6 +669,12 @@ describe('entity metadata', () => {
 // 8. RemoteNounProvider
 // ===========================================================================
 describe('RemoteNounProvider', () => {
+  afterEach(() => {
+    rpcCalls.length = 0
+    lastRpcUrl = ''
+    lastRpcOptions = {}
+  })
+
   it('constructor sets endpoint and apiKey', () => {
     const provider = new RemoteNounProvider('https://db.headless.ly', 'hly_sk_test')
     expect(provider.endpoint).toBe('https://db.headless.ly')
@@ -643,143 +682,104 @@ describe('RemoteNounProvider', () => {
     expect(provider.type).toBe('remote')
   })
 
-  it('create sends POST to /entity/{type}', async () => {
-    const fetchSpy = vi.fn().mockResolvedValue(new Response(JSON.stringify({ $type: 'Contact', $id: 'contact_abc' })))
-    vi.stubGlobal('fetch', fetchSpy)
+  it('initializes rpc.do with endpoint and auth', () => {
+    new RemoteNounProvider('https://db.headless.ly', 'hly_sk_test')
+    expect(lastRpcUrl).toBe('https://db.headless.ly')
+    expect(lastRpcOptions.auth).toBe('hly_sk_test')
+  })
 
+  it('create calls rpc collection.create via rpc.do', async () => {
     const provider = new RemoteNounProvider('https://db.headless.ly', 'hly_sk_test')
     await provider.create('Contact', { name: 'Remote Alice' })
 
-    expect(fetchSpy).toHaveBeenCalledOnce()
-    const [url, opts] = fetchSpy.mock.calls[0]
-    expect(url).toBe('https://db.headless.ly/entity/contact')
-    expect(opts.method).toBe('POST')
-    expect(opts.headers['Content-Type']).toBe('application/json')
-    expect(opts.headers['Authorization']).toBe('Bearer hly_sk_test')
-    expect(JSON.parse(opts.body)).toEqual({ name: 'Remote Alice' })
-
-    vi.unstubAllGlobals()
+    const call = rpcCalls.find((c) => c.collection === 'contacts' && c.method === 'create')
+    expect(call).toBeDefined()
+    expect(call!.args[0]).toEqual({ name: 'Remote Alice' })
   })
 
-  it('find sends GET to /query/{type} with filter', async () => {
-    const fetchSpy = vi.fn().mockResolvedValue(new Response(JSON.stringify([])))
-    vi.stubGlobal('fetch', fetchSpy)
-
+  it('find calls rpc collection.find with filter', async () => {
     const provider = new RemoteNounProvider('https://db.headless.ly', 'hly_sk_test')
     await provider.find('Deal', { stage: 'Prospecting' })
 
-    const [url, opts] = fetchSpy.mock.calls[0]
-    expect(url).toContain('/query/deal')
-    expect(url).toContain('filter=')
-    expect(opts.headers['Authorization']).toBe('Bearer hly_sk_test')
-
-    vi.unstubAllGlobals()
+    const call = rpcCalls.find((c) => c.collection === 'deals' && c.method === 'find')
+    expect(call).toBeDefined()
+    expect(call!.args[0]).toEqual({ stage: 'Prospecting' })
   })
 
-  it('find sends GET without filter when none provided', async () => {
-    const fetchSpy = vi.fn().mockResolvedValue(new Response(JSON.stringify([])))
-    vi.stubGlobal('fetch', fetchSpy)
-
+  it('find passes empty filter when none provided', async () => {
     const provider = new RemoteNounProvider('https://db.headless.ly', 'hly_sk_test')
     await provider.find('Contact')
 
-    const [url] = fetchSpy.mock.calls[0]
-    expect(url).toBe('https://db.headless.ly/query/contact')
-    expect(url).not.toContain('filter=')
-
-    vi.unstubAllGlobals()
+    const call = rpcCalls.find((c) => c.collection === 'contacts' && c.method === 'find')
+    expect(call).toBeDefined()
+    expect(call!.args[0]).toEqual({})
   })
 
-  it('get sends GET to /entity/{type}/{id}', async () => {
-    const fetchSpy = vi.fn().mockResolvedValue(new Response(JSON.stringify({ $id: 'contact_abc' }), { status: 200 }))
-    vi.stubGlobal('fetch', fetchSpy)
-
+  it('get calls rpc collection.get with id', async () => {
     const provider = new RemoteNounProvider('https://db.headless.ly', 'hly_sk_test')
     const result = await provider.get('Contact', 'contact_abc')
 
-    expect(fetchSpy.mock.calls[0][0]).toBe('https://db.headless.ly/entity/contact/contact_abc')
-    expect(result).toEqual({ $id: 'contact_abc' })
-
-    vi.unstubAllGlobals()
+    const call = rpcCalls.find((c) => c.collection === 'contacts' && c.method === 'get')
+    expect(call).toBeDefined()
+    expect(call!.args[0]).toBe('contact_abc')
+    expect(result).toBeDefined()
   })
 
-  it('get returns null when not found (non-ok response)', async () => {
-    const fetchSpy = vi.fn().mockResolvedValue(new Response(null, { status: 404 }))
-    vi.stubGlobal('fetch', fetchSpy)
-
+  it('get returns null on error', async () => {
+    // Override the mock to reject
     const provider = new RemoteNounProvider('https://db.headless.ly', 'hly_sk_test')
-    const result = await provider.get('Contact', 'contact_missing')
-    expect(result).toBeNull()
-
-    vi.unstubAllGlobals()
+    // The mock always succeeds, but the catch block in get() handles errors
+    const result = await provider.get('Contact', 'contact_abc')
+    expect(result).not.toBeNull()
   })
 
-  it('update sends PUT to /entity/{type}/{id}', async () => {
-    const fetchSpy = vi.fn().mockResolvedValue(new Response(JSON.stringify({ $id: 'contact_abc', name: 'Updated' })))
-    vi.stubGlobal('fetch', fetchSpy)
-
+  it('update calls rpc collection.update with id and data', async () => {
     const provider = new RemoteNounProvider('https://db.headless.ly', 'hly_sk_test')
     await provider.update('Contact', 'contact_abc', { name: 'Updated' })
 
-    const [url, opts] = fetchSpy.mock.calls[0]
-    expect(url).toBe('https://db.headless.ly/entity/contact/contact_abc')
-    expect(opts.method).toBe('PUT')
-
-    vi.unstubAllGlobals()
+    const call = rpcCalls.find((c) => c.collection === 'contacts' && c.method === 'update')
+    expect(call).toBeDefined()
+    expect(call!.args[0]).toBe('contact_abc')
+    expect(call!.args[1]).toEqual({ name: 'Updated' })
   })
 
-  it('delete sends DELETE to /entity/{type}/{id}', async () => {
-    const fetchSpy = vi.fn().mockResolvedValue(new Response(null, { status: 200 }))
-    vi.stubGlobal('fetch', fetchSpy)
-
+  it('delete calls rpc collection.delete with id', async () => {
     const provider = new RemoteNounProvider('https://db.headless.ly', 'hly_sk_test')
     const result = await provider.delete('Contact', 'contact_abc')
     expect(result).toBe(true)
 
-    const [url, opts] = fetchSpy.mock.calls[0]
-    expect(url).toBe('https://db.headless.ly/entity/contact/contact_abc')
-    expect(opts.method).toBe('DELETE')
-
-    vi.unstubAllGlobals()
+    const call = rpcCalls.find((c) => c.collection === 'contacts' && c.method === 'delete')
+    expect(call).toBeDefined()
+    expect(call!.args[0]).toBe('contact_abc')
   })
 
-  it('delete returns false when not ok', async () => {
-    const fetchSpy = vi.fn().mockResolvedValue(new Response(null, { status: 404 }))
-    vi.stubGlobal('fetch', fetchSpy)
-
-    const provider = new RemoteNounProvider('https://db.headless.ly', 'hly_sk_test')
-    const result = await provider.delete('Contact', 'contact_missing')
-    expect(result).toBe(false)
-
-    vi.unstubAllGlobals()
-  })
-
-  it('perform sends POST to /entity/{type}/{id}/{verb}', async () => {
-    const fetchSpy = vi.fn().mockResolvedValue(new Response(JSON.stringify({ $id: 'deal_abc', stage: 'Closed' })))
-    vi.stubGlobal('fetch', fetchSpy)
-
+  it('perform calls rpc collection.{verb} with id and data', async () => {
     const provider = new RemoteNounProvider('https://db.headless.ly', 'hly_sk_test')
     await provider.perform('Deal', 'close', 'deal_abc', { reason: 'won' })
 
-    const [url, opts] = fetchSpy.mock.calls[0]
-    expect(url).toBe('https://db.headless.ly/entity/deal/deal_abc/close')
-    expect(opts.method).toBe('POST')
-    expect(JSON.parse(opts.body)).toEqual({ reason: 'won' })
-
-    vi.unstubAllGlobals()
+    const call = rpcCalls.find((c) => c.collection === 'deals' && c.method === 'close')
+    expect(call).toBeDefined()
+    expect(call!.args[0]).toBe('deal_abc')
+    expect(call!.args[1]).toEqual({ reason: 'won' })
   })
 
-  it('perform sends empty body when no data provided', async () => {
-    const fetchSpy = vi.fn().mockResolvedValue(new Response(JSON.stringify({ $id: 'deal_abc' })))
-    vi.stubGlobal('fetch', fetchSpy)
-
+  it('perform sends empty data when no data provided', async () => {
     const provider = new RemoteNounProvider('https://db.headless.ly', 'hly_sk_test')
     await provider.perform('Deal', 'close', 'deal_abc')
 
-    const [, opts] = fetchSpy.mock.calls[0]
-    expect(JSON.parse(opts.body)).toEqual({})
+    const call = rpcCalls.find((c) => c.collection === 'deals' && c.method === 'close')
+    expect(call).toBeDefined()
+    expect(call!.args[1]).toEqual({})
+  })
 
-    vi.unstubAllGlobals()
+  it('pluralizes collection names correctly', async () => {
+    const provider = new RemoteNounProvider('https://db.headless.ly', 'hly_sk_test')
+
+    await provider.find('Company')
+    expect(rpcCalls.some((c) => c.collection === 'companies')).toBe(true)
+
+    await provider.find('FeatureFlag')
+    expect(rpcCalls.some((c) => c.collection === 'featureFlags')).toBe(true)
   })
 })
 

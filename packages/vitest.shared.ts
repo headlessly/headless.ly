@@ -44,6 +44,8 @@ export default defineConfig({
       // Specialized
       '@headlessly/cli': resolve(packages, 'cli/src/index.ts'),
       '@headlessly/code': resolve(packages, 'code/src/index.ts'),
+      // External npm dependencies resolved through the monorepo
+      'rpc.do': resolve(root, 'packages/sdk/node_modules/rpc.do/dist/index.js'),
     },
   },
 })

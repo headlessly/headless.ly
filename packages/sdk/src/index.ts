@@ -1,6 +1,8 @@
 import { Noun } from 'digital-objects'
 import { setProvider, getProvider, MemoryNounProvider, setEntityRegistry } from 'digital-objects'
 import type { NounProvider, NounInstance, NounEntity, NounSchema } from 'digital-objects'
+import { RPC } from 'rpc.do'
+import type { RPCProxy, RPCOptions } from 'rpc.do'
 
 // Import all domain packages (side effect: registers nouns)
 import * as crm from '@headlessly/crm'
@@ -97,95 +99,88 @@ export function resolveEntity(type: string): NounEntity | undefined {
 export const entityNames = Object.keys(allEntities) as EntityName[]
 
 /**
- * RemoteNounProvider — sends entity operations to a remote headless.ly endpoint
+ * RemoteNounProvider — sends entity operations to db.headless.ly via rpc.do
+ *
+ * Uses capnweb protocol for promise pipelining, automatic batching,
+ * and efficient RPC transport instead of raw HTTP fetch.
  */
 export class RemoteNounProvider implements NounProvider {
   type = 'remote'
   endpoint: string
   apiKey: string
+  private rpc: RPCProxy<Record<string, unknown>>
 
   constructor(endpoint: string, apiKey: string) {
     this.endpoint = endpoint
     this.apiKey = apiKey
+
+    const rpcOptions: RPCOptions = {}
+    if (apiKey) {
+      rpcOptions.auth = apiKey
+    }
+    this.rpc = RPC(endpoint, rpcOptions) as RPCProxy<Record<string, unknown>>
+  }
+
+  private collection(type: string): Record<string, (...args: unknown[]) => Promise<unknown>> {
+    const name = toCollectionName(type)
+    return this.rpc[name] as Record<string, (...args: unknown[]) => Promise<unknown>>
   }
 
   async create(type: string, data: Record<string, unknown>) {
-    const url = `${this.endpoint}/entity/${type.toLowerCase()}`
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.apiKey}`,
-      },
-      body: JSON.stringify(data),
-    })
-    if (!res.ok) {
-      throw new Error(`RemoteNounProvider.create failed for ${type}: ${res.status} ${res.statusText}`)
-    }
-    return res.json()
+    const result = await this.collection(type).create(data)
+    return result as NounInstance
   }
 
   async find(type: string, filter?: Record<string, unknown>) {
-    const params = filter ? `?filter=${encodeURIComponent(JSON.stringify(filter))}` : ''
-    const url = `${this.endpoint}/query/${type.toLowerCase()}${params}`
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${this.apiKey}` },
-    })
-    if (!res.ok) {
-      throw new Error(`RemoteNounProvider.find failed for ${type}: ${res.status} ${res.statusText}`)
-    }
-    return res.json()
+    const result = await this.collection(type).find(filter ?? {})
+    if (Array.isArray(result)) return result as NounInstance[]
+    return []
   }
 
   async get(type: string, id: string) {
-    const url = `${this.endpoint}/entity/${type.toLowerCase()}/${id}`
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${this.apiKey}` },
-    })
-    if (!res.ok) return null
-    return res.json()
+    try {
+      const result = await this.collection(type).get(id)
+      if (!result) return null
+      return result as NounInstance
+    } catch {
+      return null
+    }
   }
 
   async update(type: string, id: string, data: Record<string, unknown>) {
-    const url = `${this.endpoint}/entity/${type.toLowerCase()}/${id}`
-    const res = await fetch(url, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.apiKey}`,
-      },
-      body: JSON.stringify(data),
-    })
-    if (!res.ok) {
-      throw new Error(`RemoteNounProvider.update failed for ${type}/${id}: ${res.status} ${res.statusText}`)
-    }
-    return res.json()
+    const result = await this.collection(type).update(id, data)
+    return result as NounInstance
   }
 
   async delete(type: string, id: string) {
-    const url = `${this.endpoint}/entity/${type.toLowerCase()}/${id}`
-    const res = await fetch(url, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${this.apiKey}` },
-    })
-    return res.ok
+    try {
+      const result = await this.collection(type).delete(id)
+      return result !== false
+    } catch {
+      return false
+    }
   }
 
   async perform(type: string, verb: string, id: string, data?: Record<string, unknown>) {
-    const url = `${this.endpoint}/entity/${type.toLowerCase()}/${id}/${verb}`
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.apiKey}`,
-      },
-      body: JSON.stringify(data ?? {}),
-    })
-    if (!res.ok) {
-      throw new Error(`RemoteNounProvider.perform failed for ${type}/${id}/${verb}: ${res.status} ${res.statusText}`)
-    }
-    return res.json()
+    const ns = this.collection(type)
+    const result = await ns[verb](id, data ?? {})
+    return result as NounInstance
   }
+}
+
+/**
+ * Convert PascalCase type to camelCase plural collection name for rpc.do routing.
+ * e.g., Contact → contacts, Company → companies, FeatureFlag → featureFlags
+ */
+function toCollectionName(type: string): string {
+  const camel = type.charAt(0).toLowerCase() + type.slice(1)
+  if (camel.endsWith('y') && !['ay', 'ey', 'oy', 'uy'].some((s) => camel.endsWith(s))) {
+    return camel.slice(0, -1) + 'ies'
+  }
+  if (camel.endsWith('s') || camel.endsWith('x') || camel.endsWith('ch') || camel.endsWith('sh')) {
+    return camel + 'es'
+  }
+  return camel + 's'
 }
 
 /**
