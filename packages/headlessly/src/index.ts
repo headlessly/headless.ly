@@ -1,7 +1,7 @@
 /**
  * headless.ly — The Operating System for Agent-First Startups
  *
- * SDK entry point. Initialize an organization and get access to all 32 entities
+ * SDK entry point. Initialize an organization and get access to all 35 entities
  * with CRUD, custom verbs, verb conjugation, and MCP-like search/fetch/do.
  *
  * Built on rpc.do + capnweb for promise pipelining — chain dependent
@@ -57,7 +57,7 @@ export interface HeadlesslyOptions {
 /**
  * A headless.ly organization instance
  *
- * Provides access to all 32 entities via property access (org.Contact, org.Deal, etc.)
+ * Provides access to all 35 entities via property access (org.Contact, org.Deal, etc.)
  * plus MCP-like primitives: search, fetch, do.
  *
  * Domain namespaces are also available: org.crm, org.billing, org.projects, etc.
@@ -145,7 +145,7 @@ function configureProvider(options: HeadlesslyOptions): NounProvider {
  * Initialize a headless.ly organization
  *
  * @param options - Configuration for the org
- * @returns A HeadlesslyOrg proxy with access to all 32 entities + search/fetch/do
+ * @returns A HeadlesslyOrg proxy with access to all 35 entities + search/fetch/do
  *
  * @example
  * ```typescript

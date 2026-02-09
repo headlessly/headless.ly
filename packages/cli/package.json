@@ -19,7 +19,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "digital-objects": "^1.0.0",
+    "digital-objects": "workspace:*",
     "@headlessly/sdk": "workspace:*",
     "@headlessly/objects": "workspace:*",
     "@headlessly/mcp": "workspace:*"

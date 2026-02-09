@@ -204,15 +204,18 @@ for (const sub of pastDue) {
 }
 ```
 
-## Promise Pipelining
+## Cross-Domain Operations
 
-Built on [rpc.do](https://rpc.do) + capnweb — chain operations in a single round-trip:
+Query results are standard arrays — chain operations with familiar JavaScript:
 
 ```typescript
-const activeRevenue = await Customer.find({ currency: 'usd' })
-  .map(c => c.subscriptions)
-  .filter(s => s.status === 'Active')
-  .map(s => s.plan)
+const customers = await Customer.find({ currency: 'usd' })
+for (const customer of customers) {
+  const subs = await Subscription.find({ customer: customer.$id, status: 'Active' })
+  for (const sub of subs) {
+    await Invoice.create({ customer: customer.$id, subscription: sub.$id })
+  }
+}
 ```
 
 ## License

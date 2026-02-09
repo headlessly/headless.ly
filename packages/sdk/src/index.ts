@@ -84,7 +84,7 @@ const allEntities: Record<string, NounEntity> = {
 setEntityRegistry(allEntities)
 
 /**
- * All 32 entity names, for typed iteration and validation
+ * All 35 entity names, for typed iteration and validation
  */
 export const entityNames = Object.keys(allEntities) as EntityName[]
 
@@ -131,6 +131,41 @@ export class RemoteNounProvider {
     if (!res.ok) return null
     return res.json()
   }
+
+  async update(type: string, id: string, data: Record<string, unknown>) {
+    const url = `${this.endpoint}/entity/${type.toLowerCase()}/${id}`
+    const res = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify(data),
+    })
+    return res.json()
+  }
+
+  async delete(type: string, id: string) {
+    const url = `${this.endpoint}/entity/${type.toLowerCase()}/${id}`
+    const res = await fetch(url, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${this.apiKey}` },
+    })
+    return res.ok
+  }
+
+  async perform(type: string, verb: string, id: string, data?: Record<string, unknown>) {
+    const url = `${this.endpoint}/entity/${type.toLowerCase()}/${id}/${verb}`
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify(data ?? {}),
+    })
+    return res.json()
+  }
 }
 
 /**
@@ -147,7 +182,10 @@ export function detectEnvironment(): RuntimeEnvironment {
   // Cloudflare Workers: has caches global and no window/process.versions.node
   if (typeof globalThis !== 'undefined' && 'caches' in globalThis && typeof (globalThis as Record<string, unknown>).Response === 'function') {
     // Distinguish from browser: Workers have no window.document
-    if (typeof document === 'undefined' && (typeof navigator === 'undefined' || (navigator as Record<string, unknown>).userAgent === 'Cloudflare-Workers')) {
+    if (
+      typeof document === 'undefined' &&
+      (typeof navigator === 'undefined' || (navigator as unknown as Record<string, unknown>).userAgent === 'Cloudflare-Workers')
+    ) {
       return 'cloudflare-worker'
     }
   }
@@ -334,7 +372,7 @@ function _headlessly(options?: HeadlesslyOptions): HeadlessContext {
 _headlessly.reset = function reset(): void {
   _initialized = false
   _lazyEnabled = false
-  setProvider(null as unknown as typeof MemoryNounProvider)
+  setProvider(null as unknown as NounProvider)
 }
 
 /**
@@ -358,17 +396,20 @@ export const headlessly = _headlessly
 export default headlessly
 
 /**
- * Entity name union type — all 32 entity names
+ * Entity name union type — all 35 entity names
  */
 export type EntityName =
   | 'User'
   | 'ApiKey'
   | 'Organization'
   | 'Contact'
-  | 'Company'
+  | 'Lead'
   | 'Deal'
+  | 'Activity'
+  | 'Pipeline'
   | 'Customer'
   | 'Product'
+  | 'Plan'
   | 'Price'
   | 'Subscription'
   | 'Invoice'
@@ -397,7 +438,7 @@ export type EntityName =
 /**
  * Typed interface for the $ universal context
  *
- * Provides typed access to all 32 entities plus search/fetch/do operations.
+ * Provides typed access to all 35 entities plus search/fetch/do operations.
  */
 export interface HeadlessContext {
   // --- MCP-like operations ---
@@ -416,12 +457,15 @@ export interface HeadlessContext {
   // --- CRM ---
   Organization: NounEntity
   Contact: NounEntity
-  Company: NounEntity
+  Lead: NounEntity
   Deal: NounEntity
+  Activity: NounEntity
+  Pipeline: NounEntity
 
   // --- Billing ---
   Customer: NounEntity
   Product: NounEntity
+  Plan: NounEntity
   Price: NounEntity
   Subscription: NounEntity
   Invoice: NounEntity
@@ -464,13 +508,14 @@ export interface HeadlessContext {
   Message: NounEntity
 
   /** Access any entity by name (fallback index) */
-  [key: string]: NounEntity | ((...args: unknown[]) => unknown)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [key: string]: NounEntity | ((...args: any[]) => any)
 }
 
 /**
  * $ — The universal context
  *
- * Access all 32 entities and MCP-like operations:
+ * Access all 35 entities and MCP-like operations:
  *   $.Contact.create({ name: 'Alice', stage: 'Lead' })
  *   $.search({ type: 'Contact', filter: { stage: 'Lead' } })
  *   $.fetch({ type: 'Contact', id: 'contact_abc123' })

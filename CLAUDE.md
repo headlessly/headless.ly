@@ -10,10 +10,10 @@ Direct edits are welcome. This content is hand-crafted for quality. When the pac
 
 ```
 packages/
-├── sdk/           → @headlessly/sdk — unified 32-entity SDK, $ context
+├── sdk/           → @headlessly/sdk — unified 35-entity SDK, $ context
 ├── headlessly/    → headless.ly — main entry point, Headlessly() factory
-├── crm/           → @headlessly/crm — Contact, Company, Deal
-├── billing/       → @headlessly/billing — Customer, Product, Price, Subscription, Invoice, Payment
+├── crm/           → @headlessly/crm — Organization, Contact, Lead, Deal, Activity, Pipeline
+├── billing/       → @headlessly/billing — Customer, Product, Plan, Price, Subscription, Invoice, Payment
 ├── projects/      → @headlessly/projects — Project, Issue, Comment
 ├── content/       → @headlessly/content — Content, Asset, Site
 ├── support/       → @headlessly/support — Ticket
@@ -91,7 +91,7 @@ await billing.Subscription.create({ plan: 'pro', contact: 'contact_k7TmPvQx' })
 
 | Layer | Packages | Purpose |
 |---|---|---|
-| **SDK** | `@headlessly/sdk` | Full 32-entity graph, exports `$` and domain namespaces |
+| **SDK** | `@headlessly/sdk` | Full 35-entity graph, exports `$` and domain namespaces |
 | **Entry** | `headless.ly` | Headlessly() factory with provider configuration |
 | **CLI** | `@headlessly/cli` | CLI entry point (`npx @headlessly/cli`) |
 | **Domain** | `crm`, `billing`, `projects`, `content`, `support`, `analytics`, `marketing`, `experiments`, `platform` | Each owns a set of entities |
@@ -101,8 +101,8 @@ await billing.Subscription.create({ plan: 'pro', contact: 'contact_k7TmPvQx' })
 
 ### Domain-to-Entity Mapping
 
-- `@headlessly/crm` — Contact, Company, Deal
-- `@headlessly/billing` — Customer, Product, Price, Subscription, Invoice, Payment
+- `@headlessly/crm` — Organization, Contact, Lead, Deal, Activity, Pipeline
+- `@headlessly/billing` — Customer, Product, Plan, Price, Subscription, Invoice, Payment
 - `@headlessly/projects` — Project, Issue, Comment
 - `@headlessly/content` — Content, Asset, Site
 - `@headlessly/support` — Ticket

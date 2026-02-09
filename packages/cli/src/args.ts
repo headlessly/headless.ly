@@ -17,7 +17,7 @@ export interface ParsedArgs {
 
 export function parseArgs(args: string[]): ParsedArgs {
   const positional: string[] = []
-  const flags: Record<string, string | boolean> = {}
+  const flags: Record<string, string | boolean | string[]> = {}
   let i = 0
   let stopParsing = false
 

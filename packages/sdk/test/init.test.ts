@@ -534,11 +534,9 @@ describe('headlessly() initialization', () => {
       expect(Array.isArray(entityNames)).toBe(true)
     })
 
-    it('contains all 32 entity names', () => {
-      // 2 Identity + 3 CRM + 6 Billing + 3 Projects + 3 Content + 1 Support
-      // + 4 Analytics + 3 Marketing + 2 Experiments + 3 Platform + 1 Communication = 31
-      // (Organization is in CRM, not counted separately for Identity)
-      // Actual: User, ApiKey, Organization, Contact, Deal, + domain spreads + Message
+    it('contains all 35 entity names', () => {
+      // 2 Identity + 6 CRM + 7 Billing + 3 Projects + 3 Content + 1 Support
+      // + 4 Analytics + 3 Marketing + 2 Experiments + 3 Platform + 1 Communication = 35
       expect(entityNames.length).toBeGreaterThanOrEqual(20)
       expect(entityNames).toContain('User')
       expect(entityNames).toContain('Contact')

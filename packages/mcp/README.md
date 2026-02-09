@@ -101,7 +101,7 @@ import { getTools } from '@headlessly/mcp'
 
 const tools = getTools()
 // [
-//   { name: 'search', description: 'Search across 32 entity types...', inputSchema: { ... } },
+//   { name: 'search', description: 'Search across 35 entity types...', inputSchema: { ... } },
 //   { name: 'fetch', description: 'Fetch entities, schemas, events...', inputSchema: { ... } },
 //   { name: 'do', description: 'Execute TypeScript with full entity access...', inputSchema: { ... } },
 // ]

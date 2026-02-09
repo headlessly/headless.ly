@@ -51,8 +51,10 @@ import { Experiment, FeatureFlag } from '@headlessly/experiments'
 
 Experiment.concluded(async (experiment, $) => {
   await $.FeatureFlag.enable(experiment.winner)
-  await $.Contact.find({ segment: experiment.targetAudience })
-    .map(c => $.Event.create({ type: 'variant.won', contact: c.$id, value: experiment.winner }))
+  const contacts = await $.Contact.find({ segment: experiment.targetAudience })
+  for (const c of contacts) {
+    await $.Event.create({ type: 'variant.won', contact: c.$id, value: experiment.winner })
+  }
   await $.Campaign.create({ name: `${experiment.name} winner`, type: 'Announcement' })
 })
 
@@ -171,14 +173,17 @@ for (const experiment of mature) {
 
 Three tools. Not three SDKs.
 
-## Promise Pipelining
+## Cross-Domain Operations
 
-Built on [rpc.do](https://rpc.do) + capnweb — chain operations in a single round-trip:
+Query results are standard arrays — chain operations with familiar JavaScript:
 
 ```typescript
-const winningFlags = await Experiment.find({ status: 'Completed' })
-  .filter(e => e.confidence >= 95)
-  .map(e => e.winner)
+const completed = await Experiment.find({ status: 'Completed' })
+const winners = completed.filter(e => e.confidence >= 95)
+for (const experiment of winners) {
+  await FeatureFlag.enable(experiment.winner)
+  await Campaign.create({ name: `Ship ${experiment.name}`, type: 'Announcement' })
+}
 ```
 
 ## License

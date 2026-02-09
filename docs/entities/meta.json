@@ -1,0 +1,30 @@
+{
+  "title": "Entities",
+  "description": "All 35 core entities across 11 product domains.",
+  "root": true,
+  "pages": [
+    "index",
+    "---Identity---",
+    "identity",
+    "---CRM---",
+    "crm",
+    "---Billing---",
+    "billing",
+    "---Projects---",
+    "projects",
+    "---Content---",
+    "content",
+    "---Support---",
+    "support",
+    "---Analytics---",
+    "analytics",
+    "---Marketing---",
+    "marketing",
+    "---Experiments---",
+    "experimentation",
+    "---Platform---",
+    "platform",
+    "---Communication---",
+    "communication"
+  ]
+}

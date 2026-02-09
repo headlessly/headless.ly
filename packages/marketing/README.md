@@ -192,15 +192,19 @@ for (const campaign of active) {
 
 Three tools. Not a 200-endpoint marketing API.
 
-## Promise Pipelining
+## Cross-Domain Operations
 
-Built on [rpc.do](https://rpc.do) + capnweb — chain operations in a single round-trip:
+Query results are standard arrays — chain operations with familiar JavaScript:
 
 ```typescript
-const campaignLeads = await Campaign.find({ status: 'Completed' })
-  .map(c => c.segment)
-  .map(s => s.contacts)
-  .filter(c => c.stage === 'Lead')
+const campaigns = await Campaign.find({ status: 'Completed' })
+for (const campaign of campaigns) {
+  const leads = await Contact.find({ source: campaign.$id, stage: 'Lead' })
+  for (const lead of leads) {
+    await Contact.qualify(lead.$id)
+    await Deal.create({ name: `${lead.name} from ${campaign.name}`, contact: lead.$id })
+  }
+}
 ```
 
 ## License

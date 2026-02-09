@@ -1,14 +1,14 @@
 {
   "name": "@headlessly/sdk",
   "version": "0.1.0",
-  "description": "The unified headless.ly SDK — all 32 entities + $ context",
+  "description": "The unified headless.ly SDK — all 35 entities + $ context",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./src/index.ts",
+      "import": "./dist/index.js"
     }
   },
   "files": [
@@ -27,7 +27,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "digital-objects": "^1.0.0",
+    "digital-objects": "workspace:*",
     "@headlessly/crm": "workspace:*",
     "@headlessly/billing": "workspace:*",
     "@headlessly/projects": "workspace:*",

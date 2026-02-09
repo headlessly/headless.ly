@@ -131,15 +131,20 @@ for (const ticket of open) {
 
 Three tools. Not three hundred endpoints.
 
-## Promise Pipelining
+## Cross-Domain Operations
 
-Built on [rpc.do](https://rpc.do) + capnweb — chain operations in a single round-trip:
+Query results are standard arrays — chain operations with familiar JavaScript:
 
 ```typescript
-const urgentRequesters = await Ticket.find({ priority: 'Urgent', status: 'Open' })
-  .map(t => t.requester)
-  .map(c => c.deals)
-  .filter(d => d.stage !== 'ClosedLost')
+const urgent = await Ticket.find({ priority: 'Urgent', status: 'Open' })
+for (const ticket of urgent) {
+  const contact = await Contact.get(ticket.requester)
+  const deals = await Deal.find({ contact: contact.$id })
+  const active = deals.filter(d => d.stage !== 'ClosedLost')
+  if (active.length > 0) {
+    await Ticket.escalate(ticket.$id)
+  }
+}
 ```
 
 ## License

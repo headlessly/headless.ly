@@ -15,7 +15,7 @@ icon: Bot
 }
 ```
 
-headless.ly exposes exactly three MCP tools: `search`, `fetch`, and `do`. They cover all 32 entity types, all CRUD operations, all custom verbs, across all 52 composable systems. No tool selection problem, no token bloat, no routing confusion.
+headless.ly exposes exactly three MCP tools: `search`, `fetch`, and `do`. They cover all 35 entity types, all CRUD operations, all custom verbs, across all 52 composable systems. No tool selection problem, no token bloat, no routing confusion.
 
 ## Why Three Tools
 
@@ -139,7 +139,7 @@ Get a single entity by ID, a schema definition, a named metric, or the full busi
 
 ### do
 
-Execute arbitrary TypeScript in a secure Cloudflare container sandbox. The `$` context provides access to all 32 entities and their verbs.
+Execute arbitrary TypeScript in a secure Cloudflare container sandbox. The `$` context provides access to all 35 entities and their verbs.
 
 ```ts title="headless.ly/mcp#do"
 const leads = await $.Contact.find({ stage: 'Lead' })

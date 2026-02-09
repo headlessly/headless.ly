@@ -18,7 +18,7 @@ org.Contact.qualified((contact) => {
 
 ## What This Is
 
-This is the entry point. `Headlessly()` configures your connection -- tenant, API key, transport -- and gives you back the entire 32-entity graph. CRM, billing, projects, content, support, analytics, marketing, experiments, platform, communication. All of it. One function call.
+This is the entry point. `Headlessly()` configures your connection -- tenant, API key, transport -- and gives you back the entire 35-entity graph. CRM, billing, projects, content, support, analytics, marketing, experiments, platform, communication. All of it. One function call.
 
 No module selection. No schema design. No configuration wizard. You create an org and everything works.
 
@@ -84,7 +84,7 @@ org.Deal.updated((deal) => console.log('Deal changed:', deal.title))
 
 ## The Full Graph
 
-Every org gets all 32 entities. Access them directly or through domain namespaces:
+Every org gets all 35 entities. Access them directly or through domain namespaces:
 
 ```typescript
 const org = Headlessly({ tenant: 'acme', apiKey: 'key_fX9bL5nRd', mode: 'remote' })
@@ -172,7 +172,7 @@ const org = Headlessly({ tenant: 'acme', template: 'b2d' })
 const org = Headlessly({ tenant: 'acme', template: 'b2a' })
 ```
 
-All 32 entities are always available. Templates just shift the defaults and priorities.
+All 35 entities are always available. Templates just shift the defaults and priorities.
 
 ## Configuration
 

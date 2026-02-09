@@ -30,11 +30,23 @@
  * ```
  */
 
-import React, { createContext, useContext, useEffect, useState, useCallback, type ReactNode, Component, type ErrorInfo } from 'react'
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode, Component, type ErrorInfo } from 'react'
 import headless, { type HeadlessConfig, type FlagValue, type User, type Breadcrumb } from '@headlessly/js'
+import { $ } from '@headlessly/sdk'
+import type { NounEntity } from 'digital-objects'
 
 // Re-export everything from @headlessly/js
 export * from '@headlessly/js'
+
+/**
+ * Resolve an entity from the $ context by type name.
+ * Returns the NounEntity or undefined if not found.
+ */
+function resolveEntity(type: string): NounEntity | undefined {
+  const entry = $[type]
+  if (!entry || typeof entry === 'function') return undefined
+  return entry as NounEntity
+}
 
 // =============================================================================
 // Context
@@ -268,17 +280,53 @@ export function useEntity(type: string, id: string, options?: UseEntityOptions):
   const [data, setData] = useState<unknown>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
+  const [fetchKey, setFetchKey] = useState(0)
 
   const refetch = useCallback(() => {
-    setLoading(true)
-    setError(null)
+    setFetchKey((k) => k + 1)
   }, [])
 
   useEffect(() => {
+    let cancelled = false
     setLoading(true)
     setData(null)
     setError(null)
-  }, [type, id])
+
+    const entity = resolveEntity(type)
+    if (!entity) {
+      setError(new Error(`Unknown entity type: ${type}`))
+      setLoading(false)
+      return
+    }
+
+    const doFetch = async () => {
+      try {
+        let result: unknown
+        if (options?.include && options.include.length > 0) {
+          result = await $.fetch({ type, id, include: options.include })
+        } else {
+          result = await entity.get(id)
+        }
+        if (!cancelled) {
+          setData(result)
+          if (result === null) {
+            setError(new Error(`Entity ${type}/${id} not found`))
+          }
+          setLoading(false)
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err : new Error(String(err)))
+          setLoading(false)
+        }
+      }
+    }
+
+    doFetch()
+    return () => {
+      cancelled = true
+    }
+  }, [type, id, fetchKey, JSON.stringify(options?.include)])
 
   return { data, loading, error, refetch }
 }
@@ -309,21 +357,86 @@ export function useEntities(type: string, filter?: Record<string, unknown>, opti
   const [error, setError] = useState<Error | null>(null)
   const [total, setTotal] = useState(0)
   const [hasMore, setHasMore] = useState(false)
+  const [fetchKey, setFetchKey] = useState(0)
+  const [currentOffset, setCurrentOffset] = useState(options?.offset ?? 0)
 
   const refetch = useCallback(() => {
-    setLoading(true)
-    setError(null)
-  }, [])
+    setCurrentOffset(options?.offset ?? 0)
+    setFetchKey((k) => k + 1)
+  }, [options?.offset])
 
   const loadMore = useCallback(() => {
-    // Load next page
-  }, [])
+    setCurrentOffset((prev) => prev + (options?.limit ?? 20))
+    setFetchKey((k) => k + 1)
+  }, [options?.limit])
 
   useEffect(() => {
+    let cancelled = false
     setLoading(true)
-    setData([])
     setError(null)
-  }, [type, JSON.stringify(filter)])
+
+    const entity = resolveEntity(type)
+    if (!entity) {
+      setError(new Error(`Unknown entity type: ${type}`))
+      setLoading(false)
+      setData([])
+      return
+    }
+
+    const doFetch = async () => {
+      try {
+        let results = (await entity.find(filter)) as unknown[]
+
+        // Apply sort if provided
+        if (options?.sort) {
+          const sortEntries = Object.entries(options.sort)
+          results = [...results].sort((a: unknown, b: unknown) => {
+            for (const [key, dir] of sortEntries) {
+              const aVal = (a as Record<string, unknown>)[key] as string | number | boolean | null | undefined
+              const bVal = (b as Record<string, unknown>)[key] as string | number | boolean | null | undefined
+              if (aVal != null && bVal != null && aVal < bVal) return -1 * dir
+              if (aVal != null && bVal != null && aVal > bVal) return 1 * dir
+            }
+            return 0
+          })
+        }
+
+        const totalCount = results.length
+
+        // Apply offset and limit for pagination
+        const offset = currentOffset
+        const limit = options?.limit
+        if (offset || limit) {
+          const start = offset ?? 0
+          const end = limit ? start + limit : undefined
+          results = results.slice(start, end)
+        }
+
+        if (!cancelled) {
+          if (currentOffset > 0) {
+            // Appending for loadMore
+            setData((prev) => [...prev, ...results])
+          } else {
+            setData(results)
+          }
+          setTotal(totalCount)
+          setHasMore(limit ? currentOffset + results.length < totalCount : false)
+          setLoading(false)
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err : new Error(String(err)))
+          setData([])
+          setLoading(false)
+        }
+      }
+    }
+
+    doFetch()
+    return () => {
+      cancelled = true
+    }
+  }, [type, JSON.stringify(filter), JSON.stringify(options?.sort), options?.limit, currentOffset, fetchKey])
 
   return { data, loading, error, total, hasMore, refetch, loadMore }
 }
@@ -345,45 +458,96 @@ export function useMutation(type: string): UseMutationResult {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
 
-  const create = useCallback(async (data: Record<string, unknown>) => {
-    setLoading(true)
-    setError(null)
-    try {
-      return data
-    } finally {
-      setLoading(false)
-    }
-  }, [type])
+  const create = useCallback(
+    async (data: Record<string, unknown>) => {
+      setLoading(true)
+      setError(null)
+      try {
+        const entity = resolveEntity(type)
+        if (!entity) {
+          throw new Error(`Unknown entity type: ${type}`)
+        }
+        const result = await entity.create(data)
+        return result
+      } catch (err) {
+        const e = err instanceof Error ? err : new Error(String(err))
+        setError(e)
+        throw e
+      } finally {
+        setLoading(false)
+      }
+    },
+    [type],
+  )
 
-  const update = useCallback(async (id: string, data: Record<string, unknown>) => {
-    setLoading(true)
-    setError(null)
-    try {
-      return { ...data, $id: id }
-    } finally {
-      setLoading(false)
-    }
-  }, [type])
+  const update = useCallback(
+    async (id: string, data: Record<string, unknown>) => {
+      setLoading(true)
+      setError(null)
+      try {
+        const entity = resolveEntity(type)
+        if (!entity) {
+          throw new Error(`Unknown entity type: ${type}`)
+        }
+        const result = await entity.update(id, data)
+        return result
+      } catch (err) {
+        const e = err instanceof Error ? err : new Error(String(err))
+        setError(e)
+        throw e
+      } finally {
+        setLoading(false)
+      }
+    },
+    [type],
+  )
 
-  const remove = useCallback(async (id: string) => {
-    setLoading(true)
-    setError(null)
-    try {
-      // delete entity
-    } finally {
-      setLoading(false)
-    }
-  }, [type])
+  const remove = useCallback(
+    async (id: string) => {
+      setLoading(true)
+      setError(null)
+      try {
+        const entity = resolveEntity(type)
+        if (!entity) {
+          throw new Error(`Unknown entity type: ${type}`)
+        }
+        await entity.delete(id)
+      } catch (err) {
+        const e = err instanceof Error ? err : new Error(String(err))
+        setError(e)
+        throw e
+      } finally {
+        setLoading(false)
+      }
+    },
+    [type],
+  )
 
-  const execute = useCallback(async (verb: string, id: string, data?: Record<string, unknown>) => {
-    setLoading(true)
-    setError(null)
-    try {
-      return { $id: id, ...data }
-    } finally {
-      setLoading(false)
-    }
-  }, [type])
+  const execute = useCallback(
+    async (verb: string, id: string, data?: Record<string, unknown>) => {
+      setLoading(true)
+      setError(null)
+      try {
+        const entity = resolveEntity(type)
+        if (!entity) {
+          throw new Error(`Unknown entity type: ${type}`)
+        }
+        const verbFn = (entity as unknown as Record<string, unknown>)[verb]
+        if (typeof verbFn !== 'function') {
+          throw new Error(`Unknown verb "${verb}" on entity type: ${type}`)
+        }
+        const result = await (verbFn as (id: string, data?: Record<string, unknown>) => Promise<unknown>)(id, data)
+        return result
+      } catch (err) {
+        const e = err instanceof Error ? err : new Error(String(err))
+        setError(e)
+        throw e
+      } finally {
+        setLoading(false)
+      }
+    },
+    [type],
+  )
 
   return { create, update, remove, loading, error, execute }
 }
@@ -408,14 +572,60 @@ export function useSearch(query: string, options?: UseSearchOptions): UseSearchR
   const [results, setResults] = useState<unknown[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (!query) {
       setResults([])
+      setLoading(false)
       return
     }
+
     setLoading(true)
     setError(null)
+
+    // Debounce the search
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current)
+    }
+
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const types = options?.types ?? []
+        let allResults: unknown[] = []
+
+        if (types.length > 0) {
+          // Search across specified types
+          for (const type of types) {
+            const found = await $.search({ type, filter: { $search: query } })
+            allResults = allResults.concat(found)
+          }
+        } else {
+          // Search across all entities using $.search
+          // Since $.search requires a type, search common types
+          const found = await $.search({ type: 'Contact', filter: { $search: query } })
+          allResults = allResults.concat(found)
+        }
+
+        // Apply limit if provided
+        if (options?.limit) {
+          allResults = allResults.slice(0, options.limit)
+        }
+
+        setResults(allResults)
+        setLoading(false)
+      } catch (err) {
+        setError(err instanceof Error ? err : new Error(String(err)))
+        setResults([])
+        setLoading(false)
+      }
+    }, options?.debounce ?? 300)
+
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current)
+      }
+    }
   }, [query, JSON.stringify(options)])
 
   return { results, loading, error }
@@ -431,20 +641,50 @@ interface UseRealtimeResult<T = unknown> {
   error: Error | null
 }
 
-export function useRealtime(type: string, id: string): UseRealtimeResult {
+export function useRealtime(type: string, id: string, pollInterval = 5000): UseRealtimeResult {
   const [data, setData] = useState<unknown>(null)
   const [connected, setConnected] = useState(false)
   const [error, setError] = useState<Error | null>(null)
 
   useEffect(() => {
+    let cancelled = false
     setConnected(false)
     setData(null)
     setError(null)
-    // WebSocket subscription would go here
-    return () => {
-      setConnected(false)
+
+    const entity = resolveEntity(type)
+    if (!entity) {
+      setError(new Error(`Unknown entity type: ${type}`))
+      return
     }
-  }, [type, id])
+
+    const poll = async () => {
+      try {
+        const result = await entity.get(id)
+        if (!cancelled) {
+          setData(result)
+          setConnected(true)
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err : new Error(String(err)))
+          setConnected(false)
+        }
+      }
+    }
+
+    // Initial fetch
+    poll()
+
+    // TODO: Replace polling with WebSocket subscription when available
+    const interval = setInterval(poll, pollInterval)
+
+    return () => {
+      cancelled = true
+      setConnected(false)
+      clearInterval(interval)
+    }
+  }, [type, id, pollInterval])
 
   return { data, connected, error }
 }
@@ -463,15 +703,31 @@ export function useAction(type: string, verb: string): UseActionResult {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
 
-  const execute = useCallback(async (id: string, data?: Record<string, unknown>) => {
-    setLoading(true)
-    setError(null)
-    try {
-      return { $id: id, ...data }
-    } finally {
-      setLoading(false)
-    }
-  }, [type, verb])
+  const execute = useCallback(
+    async (id: string, data?: Record<string, unknown>) => {
+      setLoading(true)
+      setError(null)
+      try {
+        const entity = resolveEntity(type)
+        if (!entity) {
+          throw new Error(`Unknown entity type: ${type}`)
+        }
+        const verbFn = (entity as unknown as Record<string, unknown>)[verb]
+        if (typeof verbFn !== 'function') {
+          throw new Error(`Unknown verb "${verb}" on entity type: ${type}`)
+        }
+        const result = await (verbFn as (id: string, data?: Record<string, unknown>) => Promise<unknown>)(id, data)
+        return result
+      } catch (err) {
+        const e = err instanceof Error ? err : new Error(String(err))
+        setError(e)
+        throw e
+      } finally {
+        setLoading(false)
+      }
+    },
+    [type, verb],
+  )
 
   return { execute, loading, error }
 }
@@ -492,9 +748,41 @@ export function useEvents(type: string, id?: string): UseEventsResult {
   const [error, setError] = useState<Error | null>(null)
 
   useEffect(() => {
+    let cancelled = false
     setLoading(true)
     setEvents([])
     setError(null)
+
+    const doFetch = async () => {
+      try {
+        // Use $.fetch to get events for the entity
+        if (id) {
+          const result = await $.fetch({ type, id, include: ['events'] })
+          if (!cancelled) {
+            const entityEvents = result && typeof result === 'object' && 'events' in result ? ((result as Record<string, unknown>).events as unknown[]) : []
+            setEvents(entityEvents)
+            setLoading(false)
+          }
+        } else {
+          // Without an id, fetch all entities of this type and collect events
+          const entities = await $.search({ type })
+          if (!cancelled) {
+            setEvents(entities ?? [])
+            setLoading(false)
+          }
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err : new Error(String(err)))
+          setLoading(false)
+        }
+      }
+    }
+
+    doFetch()
+    return () => {
+      cancelled = true
+    }
   }, [type, id])
 
   return { events, loading, error }
@@ -515,9 +803,7 @@ interface TrackEntityOptions {
 
 export function useTrackEntity() {
   return useCallback((event: string, properties?: Record<string, unknown>, options?: TrackEntityOptions) => {
-    const enrichedProps = options?.entity
-      ? { ...properties, $entity: options.entity }
-      : properties
+    const enrichedProps = options?.entity ? { ...properties, $entity: options.entity } : properties
     headless.track(event, enrichedProps)
   }, [])
 }

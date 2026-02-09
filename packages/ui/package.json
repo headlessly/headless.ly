@@ -8,8 +8,8 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./src/index.ts",
+      "import": "./dist/index.js"
     },
     "./hooks": {
       "import": "./dist/hooks/index.js",
@@ -40,7 +40,7 @@
     "@testing-library/jest-dom": "^6.6.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
-    "digital-objects": "^1.0.0",
+    "digital-objects": "workspace:*",
     "jsdom": "^25.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

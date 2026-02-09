@@ -74,7 +74,7 @@ describe('@headlessly/crm', () => {
     })
 
     it('Lead.lose conjugation', () => {
-      expectVerbConjugation(Lead, 'lose', 'losing', 'losed')
+      expectVerbConjugation(Lead, 'lose', 'losing', 'lost')
     })
 
     it('Deal.close conjugation', () => {
@@ -82,11 +82,11 @@ describe('@headlessly/crm', () => {
     })
 
     it('Deal.win conjugation', () => {
-      expectVerbConjugation(Deal, 'win', 'winning', 'winned')
+      expectVerbConjugation(Deal, 'win', 'winning', 'won')
     })
 
     it('Deal.lose conjugation', () => {
-      expectVerbConjugation(Deal, 'lose', 'losing', 'losed')
+      expectVerbConjugation(Deal, 'lose', 'losing', 'lost')
     })
 
     it('Activity.complete conjugation', () => {

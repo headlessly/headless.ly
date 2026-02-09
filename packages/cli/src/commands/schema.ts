@@ -66,7 +66,7 @@ export async function schemaCommand(args: string[]): Promise<void> {
     const all = getAllNouns()
 
     if (all.size === 0) {
-      console.log('No nouns registered. Import @headlessly/sdk to register all 32 entities.')
+      console.log('No nouns registered. Import @headlessly/sdk to register all 35 entities.')
       return
     }
 

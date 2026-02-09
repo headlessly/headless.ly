@@ -8,8 +8,8 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./src/index.tsx",
+      "import": "./dist/index.js"
     }
   },
   "publishConfig": {
@@ -28,7 +28,9 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@headlessly/js": "workspace:*"
+    "@headlessly/js": "workspace:*",
+    "@headlessly/sdk": "workspace:*",
+    "digital-objects": "workspace:*"
   },
   "peerDependencies": {
     "react": ">=18.0.0"

@@ -27,8 +27,8 @@
 
 export { RPC, createRPCClient, $ } from 'rpc.do'
 export type {
-  RpcProxy,
   RPCProxy,
+  RPCProxy as RpcProxy,
   RpcPromise,
   RPCPromise,
   RpcPipelined,
@@ -37,10 +37,9 @@ export type {
   RpcArrayPromise,
   MagicMap,
   Transport,
-  RpcClientMiddleware,
-  RPCClientMiddleware,
-  StreamResponse,
-  Subscription,
+  RPCMiddleware,
+  RPCMiddleware as RpcClientMiddleware,
+  RPCMiddleware as RPCClientMiddleware,
 } from 'rpc.do'
 
 export { http, capnweb, binding, composite } from 'rpc.do'
@@ -50,7 +49,7 @@ export { createDOClient, connectDO } from 'rpc.do'
 export type { DOClient, SqlQuery, RemoteStorage, RemoteCollection, Filter, QueryOptions } from 'rpc.do'
 
 import { RPC } from 'rpc.do'
-import type { RpcProxy, RpcOptions } from 'rpc.do'
+import type { RPCProxy, RPCOptions } from 'rpc.do'
 
 // =============================================================================
 // Headlessly-specific client factory
@@ -82,17 +81,17 @@ export interface HeadlesslyRpcOptions {
  * const deals = await $.deals.find({ stage: 'Open' }).map(d => d.value)
  * ```
  */
-export function headlessly<T extends object = Record<string, unknown>>(options: HeadlesslyRpcOptions): RpcProxy<T> {
+export function headlessly<T extends object = Record<string, unknown>>(options: HeadlesslyRpcOptions): RPCProxy<T> {
   const base = (options.endpoint ?? 'https://db.headless.ly').replace(/\/+$/, '')
   const protocol = options.transport === 'ws' ? 'wss' : 'https'
   const url = base.replace(/^https?/, protocol)
 
-  const rpcOptions: RpcOptions = {}
+  const rpcOptions: RPCOptions = {}
   if (options.apiKey) {
     rpcOptions.auth = options.apiKey
   }
 
-  return RPC<T>(`${url}/~${options.tenant}`, rpcOptions) as RpcProxy<T>
+  return RPC<T>(`${url}/~${options.tenant}`, rpcOptions) as RPCProxy<T>
 }
 
 /**

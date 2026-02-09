@@ -10,7 +10,8 @@ await Event.create({ name: 'signup', source: 'Browser', url: 'https://acme.co/si
 // A goal is achieved — CRM, billing, and marketing react instantly
 Goal.achieved(async (goal, $) => {
   await $.Campaign.create({ name: `Celebrate ${goal.name}`, type: 'Email' })
-  await $.Contact.find({ stage: 'Lead' }).map(c => $.Contact.qualify(c.$id))
+  const leads = await $.Contact.find({ stage: 'Lead' })
+  for (const c of leads) { await $.Contact.qualify(c.$id) }
   await $.Event.create({ name: 'goal.achieved', source: 'API', properties: { goal: goal.$id } })
 })
 ```
@@ -211,14 +212,21 @@ for (const goal of atRisk) {
 
 Three tools. Not three hundred endpoints.
 
-## Promise Pipelining
+## Cross-Domain Operations
 
-Built on [rpc.do](https://rpc.do) + capnweb — chain operations in a single round-trip:
+Query results are standard arrays — chain operations with familiar JavaScript:
 
 ```typescript
-const funnelGoals = await Funnel.find({ conversionRate: { $lt: 10 } })
-  .map(f => f.goals)
-  .filter(g => g.status === 'Behind')
+const funnels = await Funnel.find({ conversionRate: { $lt: 10 } })
+for (const funnel of funnels) {
+  const goals = await Goal.find({ funnel: funnel.$id, status: 'Behind' })
+  for (const goal of goals) {
+    await Ticket.create({
+      subject: `Funnel "${funnel.name}" goal behind: ${goal.name}`,
+      priority: 'High',
+    })
+  }
+}
 ```
 
 ## License

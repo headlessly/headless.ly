@@ -163,14 +163,18 @@ for (const draft of drafts) {
 
 Three tools. Not a REST API with 47 endpoints.
 
-## Promise Pipelining
+## Cross-Domain Operations
 
-Built on [rpc.do](https://rpc.do) + capnweb — chain operations in a single round-trip:
+Query results are standard arrays — chain operations with familiar JavaScript:
 
 ```typescript
-const publishedArticles = await Site.find({ status: 'Published' })
-  .map(s => s.content)
-  .filter(c => c.status === 'Published' && c.type === 'Article')
+const sites = await Site.find({ status: 'Published' })
+for (const site of sites) {
+  const articles = await Content.find({ site: site.$id, status: 'Published', type: 'Article' })
+  for (const article of articles) {
+    await Event.create({ type: 'content.indexed', value: article.slug })
+  }
+}
 ```
 
 ## License

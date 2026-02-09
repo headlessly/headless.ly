@@ -48,11 +48,27 @@ scale/       → Day 90+: Metrics, goals, dashboards, lakehouse
 
 Each journey page opens with a hero code block showing the key operations for that phase, then lists key entities with verb tables, then shows event-driven automation patterns.
 
+### Entities (Root Tab)
+
+```
+entities/        → All 35 entities with Noun() definitions and verb tables
+├── identity     → User, ApiKey
+├── crm          → Organization, Contact, Lead, Deal, Activity, Pipeline
+├── billing      → Customer, Product, Plan, Price, Subscription, Invoice, Payment
+├── projects     → Project, Issue, Comment
+├── content      → Content, Asset, Site
+├── support      → Ticket
+├── analytics    → Event, Metric, Funnel, Goal
+├── marketing    → Campaign, Segment, Form
+├── experimentation → Experiment, FeatureFlag
+├── platform     → Workflow, Integration, Agent
+└── communication → Message
+```
+
 ### Reference (API Docs)
 
 ```
 reference/
-├── entities/    → All 32 entities with Noun() definitions and verb tables
 ├── integrations/ → Stripe, GitHub, Analytics, Dashboards
 ├── sdk/         → SDK API reference
 ├── mcp/         → MCP tool reference

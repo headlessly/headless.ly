@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { clearRegistry, setProvider, MemoryNounProvider } from 'digital-objects'
 
-// Register all 32 entities so commands can find them
+// Register all 35 entities so commands can find them
 import '@headlessly/sdk'
 
 import { run, parseArgs } from '../src/index.js'

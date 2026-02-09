@@ -90,7 +90,7 @@ headlessly do '
 '
 ```
 
-The `do` command runs TypeScript via secure sandboxed execution. `$` gives you the full 32-entity context -- same as `import { $ } from '@headlessly/sdk'`.
+The `do` command runs TypeScript via secure sandboxed execution. `$` gives you the full 35-entity context -- same as `import { $ } from '@headlessly/sdk'`.
 
 ## Org Management
 
@@ -105,7 +105,7 @@ headlessly init
 headlessly status
 
 # View schema definitions
-headlessly schema                 # List all 32 entity types
+headlessly schema                 # List all 35 entity types
 headlessly schema Contact         # Show Contact schema with fields, verbs, relationships
 headlessly schema Deal --verbs    # Show verb conjugations for Deal
 ```

@@ -33,7 +33,7 @@ describe('@headlessly/support', () => {
     })
 
     it('Ticket has reopen verb conjugation', () => {
-      expectVerbConjugation(Ticket, 'reopen', 'reopenning', 'reopenned')
+      expectVerbConjugation(Ticket, 'reopen', 'reopening', 'reopened')
     })
   })
 

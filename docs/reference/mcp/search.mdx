@@ -13,7 +13,7 @@ The `search` tool finds entities matching MongoDB-style filters. It returns a pa
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| `type` | string | Yes | -- | Entity type to search. Any of the 32 entity types: `Contact`, `Company`, `Deal`, `Project`, `Task`, `Subscription`, `Invoice`, `Ticket`, `Campaign`, etc. |
+| `type` | string | Yes | -- | Entity type to search. Any of the 35 entity types: `Contact`, `Company`, `Deal`, `Project`, `Task`, `Subscription`, `Invoice`, `Ticket`, `Campaign`, etc. |
 | `filter` | object | No | `{}` | MongoDB-style query object. Keys are field names, values are exact matches or operator expressions. |
 | `sort` | string | No | `-createdAt` | Field to sort by. Prefix with `-` for descending order. |
 | `limit` | number | No | `25` | Maximum number of results to return. Range: 1-100. |

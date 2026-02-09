@@ -55,7 +55,7 @@ describe('@headlessly/projects', () => {
     })
 
     it('Issue.reopen conjugation', () => {
-      expectVerbConjugation(Issue, 'reopen', 'reopenning', 'reopenned')
+      expectVerbConjugation(Issue, 'reopen', 'reopening', 'reopened')
     })
   })
 

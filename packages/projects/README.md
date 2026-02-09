@@ -176,14 +176,23 @@ for (const issue of unassigned) {
 
 Three tools. Not three hundred endpoints.
 
-## Promise Pipelining
+## Cross-Domain Operations
 
-Built on [rpc.do](https://rpc.do) + capnweb — chain operations in a single round-trip:
+Query results are standard arrays — chain operations with familiar JavaScript:
 
 ```typescript
-const urgentBugs = await Project.find({ status: 'Active' })
-  .map(p => p.issues)
-  .filter(i => i.priority === 'Urgent' && i.type === 'Bug' && i.status === 'Open')
+const projects = await Project.find({ status: 'Active' })
+for (const project of projects) {
+  const bugs = await Issue.find({
+    project: project.$id,
+    priority: 'Urgent',
+    type: 'Bug',
+    status: 'Open',
+  })
+  for (const bug of bugs) {
+    await Issue.assign(bug.$id)
+  }
+}
 ```
 
 ## License

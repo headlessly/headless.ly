@@ -95,7 +95,7 @@ describe('@headlessly/billing', () => {
     })
 
     it('Invoice.pay conjugation', () => {
-      expectVerbConjugation(Invoice, 'pay', 'paying', 'payed')
+      expectVerbConjugation(Invoice, 'pay', 'paying', 'paid')
     })
 
     it('Invoice.void conjugation', () => {

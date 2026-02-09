@@ -14,7 +14,7 @@ $.Deal.closed(async (deal, $) => {
 })
 ```
 
-Create an org. Get everything. CRM, billing, projects, analytics, content, support, marketing, experimentation — as 32 typed entities in one graph that AI agents can operate autonomously.
+Create an org. Get everything. CRM, billing, projects, analytics, content, support, marketing, experimentation — as 35 typed entities in one graph that AI agents can operate autonomously.
 
 ## The Problem
 
@@ -30,7 +30,7 @@ Create an org. Get everything. CRM, billing, projects, analytics, content, suppo
 
 **Top-left** is the enterprise suite (Salesforce, HubSpot) — unified but designed for humans clicking buttons. Your agents can't operate them.
 
-**Top-right** is headless.ly: agent-native architecture on one typed graph. 32 entities, three MCP tools, full verb conjugation. The architecture IS the product.
+**Top-right** is headless.ly: agent-native architecture on one typed graph. 35 entities, three MCP tools, full verb conjugation. The architecture IS the product.
 
 ## Install
 
@@ -73,8 +73,8 @@ await projects.Issue.create({ title: 'Onboard Alice', project: 'project_e5JhLzXc
 
 | Domain | Package | Entities | Replaces |
 |--------|---------|----------|----------|
-| **CRM** | [`@headlessly/crm`](packages/crm) | Contact, Company, Deal | HubSpot, Salesforce, Pipedrive |
-| **Billing** | [`@headlessly/billing`](packages/billing) | Customer, Product, Price, Subscription, Invoice, Payment | Stripe Dashboard + billing logic |
+| **CRM** | [`@headlessly/crm`](packages/crm) | Organization, Contact, Lead, Deal, Activity, Pipeline | HubSpot, Salesforce, Pipedrive |
+| **Billing** | [`@headlessly/billing`](packages/billing) | Customer, Product, Plan, Price, Subscription, Invoice, Payment | Stripe Dashboard + billing logic |
 | **Projects** | [`@headlessly/projects`](packages/projects) | Project, Issue, Comment | Jira, Linear, Asana |
 | **Content** | [`@headlessly/content`](packages/content) | Content, Asset, Site | Contentful, Sanity, WordPress |
 | **Support** | [`@headlessly/support`](packages/support) | Ticket | Zendesk, Intercom, Freshdesk |
@@ -83,7 +83,7 @@ await projects.Issue.create({ title: 'Onboard Alice', project: 'project_e5JhLzXc
 | **Experiments** | [`@headlessly/experiments`](packages/experiments) | Experiment, FeatureFlag | LaunchDarkly, Optimizely |
 | **Platform** | [`@headlessly/platform`](packages/platform) | Workflow, Integration, Agent | Zapier, Make, n8n |
 
-Plus **Identity** (User, Organization, ApiKey) and **Communication** (Message) in the core SDK.
+Plus **Identity** (User, ApiKey) and **Communication** (Message) in the core SDK.
 
 Every entity exists because headless.ly needs it to run itself as an autonomous business. If we don't need it, it doesn't ship.
 
@@ -128,28 +128,27 @@ Contact.qualified((contact, $) => {
 
 `qualify()`, `qualifying()`, `qualified()`, `qualifiedBy`. Every custom verb. Every CRUD operation. Full lifecycle, zero configuration.
 
-## Promise Pipelining
+## Batch Operations
 
-Built on [rpc.do](https://rpc.do) + [capnweb](https://github.com/cloudflare/capnweb) — chain dependent operations in a single round-trip:
+Cross-domain operations with `$.do()` — execute a sequence of operations as a unit:
 
 ```typescript
-// One round-trip, not three
-const openDeals = await $.Contact
-  .find({ stage: 'Qualified' })
-  .map(contact => contact.deals)
-  .filter(deal => deal.stage === 'Open')
+await $.do(async ($) => {
+  const qualified = await $.Contact.find({ stage: 'Qualified' })
+  for (const contact of qualified) {
+    await $.Deal.create({ title: `${contact.name} Opportunity`, contact: contact.$id })
+  }
+})
 ```
 
 ```typescript
-// Automatic batching — concurrent calls become one request
+// Concurrent reads — parallel queries in one call
 const [leads, deals, mrr] = await Promise.all([
   $.Contact.find({ stage: 'Lead' }),
   $.Deal.find({ stage: 'Open' }),
   $.Metric.get('mrr'),
 ])
 ```
-
-The magic `.map()` uses record-replay: your callback runs once in recording mode, capturing which RPC calls it makes. That recording replays on the server for each item. No serialized code strings. No `eval()`. Just capnweb.
 
 ## Time Travel
 
@@ -189,7 +188,7 @@ export const Contact = Noun('Contact', {
 
 | Package | Description |
 |---------|-------------|
-| [`@headlessly/sdk`](packages/sdk) | All 32 entities, `$` context, domain namespaces |
+| [`@headlessly/sdk`](packages/sdk) | All 35 entities, `$` context, domain namespaces |
 | [`headless.ly`](packages/headlessly) | `Headlessly()` factory — create an org, get everything |
 | [`@headlessly/cli`](packages/cli) | search, fetch, do — from your terminal |
 
@@ -230,9 +229,9 @@ export const Contact = Noun('Contact', {
 
 ```
 headless.ly                     Create an org, get everything
-  └── @headlessly/sdk           32 entities, $ context, domain namespaces
-       └── @headlessly/crm      Contact, Company, Deal (replaces HubSpot)
-       └── @headlessly/billing  Customer, Subscription, Invoice (replaces Stripe Dashboard)
+  └── @headlessly/sdk           35 entities, $ context, domain namespaces
+       └── @headlessly/crm      Organization, Contact, Lead, Deal, Activity, Pipeline (replaces HubSpot)
+       └── @headlessly/billing  Customer, Product, Plan, Price, Subscription, Invoice, Payment (replaces Stripe Dashboard)
        └── ...                  9 domain packages total
   └── @headlessly/objects       NounProvider → rpc.do → Durable Object
        └── rpc.do               capnweb promise pipelining, magic .map()

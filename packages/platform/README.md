@@ -206,15 +206,21 @@ for (const agent of idle) {
 
 Three tools. Not seven thousand zaps.
 
-## Promise Pipelining
+## Cross-Domain Operations
 
-Built on [rpc.do](https://rpc.do) + capnweb — chain operations in a single round-trip:
+Query results are standard arrays — chain operations with familiar JavaScript:
 
 ```typescript
-const workflowAgents = await Workflow.find({ status: 'Active' })
-  .map(w => w.agents)
-  .filter(a => a.status === 'Active' && a.type === 'Specialist')
-  .map(a => ({ name: a.name, successRate: a.successRate, cost: a.totalCost }))
+const workflows = await Workflow.find({ status: 'Active' })
+for (const workflow of workflows) {
+  const agents = await Agent.find({ workflow: workflow.$id, status: 'Active', type: 'Specialist' })
+  for (const agent of agents) {
+    if (agent.successRate < 0.5) {
+      await Agent.retire(agent.$id)
+      await Ticket.create({ subject: `Low-performing agent: ${agent.name}`, priority: 'High' })
+    }
+  }
+}
 ```
 
 ## License

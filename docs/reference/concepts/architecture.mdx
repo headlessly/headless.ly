@@ -9,14 +9,14 @@ icon: Layers
 ```
 headless.ly       → Tenant composition, SDK, RPC client (capnweb)
 objects.do        → Managed Digital Object service, verb conjugation, events
-digital-objects   → Pure schemas, zero deps, Noun() function, 32 core entities
+digital-objects   → Pure schemas, zero deps, Noun() function, 35 core entities
 .do services      → payments.do, oauth.do, events.do, database.do, functions.do
 @dotdo/do         → THE Durable Object: StorageHandler, EventsStore, WebSocket
 @dotdo/db         → ParqueDB: hybrid relational-document-graph on Parquet
 Cloudflare        → Workers, Durable Objects, R2, KV, AI
 ```
 
-Each layer depends only on the layer below it. `digital-objects` has zero dependencies and defines the 32 core entities as pure schemas. `objects.do` adds runtime behavior (verb execution, event emission). `headless.ly` composes tenants and exposes the SDK.
+Each layer depends only on the layer below it. `digital-objects` has zero dependencies and defines the 35 core entities as pure schemas. `objects.do` adds runtime behavior (verb execution, event emission). `headless.ly` composes tenants and exposes the SDK.
 
 ## Storage Model: ParqueDB
 

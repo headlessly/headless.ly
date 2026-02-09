@@ -8,7 +8,7 @@
 
 import type { NounProvider, NounInstance } from 'digital-objects'
 import { RPC } from 'rpc.do'
-import type { RpcProxy, RpcOptions } from 'rpc.do'
+import type { RPCProxy, RPCOptions } from 'rpc.do'
 
 /**
  * Pluralize a word (matches @dotdo/api convention)
@@ -93,7 +93,7 @@ function toNounInstance(raw: unknown): NounInstance {
  * - $.contacts.put('contact_abc', { ... })
  */
 export class DONounProvider implements NounProvider {
-  private rpc: RpcProxy<Record<string, unknown>>
+  private rpc: RPCProxy<Record<string, unknown>>
   private context: string
   public readonly endpoint: string
 
@@ -116,7 +116,7 @@ export class DONounProvider implements NounProvider {
         return headers
       }
 
-      this.rpc = new Proxy({} as RpcProxy<Record<string, unknown>>, {
+      this.rpc = new Proxy({} as RPCProxy<Record<string, unknown>>, {
         get: (_, prop: string) => {
           return {
             find: async (where?: Record<string, unknown>) => {
@@ -189,14 +189,14 @@ export class DONounProvider implements NounProvider {
       })
     } else {
       // Modern path: use rpc.do with capnweb
-      const rpcOptions: RpcOptions = {}
+      const rpcOptions: RPCOptions = {}
       if (options.apiKey) {
         rpcOptions.auth = options.apiKey
       }
 
       const protocol = options.transport === 'ws' ? 'wss' : 'https'
       const url = options.endpoint.replace(/^https?/, protocol)
-      this.rpc = RPC(url, rpcOptions) as RpcProxy<Record<string, unknown>>
+      this.rpc = RPC(url, rpcOptions) as RPCProxy<Record<string, unknown>>
     }
   }
 

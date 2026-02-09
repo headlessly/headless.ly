@@ -1,6 +1,6 @@
 {
   "title": "Reference",
-  "description": "Complete technical reference for all entities, interfaces, and integrations.",
+  "description": "Complete technical reference for interfaces and integrations.",
   "root": true,
   "pages": [
     "index",
@@ -11,8 +11,6 @@
     "mcp",
     "cli",
     "rest",
-    "---Entities---",
-    "entities",
     "---Integrations---",
     "integrations"
   ]
