@@ -29,13 +29,14 @@ export async function schemaCommand(args: string[]): Promise<void> {
         console.log(`  ${[...all.keys()].join(', ')}`)
       }
       process.exit(1)
+      return
     }
 
     const formatted = {
       name: schema.name,
       singular: schema.singular,
       plural: schema.plural,
-      slug: schema.slug,
+      slug: schema.plural?.toLowerCase() ?? schema.slug,
       fields: [...schema.fields.entries()].map(([k, v]) => ({
         name: k,
         kind: v.kind,

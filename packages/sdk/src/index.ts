@@ -1,6 +1,6 @@
 import { Noun } from 'digital-objects'
-import { setProvider, getProvider, MemoryNounProvider } from 'digital-objects'
-import type { NounProvider, NounInstance, NounEntity } from 'digital-objects'
+import { setProvider, getProvider, MemoryNounProvider, setEntityRegistry } from 'digital-objects'
+import type { NounProvider, NounInstance, NounEntity, NounSchema } from 'digital-objects'
 
 // Import all domain packages (side effect: registers nouns)
 import * as crm from '@headlessly/crm'
@@ -79,6 +79,9 @@ const allEntities: Record<string, NounEntity> = {
   // Communication
   Message,
 }
+
+// Register entity registry for after-hook $ context injection
+setEntityRegistry(allEntities)
 
 /**
  * All 32 entity names, for typed iteration and validation
@@ -502,7 +505,55 @@ export const $: HeadlessContext = new Proxy({} as HeadlessContext, {
       return async (query: { type: string; id: string; include?: string[] }) => {
         const entity = allEntities[query.type]
         if (!entity) return null
-        return entity.get(query.id)
+        const instance = await entity.get(query.id)
+        if (!instance || !query.include || query.include.length === 0) return instance
+
+        // Resolve include back-references by inspecting the NounSchema
+        // Use entity.$schema (always available on the proxy) rather than
+        // getNounSchema() which may return undefined after clearRegistry()
+        const schema = entity.$schema as NounSchema | undefined
+        if (!schema) return instance
+
+        const result = { ...instance } as Record<string, unknown>
+
+        for (const includeName of query.include) {
+          const rel = schema.relationships.get(includeName)
+          if (rel && rel.operator === '<-' && rel.targetType) {
+            // Back-reference: e.g. invoices: '<- Invoice.customer[]'
+            // rel.targetType = 'Invoice', rel.backref = 'customer'
+            const targetEntity = allEntities[rel.targetType]
+            if (targetEntity && rel.backref) {
+              const related = await targetEntity.find({ [rel.backref]: instance.$id })
+              result[includeName] = related
+            }
+          } else if (!rel) {
+            // Try to infer: look across all schemas for a forward ref pointing to this type
+            // e.g. include 'contacts' on Organization — Contact has organization: '-> Organization.contacts'
+            // Search all entities for one whose lowercase plural matches includeName
+            const singularTarget = includeName.endsWith('s') ? includeName.slice(0, -1) : includeName
+            const targetTypeName = Object.keys(allEntities).find(
+              (name) => name.toLowerCase() === singularTarget.toLowerCase() || name.toLowerCase() + 's' === includeName.toLowerCase(),
+            )
+            if (targetTypeName) {
+              const targetEntity = allEntities[targetTypeName]
+              if (targetEntity) {
+                // Find which field in the target type points to query.type
+                const targetSchema = targetEntity.$schema as NounSchema | undefined
+                if (targetSchema) {
+                  for (const [fieldName, fieldRel] of targetSchema.relationships) {
+                    if (fieldRel.operator === '->' && fieldRel.targetType === query.type) {
+                      const related = await targetEntity.find({ [fieldName]: instance.$id })
+                      result[includeName] = related
+                      break
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        return result as NounInstance
       }
     }
 

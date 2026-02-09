@@ -6,16 +6,25 @@
 
 import { loadConfig, getConfigPath } from '../config.js'
 import { getProvider } from '../provider.js'
+import { existsSync } from 'fs'
 
 export async function statusCommand(_args: string[]): Promise<void> {
   const config = await loadConfig()
+  const configPath = getConfigPath()
+  const configExists = existsSync(configPath)
 
   console.log('headless.ly status')
   console.log('==================')
   console.log('')
+
   console.log(`  Tenant:   ${config.tenant ?? 'default'}`)
   console.log(`  Mode:     ${config.mode ?? 'local'}`)
-  console.log(`  Config:   ${getConfigPath()}`)
+  console.log(`  Config:   ${configPath}`)
+
+  if (!configExists || !config.tenant || config.tenant === 'default') {
+    console.log('')
+    console.log('  Tip: Run headlessly init to configure your organization')
+  }
 
   if (config.endpoint) {
     console.log(`  Endpoint: ${config.endpoint}`)

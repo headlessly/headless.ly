@@ -53,6 +53,9 @@ vi.mock('digital-objects', () => {
       if (!currentProvider) currentProvider = new MemoryNounProvider()
       return currentProvider
     }),
+    setEntityRegistry: vi.fn(),
+    getEntityRegistry: vi.fn(),
+    getNounSchema: vi.fn(() => undefined),
   }
 })
 

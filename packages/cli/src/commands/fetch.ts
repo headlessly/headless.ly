@@ -18,12 +18,30 @@ export async function fetchCommand(args: string[]): Promise<void> {
   const { positional, flags } = parseArgs(args)
   const json = flags['json'] === true
 
+  // Per-command --help
+  if (flags['help'] === true) {
+    console.log('headlessly fetch — Fetch a specific entity')
+    console.log('')
+    console.log('Usage: headlessly fetch <type> <id> [options]')
+    console.log('       headlessly fetch schema [noun]')
+    console.log('       headlessly fetch events [--type Type]')
+    console.log('')
+    console.log('Options:')
+    console.log('  --json    Output as JSON')
+    return
+  }
+
   if (positional.length === 0) {
+    if (json) {
+      printJSON({ error: 'Missing arguments', usage: 'headlessly fetch <type> <id>' })
+      return
+    }
     printError('Missing arguments')
     console.log('Usage: headlessly fetch <type> <id>')
     console.log('       headlessly fetch schema [noun]')
     console.log('       headlessly fetch events [--type Type]')
     process.exit(1)
+    return
   }
 
   const first = positional[0]!
@@ -36,8 +54,13 @@ export async function fetchCommand(args: string[]): Promise<void> {
     if (nounName) {
       const schema = getNounSchema(nounName)
       if (!schema) {
+        if (json) {
+          printJSON({ error: `Schema not found: ${nounName}` })
+          return
+        }
         printError(`Schema not found: ${nounName}`)
         process.exit(1)
+        return
       }
 
       const formatted = {
@@ -81,9 +104,14 @@ export async function fetchCommand(args: string[]): Promise<void> {
   const id = positional[1]
 
   if (!id) {
+    if (json) {
+      printJSON({ error: 'Missing entity ID', usage: 'headlessly fetch <type> <id>' })
+      return
+    }
     printError('Missing entity ID')
     console.log('Usage: headlessly fetch <type> <id>')
     process.exit(1)
+    return
   }
 
   try {
@@ -91,13 +119,22 @@ export async function fetchCommand(args: string[]): Promise<void> {
     const entity = await provider.get(type, id)
 
     if (!entity) {
+      if (json) {
+        printJSON({ error: `${type} not found: ${id}` })
+        return
+      }
       printError(`${type} not found: ${id}`)
       process.exit(1)
+      return
     }
 
     printJSON(entity)
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
+    if (json) {
+      printJSON({ error: `Fetch failed: ${message}` })
+      return
+    }
     printError(`Fetch failed: ${message}`)
     process.exit(1)
   }

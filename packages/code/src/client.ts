@@ -80,6 +80,7 @@ export function createCodeClient(config: CodeClientConfig = {}): CodeClient {
       method,
       headers: authHeaders(),
       body: body ? JSON.stringify(body) : undefined,
+      signal: config.timeout ? AbortSignal.timeout(config.timeout) : undefined,
     })
 
     if (!response.ok) {
@@ -112,6 +113,7 @@ export function createCodeClient(config: CodeClientConfig = {}): CodeClient {
     },
 
     async exec(sandboxId: string, command: string, options?: ExecOptions): Promise<ExecResult> {
+      if (!command) throw new Error('command must not be empty')
       return request<ExecResult>('POST', '/exec', { sandboxId, command, ...options })
     },
 
@@ -120,6 +122,7 @@ export function createCodeClient(config: CodeClientConfig = {}): CodeClient {
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify({ sandboxId, command, ...options }),
+        signal: config.timeout ? AbortSignal.timeout(config.timeout) : undefined,
       })
 
       if (!response.ok) {
@@ -160,6 +163,7 @@ export function createCodeClient(config: CodeClientConfig = {}): CodeClient {
     },
 
     async runCode(sandboxId: string, code: string, options?: RunCodeOptions): Promise<ExecutionResult> {
+      if (!sandboxId) throw new Error('sandboxId must not be empty')
       return request<ExecutionResult>('POST', '/code/run', { sandboxId, code, ...options })
     },
 

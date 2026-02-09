@@ -12,7 +12,7 @@
 
 export interface ParsedArgs {
   positional: string[]
-  flags: Record<string, string | boolean>
+  flags: Record<string, string | boolean | string[]>
 }
 
 export function parseArgs(args: string[]): ParsedArgs {
@@ -53,7 +53,17 @@ export function parseArgs(args: string[]): ParsedArgs {
     // Peek at next arg to see if it's a value
     const next = args[i + 1]
     if (next !== undefined && !next.startsWith('-')) {
-      flags[key] = next
+      const existing = flags[key]
+      if (existing !== undefined && existing !== true) {
+        // Multiple values for same key — collect into array
+        if (Array.isArray(existing)) {
+          existing.push(next)
+        } else {
+          flags[key] = [existing as string, next]
+        }
+      } else {
+        flags[key] = next
+      }
       i += 2
     } else {
       flags[key] = true

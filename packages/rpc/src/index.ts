@@ -83,7 +83,7 @@ export interface HeadlesslyRpcOptions {
  * ```
  */
 export function headlessly<T extends object = Record<string, unknown>>(options: HeadlesslyRpcOptions): RpcProxy<T> {
-  const base = options.endpoint ?? 'https://db.headless.ly'
+  const base = (options.endpoint ?? 'https://db.headless.ly').replace(/\/+$/, '')
   const protocol = options.transport === 'ws' ? 'wss' : 'https'
   const url = base.replace(/^https?/, protocol)
 

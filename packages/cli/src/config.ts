@@ -20,13 +20,28 @@ const CONFIG_DIR = join(homedir(), '.headlessly')
 const CONFIG_FILE = join(CONFIG_DIR, 'config.json')
 
 export async function loadConfig(): Promise<CLIConfig> {
+  let config: CLIConfig = {}
   try {
-    if (!existsSync(CONFIG_FILE)) return {}
-    const raw = await readFile(CONFIG_FILE, 'utf-8')
-    return JSON.parse(raw) as CLIConfig
+    if (existsSync(CONFIG_FILE)) {
+      const raw = await readFile(CONFIG_FILE, 'utf-8')
+      config = JSON.parse(raw) as CLIConfig
+    }
   } catch {
-    return {}
+    // ignore
   }
+
+  // Env vars override file config
+  if (process.env.HEADLESSLY_API_KEY) {
+    config.apiKey = process.env.HEADLESSLY_API_KEY
+  }
+  if (process.env.HEADLESSLY_ENDPOINT) {
+    config.endpoint = process.env.HEADLESSLY_ENDPOINT
+  }
+  if (process.env.HEADLESSLY_TENANT) {
+    config.tenant = process.env.HEADLESSLY_TENANT
+  }
+
+  return config
 }
 
 export async function saveConfig(config: CLIConfig): Promise<void> {

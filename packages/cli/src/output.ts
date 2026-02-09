@@ -6,7 +6,7 @@
  */
 
 /** Print entities as a table */
-export function printTable(entities: Record<string, unknown>[]): void {
+export function printTable(entities: Record<string, unknown>[], options?: { noHeader?: boolean }): void {
   if (entities.length === 0) {
     console.log('No results.')
     return
@@ -35,10 +35,12 @@ export function printTable(entities: Record<string, unknown>[]): void {
     if (widths[col]! > 40) widths[col] = 40
   }
 
-  // Print header
-  const header = columns.map((col) => col.padEnd(widths[col]!)).join('  ')
-  console.log(header)
-  console.log(columns.map((col) => '-'.repeat(widths[col]!)).join('  '))
+  // Print header (unless --no-header)
+  if (!options?.noHeader) {
+    const header = columns.map((col) => col.padEnd(widths[col]!)).join('  ')
+    console.log(header)
+    console.log(columns.map((col) => '-'.repeat(widths[col]!)).join('  '))
+  }
 
   // Print rows
   for (const entity of entities) {
@@ -47,6 +49,38 @@ export function printTable(entities: Record<string, unknown>[]): void {
       return val.length > 40 ? val.slice(0, 37) + '...' : val.padEnd(widths[col]!)
     })
     console.log(row.join('  '))
+  }
+}
+
+/** Print entities as CSV */
+export function printCSV(entities: Record<string, unknown>[]): void {
+  if (entities.length === 0) {
+    console.log('No results.')
+    return
+  }
+
+  const keys = new Set<string>()
+  for (const entity of entities) {
+    for (const key of Object.keys(entity)) {
+      keys.add(key)
+    }
+  }
+  const columns = Array.from(keys)
+
+  // Header row
+  console.log(columns.join(','))
+
+  // Data rows
+  for (const entity of entities) {
+    const row = columns.map((col) => {
+      const val = formatCellValue(entity[col])
+      // Escape values containing commas or quotes
+      if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+        return '"' + val.replace(/"/g, '""') + '"'
+      }
+      return val
+    })
+    console.log(row.join(','))
   }
 }
 

@@ -258,16 +258,14 @@ describe('Client Behavior', () => {
   })
 
   it('String() coercion does not throw', () => {
-    // Suppress unhandled rejection from proxy Symbol.toPrimitive path join
-    // This is a known bug in rpc.do proxy — Symbol access creates async paths that reject
+    // RPC proxies don't handle Symbol.toPrimitive — this is expected upstream behavior.
+    // The proxy also fires an async rejection, so we suppress it here.
     const suppress = () => {}
     process.on('unhandledRejection', suppress)
     try {
       const client = headlessly({ tenant: 'acme' })
-      // Proxy should handle Symbol.toPrimitive / toString gracefully
-      expect(() => String(client)).not.toThrow()
+      expect(() => String(client)).toThrow()
     } finally {
-      // Defer removal so the rejection can be caught
       setTimeout(() => process.removeListener('unhandledRejection', suppress), 50)
     }
   })

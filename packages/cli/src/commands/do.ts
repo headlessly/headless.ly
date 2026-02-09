@@ -16,6 +16,27 @@ import { getProvider } from '../provider.js'
 
 export async function doCommand(args: string[]): Promise<void> {
   const { positional, flags } = parseArgs(args)
+  const json = flags['json'] === true
+  const quiet = flags['quiet'] === true
+
+  // Per-command --help
+  if (flags['help'] === true) {
+    console.log('headlessly do — Execute actions on entities')
+    console.log('')
+    console.log('Usage: headlessly do <action> [options]')
+    console.log('')
+    console.log('Actions:')
+    console.log('  create <type> [--field value...]   Create an entity')
+    console.log('  update <type> <id> [--field value...]   Update an entity')
+    console.log('  delete <type> <id>                 Delete an entity')
+    console.log('  <verb> <type> <id>                 Execute a custom verb')
+    console.log('  eval <code>                        Evaluate TypeScript code')
+    console.log('')
+    console.log('Options:')
+    console.log('  --json     Output as JSON')
+    console.log('  --quiet    Suppress "ok:" prefix output')
+    return
+  }
 
   if (positional.length === 0) {
     printError('Missing action')
@@ -23,6 +44,7 @@ export async function doCommand(args: string[]): Promise<void> {
     console.log('       headlessly do <verb> <type> <id>')
     console.log('       headlessly do eval <code>')
     process.exit(1)
+    return
   }
 
   const action = positional[0]!
@@ -50,17 +72,20 @@ export async function doCommand(args: string[]): Promise<void> {
         printError('Missing entity type')
         console.log('Usage: headlessly do create <type> [--name value --field value...]')
         process.exit(1)
+        return
       }
 
       // Build data from flags (all non-boolean flags become entity fields)
       const data: Record<string, unknown> = {}
       for (const [key, value] of Object.entries(flags)) {
-        if (key === 'json') continue
+        if (key === 'json' || key === 'quiet') continue
         data[key] = value
       }
 
       const entity = await provider.create(type, data)
-      printSuccess(`Created ${type}: ${entity.$id}`)
+      if (!json && !quiet) {
+        printSuccess(`Created ${type}: ${entity.$id}`)
+      }
       printJSON(entity)
       return
     }
@@ -73,16 +98,19 @@ export async function doCommand(args: string[]): Promise<void> {
         printError('Missing type or id')
         console.log('Usage: headlessly do update <type> <id> [--field value...]')
         process.exit(1)
+        return
       }
 
       const data: Record<string, unknown> = {}
       for (const [key, value] of Object.entries(flags)) {
-        if (key === 'json') continue
+        if (key === 'json' || key === 'quiet') continue
         data[key] = value
       }
 
       const entity = await provider.update(type, id, data)
-      printSuccess(`Updated ${type}: ${id}`)
+      if (!json && !quiet) {
+        printSuccess(`Updated ${type}: ${id}`)
+      }
       printJSON(entity)
       return
     }
@@ -95,11 +123,14 @@ export async function doCommand(args: string[]): Promise<void> {
         printError('Missing type or id')
         console.log('Usage: headlessly do delete <type> <id>')
         process.exit(1)
+        return
       }
 
       const result = await provider.delete(type, id)
       if (result) {
-        printSuccess(`Deleted ${type}: ${id}`)
+        if (!json && !quiet) {
+          printSuccess(`Deleted ${type}: ${id}`)
+        }
       } else {
         printError(`${type} not found: ${id}`)
         process.exit(1)
@@ -116,16 +147,19 @@ export async function doCommand(args: string[]): Promise<void> {
       printError(`Missing type or id for verb "${verb}"`)
       console.log(`Usage: headlessly do ${verb} <type> <id> [--data key=value...]`)
       process.exit(1)
+      return
     }
 
     const data: Record<string, unknown> = {}
     for (const [key, value] of Object.entries(flags)) {
-      if (key === 'json') continue
+      if (key === 'json' || key === 'quiet') continue
       data[key] = value
     }
 
     const entity = await provider.perform(type, verb, id, Object.keys(data).length > 0 ? data : undefined)
-    printSuccess(`${verb} ${type}: ${id}`)
+    if (!json && !quiet) {
+      printSuccess(`${verb} ${type}: ${id}`)
+    }
     printJSON(entity)
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)

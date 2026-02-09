@@ -1,6 +1,56 @@
 # @headlessly/billing
 
-Billing entities for customers, products, plans, prices, subscriptions, invoices, and payments — backed by Stripe as the source of truth.
+> Stripe is the payment rail. This is the billing system your agent operates.
+
+```typescript
+import { Subscription, Invoice } from '@headlessly/billing'
+
+await Subscription.create({ customer: 'customer_fX9bL5nRd', plan: 'plan_k7TmPvQx' })
+await Subscription.upgrade('subscription_mN8pZwKj')
+
+// A subscription cancels — CRM, support, and analytics react instantly
+Subscription.cancelled(async (sub, $) => {
+  await $.Contact.update(sub.customer, { stage: 'Churned' })
+  await $.Ticket.create({ subject: 'Cancellation follow-up', requester: sub.customer })
+  await $.Event.create({ type: 'churn', value: sub.plan })
+})
+```
+
+Stripe handles payments. headless.ly gives your agent the full billing lifecycle — subscriptions, invoices, plans, upgrades, downgrades — as typed entities in the same graph as your CRM, support, and analytics.
+
+## The Problem
+
+You integrated Stripe. Congratulations — you can charge credit cards.
+
+Now build the rest: subscription lifecycle management, plan-based access control, invoice generation, payment failure handling, MRR calculation, churn tracking, upgrade/downgrade logic.
+
+Wire it to your CRM so sales knows when a deal converts to a paying customer. Wire it to support so tickets appear when payments fail. Wire it to analytics so you can track conversion funnels.
+
+That's not a Stripe problem. That's an integration problem. Your billing data lives in Stripe, your CRM data lives in HubSpot, your support data lives in Zendesk, and none of them share a graph.
+
+## One Typed Graph
+
+When a subscription cancels in headless.ly, your CRM already knows. Your support system already knows. Your analytics already know. Because they're the same system:
+
+```typescript
+import { Subscription, Invoice } from '@headlessly/billing'
+
+Subscription.cancelled(async (sub, $) => {
+  await $.Contact.update(sub.customer, { stage: 'Churned' })
+  await $.Ticket.create({ subject: 'Win-back opportunity', requester: sub.customer, priority: 'High' })
+  await $.Event.create({ type: 'churn', value: sub.plan })
+})
+
+Invoice.voided(async (invoice, $) => {
+  await $.Activity.create({
+    subject: `Payment failed: ${invoice.number}`,
+    type: 'Task',
+    priority: 'Urgent',
+  })
+})
+```
+
+No webhook relay. No Zapier. No data mapping. One graph.
 
 ## Install
 
@@ -12,26 +62,17 @@ npm install @headlessly/billing
 
 ### Customer
 
-Billable customers linked to organizations and Stripe.
+Billable customers backed by Stripe — linked to your CRM organizations.
 
 ```typescript
 import { Customer } from '@headlessly/billing'
 
-await Customer.create({
-  name: 'Acme Corp',
-  email: 'billing@acme.co',
-  currency: 'usd',
-})
+await Customer.create({ name: 'Acme Corp', email: 'billing@acme.co', currency: 'usd' })
 ```
 
-**Fields**: `name`, `email`, `stripeCustomerId`, `paymentMethod`, `currency`, `taxExempt`
+**Key fields**: name, email, stripeCustomerId, paymentMethod, currency, taxExempt
 
-**Relationships**:
-
-- `organization` -> Organization
-- `subscriptions` <- Subscription.customer[]
-- `invoices` <- Invoice.customer[]
-- `payments` <- Payment.customer[]
+**Relationships**: → Organization, ← Subscriptions[], ← Invoices[], ← Payments[]
 
 ### Product
 
@@ -48,21 +89,11 @@ await Product.create({
 })
 ```
 
-**Fields**: `name`, `slug`, `description`, `tagline`, `type`, `icon`, `image`, `features`, `highlights`, `status`, `visibility`, `featured`, `stripeProductId`
-
-**Relationships**:
-
-- `plans` <- Plan.product[]
-
-**Enums**:
-
-- `type`: Software | Service | Addon | Bundle
-- `status`: Draft | Active | Archived
-- `visibility`: Public | Private | Hidden
+**Key fields**: name, tagline, type (`Software | Service | Addon | Bundle`), status (`Draft | Active | Archived`), visibility (`Public | Private | Hidden`), features, stripeProductId
 
 ### Plan
 
-Pricing plans tied to products with trial support and feature limits.
+Pricing plans with trial support and feature limits.
 
 ```typescript
 import { Plan } from '@headlessly/billing'
@@ -75,56 +106,30 @@ await Plan.create({
 })
 ```
 
-**Fields**: `name`, `slug`, `description`, `trialDays`, `features`, `limits`, `status`, `isDefault`, `isFree`, `isEnterprise`, `badge`, `order`
+**Key fields**: name, trialDays, features, limits, status (`Draft | Active | Grandfathered | Archived`), isFree, isEnterprise
 
-**Relationships**:
-
-- `product` -> Product.plans
-- `prices` <- Price.plan[]
-
-**Enums**:
-
-- `status`: Draft | Active | Grandfathered | Archived
+**Relationships**: → Product, ← Prices[]
 
 ### Price
 
-Individual price points on plans — monthly, yearly, or one-time.
+Individual price points — monthly, yearly, or one-time.
 
 ```typescript
 import { Price } from '@headlessly/billing'
 
-await Price.create({
-  amount: 4900,
-  currency: 'usd',
-  interval: 'Monthly',
-  plan: 'plan_k7TmPvQx',
-})
+await Price.create({ amount: 4900, currency: 'usd', interval: 'Monthly', plan: 'plan_k7TmPvQx' })
 ```
 
-**Fields**: `amount`, `currency`, `interval`, `intervalCount`, `originalAmount`, `discountPercent`, `active`, `stripeId`
-
-**Relationships**:
-
-- `plan` -> Plan.prices
-
-**Enums**:
-
-- `interval`: Monthly | Quarterly | Yearly | OneTime
+**Key fields**: amount, currency, interval (`Monthly | Quarterly | Yearly | OneTime`), active, stripeId
 
 ### Subscription
 
-Active subscriptions with full lifecycle management — pause, cancel, upgrade, downgrade.
+The full lifecycle — create, pause, cancel, reactivate, upgrade, downgrade.
 
 ```typescript
 import { Subscription } from '@headlessly/billing'
 
-await Subscription.create({
-  customer: 'customer_fX9bL5nRd',
-  plan: 'plan_k7TmPvQx',
-  currentPeriodStart: '2025-01-01T00:00:00Z',
-  currentPeriodEnd: '2025-02-01T00:00:00Z',
-  startedAt: '2025-01-01T00:00:00Z',
-})
+await Subscription.create({ customer: 'customer_fX9bL5nRd', plan: 'plan_k7TmPvQx' })
 
 await Subscription.pause('subscription_mN8pZwKj')
 await Subscription.cancel('subscription_mN8pZwKj')
@@ -133,31 +138,22 @@ await Subscription.upgrade('subscription_mN8pZwKj')
 await Subscription.downgrade('subscription_mN8pZwKj')
 ```
 
-**Fields**: `status`, `currentPeriodStart`, `currentPeriodEnd`, `cancelAtPeriodEnd`, `trialStart`, `trialEnd`, `startedAt`, `canceledAt`, `pausedAt`, `resumesAt`, `endedAt`, `cancelReason`, `cancelFeedback`, `quantity`, `paymentMethod`, `collectionMethod`, `stripeSubscriptionId`, `stripeCustomerId`
+**Verbs**: `pause()` · `cancel()` · `reactivate()` · `upgrade()` · `downgrade()` — each with full lifecycle conjugation
 
-**Relationships**:
+**Key fields**: status (`Active | PastDue | Canceled | Trialing | Paused | Incomplete`), currentPeriodStart, currentPeriodEnd, cancelAtPeriodEnd, trialStart, trialEnd, cancelReason
 
-- `organization` -> Organization.subscriptions
-- `customer` -> Customer.subscriptions
-- `plan` -> Plan
-
-**Verbs**: `pause()` / `pausing()` / `paused()` / `pausedBy`, `cancel()` / `cancelling()` / `cancelled()` / `cancelledBy`, `reactivate()` / `reactivating()` / `reactivated()` / `reactivatedBy`, `upgrade()` / `upgrading()` / `upgraded()` / `upgradedBy`, `downgrade()` / `downgrading()` / `downgraded()` / `downgradedBy`
-
-**Enums**:
-
-- `status`: Active | PastDue | Canceled | Trialing | Paused | Incomplete
+**Relationships**: → Customer, → Plan, → Organization
 
 ### Invoice
 
-Invoices generated from subscriptions with line items and payment tracking.
+Invoices with line items, payment tracking, and Stripe sync.
 
 ```typescript
 import { Invoice } from '@headlessly/billing'
 
 await Invoice.create({
-  number: 'INV-2025-001',
+  number: 'INV-2026-001',
   customer: 'customer_fX9bL5nRd',
-  subtotal: 4900,
   total: 4900,
   amountDue: 4900,
 })
@@ -166,74 +162,46 @@ await Invoice.pay('invoice_z3RnWqYp')
 await Invoice.void('invoice_z3RnWqYp')
 ```
 
-**Fields**: `number`, `subtotal`, `tax`, `discount`, `total`, `amountPaid`, `amountDue`, `currency`, `status`, `periodStart`, `periodEnd`, `issuedAt`, `dueAt`, `paidAt`, `voidedAt`, `lineItems`, `receiptUrl`, `pdfUrl`, `hostedUrl`, `stripeInvoiceId`
+**Verbs**: `pay()` · `void()` — each with full lifecycle conjugation
 
-**Relationships**:
-
-- `organization` -> Organization
-- `customer` -> Customer.invoices
-- `subscription` -> Subscription
-
-**Verbs**: `pay()` / `paying()` / `paid()` / `paidBy`, `void()` / `voiding()` / `voided()` / `voidedBy`
-
-**Enums**:
-
-- `status`: Draft | Open | Paid | Void | Uncollectible
+**Key fields**: number, subtotal, tax, total, amountDue, status (`Draft | Open | Paid | Void | Uncollectible`), lineItems, stripeInvoiceId
 
 ### Payment
 
-Individual payment transactions tied to customers and invoices.
+Individual payment transactions.
 
 ```typescript
 import { Payment } from '@headlessly/billing'
 
-await Payment.create({
-  amount: 4900,
-  currency: 'usd',
-  customer: 'customer_fX9bL5nRd',
-  invoice: 'invoice_z3RnWqYp',
-})
-
+await Payment.create({ amount: 4900, currency: 'usd', customer: 'customer_fX9bL5nRd' })
 await Payment.refund('payment_pQ4xLmRn')
 ```
 
-**Fields**: `amount`, `currency`, `status`, `method`, `stripePaymentId`
+**Verbs**: `refund()` — with full lifecycle conjugation
 
-**Relationships**:
+**Key fields**: amount, currency, status (`Pending | Succeeded | Failed | Refunded`), stripePaymentId
 
-- `customer` -> Customer.payments
-- `invoice` -> Invoice
+## Agent-Native
 
-**Verbs**: `refund()` / `refunding()` / `refunded()` / `refundedBy`
+Your agent connects to one MCP endpoint. It can manage your entire billing stack:
 
-**Enums**:
+```json title="billing.headless.ly/mcp#search"
+{ "type": "Subscription", "filter": { "status": "Active" } }
+```
 
-- `status`: Pending | Succeeded | Failed | Refunded
+```json title="billing.headless.ly/mcp#fetch"
+{ "type": "Customer", "id": "customer_fX9bL5nRd", "include": ["subscriptions", "invoices"] }
+```
 
-## Event-Driven Reactions
-
-React to billing lifecycle events across the graph:
-
-```typescript
-import { Subscription, Invoice } from '@headlessly/billing'
-
-Subscription.cancelled((sub, $) => {
-  console.log(`Subscription ${sub.$id} cancelled: ${sub.cancelReason}`)
-})
-
-Invoice.paid((invoice) => {
-  console.log(`Invoice ${invoice.number} paid`)
-})
-
-Subscription.upgraded((sub, $) => {
-  $.Invoice.create({
-    customer: sub.customer,
-    subscription: sub.$id,
-    subtotal: 0,
-    total: 0,
-    amountDue: 0,
+```ts title="billing.headless.ly/mcp#do"
+const pastDue = await $.Subscription.find({ status: 'PastDue' })
+for (const sub of pastDue) {
+  await $.Ticket.create({
+    subject: `Payment issue: ${sub.$id}`,
+    requester: sub.customer,
+    priority: 'Urgent',
   })
-})
+}
 ```
 
 ## Promise Pipelining
@@ -241,10 +209,10 @@ Subscription.upgraded((sub, $) => {
 Built on [rpc.do](https://rpc.do) + capnweb — chain operations in a single round-trip:
 
 ```typescript
-const revenue = await Customer.find({ currency: 'usd' })
-  .map((c) => c.subscriptions)
-  .filter((s) => s.status === 'Active')
-  .map((s) => s.plan)
+const activeRevenue = await Customer.find({ currency: 'usd' })
+  .map(c => c.subscriptions)
+  .filter(s => s.status === 'Active')
+  .map(s => s.plan)
 ```
 
 ## License

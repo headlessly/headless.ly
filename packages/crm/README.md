@@ -1,6 +1,61 @@
 # @headlessly/crm
 
-CRM entities for contacts, organizations, deals, leads, activities, and pipelines — as typed Digital Objects with full verb conjugation.
+> Your CRM was designed for humans clicking buttons. Your agents deserve better.
+
+```typescript
+import { Contact, Deal } from '@headlessly/crm'
+
+await Contact.create({ name: 'Alice Chen', email: 'alice@acme.co', stage: 'Lead' })
+await Contact.qualify('contact_fX9bL5nRd')
+
+// A deal closes — billing, support, and marketing react instantly
+Deal.closed(async (deal, $) => {
+  await $.Subscription.create({ plan: 'pro', customer: deal.contact })
+  await $.Ticket.create({ subject: `Welcome ${deal.name}`, requester: deal.contact })
+  await $.Campaign.create({ name: `Onboard ${deal.name}`, type: 'Email' })
+})
+```
+
+No HubSpot API. No Salesforce SOQL. No webhook middleware. Contacts, deals, and the entire business graph — in one typed system your agent can operate autonomously.
+
+## The Problem
+
+HubSpot has 500+ API endpoints. Salesforce has SOQL, SOSL, Apex, and 40 years of enterprise baggage. Pipedrive is simpler but still human-first — built for sales reps dragging cards across a Kanban board.
+
+None of them were built for an AI agent to operate.
+
+Your agent doesn't need a drag-and-drop pipeline view. It needs `Deal.close()`. It doesn't need a contact record page with 47 tabs. It needs `Contact.qualify()`. It doesn't need a "workflow builder" GUI. It needs a BEFORE hook:
+
+```typescript
+Contact.qualifying(contact => {
+  if (contact.leadScore < 50) throw new Error('Score too low to qualify')
+})
+```
+
+## One Typed Graph
+
+When you close a deal in HubSpot, does your Stripe subscription activate? Does your Zendesk ticket system know? Does your analytics pipeline capture it?
+
+Not without Zapier, webhook handlers, and a prayer.
+
+In headless.ly, closing a deal IS activating a subscription IS tracking an event IS creating a ticket — because they're all nodes in the same graph:
+
+```typescript
+import { Deal, Contact } from '@headlessly/crm'
+
+Deal.closed(async (deal, $) => {
+  await $.Subscription.create({ plan: 'pro', customer: deal.contact })
+  await $.Event.create({ type: 'deal.closed', value: deal.value })
+  await $.Campaign.create({ name: `Onboard ${deal.name}`, type: 'Email' })
+})
+
+Contact.qualified(async (contact, $) => {
+  await $.Deal.create({ name: `${contact.name} opportunity`, contact: contact.$id })
+  await $.Activity.create({ subject: `Follow up with ${contact.name}`, type: 'Task' })
+})
+```
+
+No webhooks. No Zapier. No integration tax. One graph.
 
 ## Install
 
@@ -10,9 +65,61 @@ npm install @headlessly/crm
 
 ## Entities
 
-### Organization
+### Contact
 
-Companies and organizations in your CRM graph.
+People in your graph — leads, customers, partners, stakeholders.
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+const alice = await Contact.create({
+  name: 'Alice Chen',
+  email: 'alice@acme.co',
+  role: 'DecisionMaker',
+  stage: 'Lead',
+})
+
+await Contact.qualify(alice.$id)
+
+Contact.qualified((contact, $) => {
+  $.Deal.create({ name: `${contact.name} opportunity`, contact: contact.$id })
+})
+```
+
+**Verbs**: `qualify()` · `qualifying()` · `qualified()` · `qualifiedBy`
+
+**Key fields**: name, email, phone, title, role (`DecisionMaker | Influencer | Champion | Blocker | User`), status (`Active | Inactive | Bounced | Unsubscribed`), leadScore, source
+
+**Relationships**: → Organization, → Manager, ← Leads[], ← Activities[], ← Deals[]
+
+### Deal
+
+Revenue opportunities with real verbs — not status string updates.
+
+```typescript
+import { Deal } from '@headlessly/crm'
+
+const deal = await Deal.create({
+  name: 'Acme Enterprise',
+  value: 50000,
+  stage: 'Qualification',
+  contact: 'contact_fX9bL5nRd',
+  organization: 'organization_e5JhLzXc',
+})
+
+await Deal.close(deal.$id)
+await Deal.win(deal.$id)
+```
+
+**Verbs**: `close()` · `win()` · `lose()` — each with full lifecycle conjugation
+
+**Key fields**: name, value, currency, stage (`Prospecting | Qualification | Proposal | Negotiation | ClosedWon | ClosedLost`), probability, expectedCloseDate, source
+
+**Relationships**: → Organization, → Contact, → Owner, → Campaign, ← Leads[], ← Activities[]
+
+### Company
+
+Organizations in your CRM graph with hierarchy support.
 
 ```typescript
 import { Organization } from '@headlessly/crm'
@@ -25,129 +132,22 @@ await Organization.create({
 })
 ```
 
-**Fields**: `name`, `legalName`, `slug`, `domain`, `website`, `description`, `logo`, `type`, `status`, `tier`, `source`, `industry`, `naicsCode`, `employeeCount`, `annualRevenue`, `foundedYear`, `address`, `city`, `state`, `country`, `postalCode`, `timezone`, `lifetimeValue`, `healthScore`, `npsScore`, `linkedinUrl`, `twitterHandle`
+**Key fields**: name, domain, type (`Prospect | Customer | Partner | Vendor | Competitor`), status, tier (`Enterprise | Business | Startup | SMB`), industry, employeeCount, annualRevenue
 
-**Relationships**:
-
-- `parent` -> Organization (self-referential hierarchy)
-- `subsidiaries` <- Organization.parent[]
-- `contacts` <- Contact.organization[]
-- `deals` <- Deal.organization[]
-- `subscriptions` <- Subscription.organization[]
-
-**Enums**:
-
-- `type`: Prospect | Customer | Partner | Vendor | Competitor
-- `status`: Active | Inactive | Churned | Archived
-- `tier`: Enterprise | Business | Startup | SMB
-
-### Contact
-
-People in your CRM — leads, customers, team members, stakeholders.
-
-```typescript
-import { Contact } from '@headlessly/crm'
-
-await Contact.create({
-  name: 'Alice Chen',
-  email: 'alice@acme.co',
-  role: 'DecisionMaker',
-})
-
-await Contact.qualify('contact_fX9bL5nRd')
-
-// React to qualification events
-Contact.qualified((contact) => {
-  console.log(`${contact.name} qualified`)
-})
-```
-
-**Fields**: `name`, `firstName`, `lastName`, `email`, `phone`, `mobile`, `avatar`, `title`, `department`, `role`, `status`, `source`, `leadScore`, `preferredChannel`, `timezone`, `language`, `linkedinUrl`, `twitterHandle`, `marketingConsent`, `lastEngagement`
-
-**Relationships**:
-
-- `organization` -> Organization.contacts
-- `manager` -> Contact.reports (self-referential hierarchy)
-- `reports` <- Contact.manager[]
-- `leads` <- Lead.contact[]
-- `activities` <- Activity.contact[]
-
-**Verbs**: `qualify()` / `qualifying()` / `qualified()` / `qualifiedBy`
-
-**Enums**:
-
-- `role`: DecisionMaker | Influencer | Champion | Blocker | User
-- `status`: Active | Inactive | Bounced | Unsubscribed
-- `preferredChannel`: Email | Phone | SMS | Chat
+**Relationships**: → Parent, ← Subsidiaries[], ← Contacts[], ← Deals[], ← Subscriptions[]
 
 ### Lead
 
-Inbound or outbound leads tied to contacts, campaigns, and deals.
+Inbound and outbound leads with conversion tracking.
 
 ```typescript
 import { Lead } from '@headlessly/crm'
 
-await Lead.create({
-  name: 'Acme Inbound',
-  source: 'Website',
-  contact: 'contact_fX9bL5nRd',
-})
-
+await Lead.create({ name: 'Acme Inbound', source: 'Website', contact: 'contact_fX9bL5nRd' })
 await Lead.convert('lead_k7TmPvQx')
-await Lead.lose('lead_z3RnWqYp')
 ```
 
-**Fields**: `name`, `status`, `source`, `sourceDetail`, `score`, `budget`, `authority`, `need`, `timeline`, `convertedAt`, `lostReason`, `lostAt`, `firstTouchAt`, `lastActivityAt`
-
-**Relationships**:
-
-- `contact` -> Contact.leads
-- `organization` -> Organization
-- `owner` -> Contact
-- `campaign` -> Campaign.leads
-- `deal` -> Deal.leads
-
-**Verbs**: `convert()` / `converting()` / `converted()` / `convertedBy`, `lose()` / `losing()` / `lost()` / `lostBy`
-
-**Enums**:
-
-- `status`: New | Contacted | Qualified | Converted | Lost
-
-### Deal
-
-Revenue opportunities tracked through pipeline stages.
-
-```typescript
-import { Deal } from '@headlessly/crm'
-
-await Deal.create({
-  name: 'Acme Enterprise',
-  value: 50000,
-  stage: 'Qualification',
-  organization: 'organization_e5JhLzXc',
-})
-
-await Deal.close('deal_k7TmPvQx')
-await Deal.win('deal_k7TmPvQx')
-```
-
-**Fields**: `name`, `value`, `currency`, `recurringValue`, `recurringInterval`, `stage`, `probability`, `expectedCloseDate`, `actualCloseDate`, `description`, `nextStep`, `competitorNotes`, `lostReason`, `wonReason`, `source`, `lastActivityAt`
-
-**Relationships**:
-
-- `organization` -> Organization.deals
-- `contact` -> Contact
-- `owner` -> Contact
-- `campaign` -> Campaign
-- `leads` <- Lead.deal[]
-- `activities` <- Activity.deal[]
-
-**Verbs**: `close()` / `closing()` / `closed()` / `closedBy`, `win()` / `winning()` / `won()` / `wonBy`, `lose()` / `losing()` / `lost()` / `lostBy`
-
-**Enums**:
-
-- `stage`: Prospecting | Qualification | Proposal | Negotiation | ClosedWon | ClosedLost
-- `recurringInterval`: Monthly | Quarterly | Yearly
+**Verbs**: `convert()` · `lose()` — each with full lifecycle conjugation
 
 ### Activity
 
@@ -164,27 +164,9 @@ await Activity.create({
 })
 
 await Activity.complete('activity_mN8pZwKj')
-await Activity.cancel('activity_mN8pZwKj')
 ```
 
-**Fields**: `subject`, `type`, `description`, `dueAt`, `startAt`, `endAt`, `duration`, `allDay`, `timezone`, `status`, `priority`, `completedAt`, `outcome`, `recordingUrl`, `meetingLink`, `reminderAt`
-
-**Relationships**:
-
-- `deal` -> Deal.activities
-- `contact` -> Contact.activities
-- `organization` -> Organization
-- `campaign` -> Campaign
-- `assignee` -> Contact
-- `createdBy` -> Contact
-
-**Verbs**: `complete()` / `completing()` / `completed()` / `completedBy`, `cancel()` / `cancelling()` / `cancelled()` / `cancelledBy`
-
-**Enums**:
-
-- `type`: Call | Email | Meeting | Task | Note | Demo | FollowUp
-- `status`: Pending | InProgress | Completed | Cancelled
-- `priority`: Low | Medium | High | Urgent
+**Verbs**: `complete()` · `cancel()` — each with full lifecycle conjugation
 
 ### Pipeline
 
@@ -199,32 +181,39 @@ await Pipeline.create({
 })
 ```
 
-**Fields**: `name`, `slug`, `description`, `isDefault`, `stages`, `dealRotting`
+## Agent-Native
 
-## Event-Driven Reactions
+Your agent connects to one MCP server. It can operate your entire CRM:
 
-Every verb fires lifecycle events you can subscribe to:
-
-```typescript
-import { Deal, Contact } from '@headlessly/crm'
-
-Deal.closed((deal, $) => {
-  $.Contact.qualify(deal.contact)
-})
-
-Contact.qualified((contact) => {
-  console.log(`${contact.name} is now qualified`)
-})
+```json title="crm.headless.ly/mcp#search"
+{ "type": "Contact", "filter": { "stage": "Lead", "leadScore": { "$gte": 50 } } }
 ```
+
+```json title="crm.headless.ly/mcp#fetch"
+{ "type": "Deal", "id": "deal_fX9bL5nRd", "include": ["contact", "organization", "activities"] }
+```
+
+```ts title="crm.headless.ly/mcp#do"
+const qualified = await $.Contact.find({ stage: 'Qualified' })
+for (const contact of qualified) {
+  await $.Deal.create({
+    name: `${contact.name} opportunity`,
+    contact: contact.$id,
+    stage: 'Prospecting',
+  })
+}
+```
+
+Three tools. Not three hundred endpoints.
 
 ## Promise Pipelining
 
 Built on [rpc.do](https://rpc.do) + capnweb — chain operations in a single round-trip:
 
 ```typescript
-const qualified = await Contact.find({ status: 'Active' })
-  .map((c) => c.deals)
-  .filter((d) => d.stage === 'Qualification')
+const openDeals = await Contact.find({ status: 'Active' })
+  .map(c => c.deals)
+  .filter(d => d.stage !== 'ClosedWon' && d.stage !== 'ClosedLost')
 ```
 
 ## License
