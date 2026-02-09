@@ -1,6 +1,6 @@
 # @headlessly/sdk
 
-> One SDK. 32 entities. Every tool your agent needs to run a business.
+> One SDK. 35 entities. Every tool your agent needs to run a business.
 
 ```typescript
 import { $ } from '@headlessly/sdk'
@@ -23,7 +23,7 @@ That's CRM, billing, marketing, analytics, and support — in twelve lines. No w
 
 ## The Problem
 
-Every business runs on the same 32 entities — contacts, deals, subscriptions, invoices, tickets, campaigns, projects, events. Today, each one lives in a different SaaS product with a different API, different auth, different data model, and different webhook format.
+Every business runs on the same 35 entities — contacts, leads, deals, activities, subscriptions, invoices, tickets, campaigns, projects, events. Today, each one lives in a different SaaS product with a different API, different auth, different data model, and different webhook format.
 
 Your agent needs 15 API keys, 15 webhook endpoints, and hundreds of lines of glue code before it can do anything useful.
 
@@ -37,7 +37,7 @@ Your agent needs 15 API keys, 15 webhook endpoints, and hundreds of lines of glu
 
 **Bottom-right** is where most startups live today: great APIs (Stripe, GitHub, Twilio) that don't talk to each other. **Top-left** is the enterprise suite (Salesforce, HubSpot) — unified but built for humans clicking buttons.
 
-**Top-right** is headless.ly: agent-native architecture on one typed graph. 32 entities, three MCP tools, full verb conjugation. The architecture IS the product.
+**Top-right** is headless.ly: agent-native architecture on one typed graph. 35 entities, three MCP tools, full verb conjugation. The architecture IS the product.
 
 ## Install
 
@@ -85,8 +85,8 @@ import { Issue } from '@headlessly/projects'
 
 | Domain | Package | Entities | Replaces |
 |--------|---------|----------|----------|
-| **CRM** | `@headlessly/crm` | Contact, Company, Deal | HubSpot, Salesforce, Pipedrive |
-| **Billing** | `@headlessly/billing` | Customer, Product, Price, Subscription, Invoice, Payment | Stripe Dashboard + billing logic |
+| **CRM** | `@headlessly/crm` | Organization, Contact, Lead, Deal, Activity, Pipeline | HubSpot, Salesforce, Pipedrive |
+| **Billing** | `@headlessly/billing` | Customer, Product, Plan, Price, Subscription, Invoice, Payment | Stripe Dashboard + billing logic |
 | **Projects** | `@headlessly/projects` | Project, Issue, Comment | Jira, Linear, Asana |
 | **Content** | `@headlessly/content` | Content, Asset, Site | Contentful, Sanity, WordPress |
 | **Support** | `@headlessly/support` | Ticket | Zendesk, Intercom, Freshdesk |
@@ -95,7 +95,51 @@ import { Issue } from '@headlessly/projects'
 | **Experiments** | `@headlessly/experiments` | Experiment, FeatureFlag | LaunchDarkly, Optimizely |
 | **Platform** | `@headlessly/platform` | Workflow, Integration, Agent | Zapier, Make, n8n |
 
-Plus **Identity** (User, Organization, ApiKey) and **Communication** (Message) in the core SDK.
+Plus **Identity** (User, ApiKey) and **Communication** (Message) in the core SDK.
+
+### All 35 Entities
+
+The complete entity reference, alphabetical:
+
+| # | Entity | Domain | Package | Custom Verbs |
+|---|--------|--------|---------|-------------|
+| 1 | **Activity** | CRM | `@headlessly/crm` | `complete`, `cancel` |
+| 2 | **Agent** | Platform | `@headlessly/platform` | `deploy`, `pause`, `resume` |
+| 3 | **ApiKey** | Identity | `@headlessly/sdk` | `revoke` |
+| 4 | **Asset** | Content | `@headlessly/content` | `publish`, `archive` |
+| 5 | **Campaign** | Marketing | `@headlessly/marketing` | `launch`, `pause`, `complete` |
+| 6 | **Comment** | Projects | `@headlessly/projects` | — |
+| 7 | **Contact** | CRM | `@headlessly/crm` | `qualify`, `capture`, `assign`, `merge`, `enrich` |
+| 8 | **Content** | Content | `@headlessly/content` | `publish`, `archive`, `schedule` |
+| 9 | **Customer** | Billing | `@headlessly/billing` | — |
+| 10 | **Deal** | CRM | `@headlessly/crm` | `close`, `win`, `lose` |
+| 11 | **Event** | Analytics | `@headlessly/analytics` | — |
+| 12 | **Experiment** | Experiments | `@headlessly/experiments` | `start`, `stop`, `conclude` |
+| 13 | **FeatureFlag** | Experiments | `@headlessly/experiments` | `enable`, `disable` |
+| 14 | **Form** | Marketing | `@headlessly/marketing` | `publish`, `archive` |
+| 15 | **Funnel** | Analytics | `@headlessly/analytics` | — |
+| 16 | **Goal** | Analytics | `@headlessly/analytics` | `complete` |
+| 17 | **Integration** | Platform | `@headlessly/platform` | `activate`, `deactivate` |
+| 18 | **Invoice** | Billing | `@headlessly/billing` | `send`, `pay`, `void` |
+| 19 | **Issue** | Projects | `@headlessly/projects` | `assign`, `close`, `reopen` |
+| 20 | **Lead** | CRM | `@headlessly/crm` | `convert`, `lose` |
+| 21 | **Message** | Communication | `@headlessly/sdk` | `send`, `deliver`, `read` |
+| 22 | **Metric** | Analytics | `@headlessly/analytics` | — |
+| 23 | **Organization** | CRM | `@headlessly/crm` | — |
+| 24 | **Payment** | Billing | `@headlessly/billing` | `refund` |
+| 25 | **Pipeline** | CRM | `@headlessly/crm` | — |
+| 26 | **Plan** | Billing | `@headlessly/billing` | `activate`, `retire` |
+| 27 | **Price** | Billing | `@headlessly/billing` | — |
+| 28 | **Product** | Billing | `@headlessly/billing` | `publish`, `archive` |
+| 29 | **Project** | Projects | `@headlessly/projects` | `archive`, `complete` |
+| 30 | **Segment** | Marketing | `@headlessly/marketing` | — |
+| 31 | **Site** | Content | `@headlessly/content` | `publish`, `takedown` |
+| 32 | **Subscription** | Billing | `@headlessly/billing` | `activate`, `pause`, `resume`, `cancel` |
+| 33 | **Ticket** | Support | `@headlessly/support` | `assign`, `escalate`, `resolve`, `close`, `reopen` |
+| 34 | **User** | Identity | `@headlessly/sdk` | `invite`, `suspend`, `activate` |
+| 35 | **Workflow** | Platform | `@headlessly/platform` | `activate`, `deactivate`, `trigger` |
+
+Every entity supports CRUD operations (`create`, `get`, `find`, `update`, `delete`) automatically. Custom verbs add domain-specific lifecycle: `qualify()` → `qualifying()` → `qualified()` → `qualifiedBy`.
 
 ## Agent-Native: Three MCP Tools
 
@@ -138,26 +182,32 @@ Contact.qualified((contact, $) => {
 
 `qualify()`, `qualifying()`, `qualified()`, `qualifiedBy`. Every custom verb. Every CRUD operation. Full lifecycle, zero configuration.
 
-## Promise Pipelining
+## Batch Operations
 
-Built on [rpc.do](https://rpc.do) + capnweb — chain dependent operations in a single round-trip:
+Cross-domain operations with `$.do()` — execute a sequence of operations as a unit:
 
 ```typescript
-// One round-trip, not three
-const openDeals = await $.Contact
-  .find({ stage: 'Qualified' })
-  .map(contact => contact.deals)
-  .filter(deal => deal.stage === 'Open')
+await $.do(async ($) => {
+  const qualified = await $.Contact.find({ stage: 'Qualified' })
+  for (const contact of qualified) {
+    const deals = await $.Deal.find({ contact: contact.$id, stage: 'Open' })
+    for (const deal of deals) {
+      await $.Deal.update(deal.$id, { stage: 'Negotiation' })
+    }
+  }
+})
 ```
 
 ```typescript
-// Automatic batching — concurrent calls become one request
+// Concurrent reads — parallel queries in one call
 const [leads, deals, mrr] = await Promise.all([
   $.Contact.find({ stage: 'Lead' }),
   $.Deal.find({ stage: 'Open' }),
   $.Metric.get('mrr'),
 ])
 ```
+
+Remote operations route through [rpc.do](https://rpc.do) for efficient transport. The `headless.ly` entry point uses DONounProvider with rpc.do for Durable Object communication.
 
 ## Time Travel
 

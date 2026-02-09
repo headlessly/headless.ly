@@ -1,6 +1,6 @@
 ---
 title: Entities
-description: All 32 core entities across 11 product domains.
+description: All 35 core entities across 11 product domains.
 icon: Database
 ---
 
@@ -26,18 +26,60 @@ Every Digital Object carries these `$` meta-fields automatically — you never d
 
 ## Domains
 
-| Domain | Entities | Count |
-|--------|----------|-------|
-| [Identity](/docs/reference/entities/identity) | User, Organization, ApiKey | 3 |
-| [CRM](/docs/reference/entities/crm) | Contact, Company, Deal | 3 |
-| [Projects](/docs/reference/entities/projects) | Project, Issue, Comment | 3 |
-| [Content](/docs/reference/entities/content) | Content, Asset, Site | 3 |
-| [Billing](/docs/reference/entities/billing) | Customer, Product, Price, Subscription, Invoice, Payment | 6 |
-| [Support](/docs/reference/entities/support) | Ticket | 1 |
-| [Analytics](/docs/reference/entities/analytics) | Event, Metric, Funnel, Goal | 4 |
-| [Marketing](/docs/reference/entities/marketing) | Campaign, Segment, Form | 3 |
-| [Experimentation](/docs/reference/entities/experimentation) | Experiment, FeatureFlag | 2 |
-| [Platform](/docs/reference/entities/platform) | Workflow, Integration, Agent | 3 |
-| [Communication](/docs/reference/entities/communication) | Message | 1 |
+| Domain | Package | Entities | Count |
+|--------|---------|----------|-------|
+| [Identity](/docs/reference/entities/identity) | `@headlessly/sdk` | User, ApiKey | 2 |
+| [CRM](/docs/reference/entities/crm) | `@headlessly/crm` | Organization, Contact, Lead, Deal, Activity, Pipeline | 6 |
+| [Billing](/docs/reference/entities/billing) | `@headlessly/billing` | Customer, Product, Plan, Price, Subscription, Invoice, Payment | 7 |
+| [Projects](/docs/reference/entities/projects) | `@headlessly/projects` | Project, Issue, Comment | 3 |
+| [Content](/docs/reference/entities/content) | `@headlessly/content` | Content, Asset, Site | 3 |
+| [Support](/docs/reference/entities/support) | `@headlessly/support` | Ticket | 1 |
+| [Analytics](/docs/reference/entities/analytics) | `@headlessly/analytics` | Event, Metric, Funnel, Goal | 4 |
+| [Marketing](/docs/reference/entities/marketing) | `@headlessly/marketing` | Campaign, Segment, Form | 3 |
+| [Experimentation](/docs/reference/entities/experimentation) | `@headlessly/experiments` | Experiment, FeatureFlag | 2 |
+| [Platform](/docs/reference/entities/platform) | `@headlessly/platform` | Workflow, Integration, Agent | 3 |
+| [Communication](/docs/reference/entities/communication) | `@headlessly/sdk` | Message | 1 |
 
 All entities share the same interface: `create`, `get`, `find`, `update`, `delete`, `count`, plus custom verbs defined on each Noun.
+
+## All 35 Entities
+
+The complete entity reference, alphabetical. Every entity supports CRUD automatically. Custom verbs add domain-specific lifecycle.
+
+| # | Entity | Domain | Custom Verbs |
+|---|--------|--------|-------------|
+| 1 | **Activity** | CRM | `complete`, `cancel` |
+| 2 | **Agent** | Platform | `deploy`, `pause`, `resume` |
+| 3 | **ApiKey** | Identity | `revoke` |
+| 4 | **Asset** | Content | `publish`, `archive` |
+| 5 | **Campaign** | Marketing | `launch`, `pause`, `complete` |
+| 6 | **Comment** | Projects | — |
+| 7 | **Contact** | CRM | `qualify`, `capture`, `assign`, `merge`, `enrich` |
+| 8 | **Content** | Content | `publish`, `archive`, `schedule` |
+| 9 | **Customer** | Billing | — |
+| 10 | **Deal** | CRM | `close`, `win`, `lose` |
+| 11 | **Event** | Analytics | — |
+| 12 | **Experiment** | Experiments | `start`, `stop`, `conclude` |
+| 13 | **FeatureFlag** | Experiments | `enable`, `disable` |
+| 14 | **Form** | Marketing | `publish`, `archive` |
+| 15 | **Funnel** | Analytics | — |
+| 16 | **Goal** | Analytics | `complete` |
+| 17 | **Integration** | Platform | `activate`, `deactivate` |
+| 18 | **Invoice** | Billing | `send`, `pay`, `void` |
+| 19 | **Issue** | Projects | `assign`, `close`, `reopen` |
+| 20 | **Lead** | CRM | `convert`, `lose` |
+| 21 | **Message** | Communication | `send`, `deliver`, `read` |
+| 22 | **Metric** | Analytics | — |
+| 23 | **Organization** | CRM | — |
+| 24 | **Payment** | Billing | `refund` |
+| 25 | **Pipeline** | CRM | — |
+| 26 | **Plan** | Billing | `activate`, `retire` |
+| 27 | **Price** | Billing | — |
+| 28 | **Product** | Billing | `publish`, `archive` |
+| 29 | **Project** | Projects | `archive`, `complete` |
+| 30 | **Segment** | Marketing | — |
+| 31 | **Site** | Content | `publish`, `takedown` |
+| 32 | **Subscription** | Billing | `activate`, `pause`, `resume`, `cancel` |
+| 33 | **Ticket** | Support | `assign`, `escalate`, `resolve`, `close`, `reopen` |
+| 34 | **User** | Identity | `invite`, `suspend`, `activate` |
+| 35 | **Workflow** | Platform | `activate`, `deactivate`, `trigger` |
