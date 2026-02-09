@@ -21,7 +21,7 @@ await org.Contact.create({ name: 'Alice', stage: 'Lead' })
 await org.Contact.qualify('contact_fX9bL5')
 
 // React to events via verb conjugation
-org.Contact.qualified(contact => console.log('Qualified:', contact.name))
+org.Contact.qualified((contact) => console.log('Qualified:', contact.name))
 
 // Search, fetch, do -- MCP-like primitives
 const leads = await org.search({ type: 'Contact', filter: { stage: 'Lead' } })
@@ -62,14 +62,14 @@ Creates a `HeadlesslyOrg` instance with access to all 32 entities.
 
 **Options:**
 
-| Option | Type | Default | Description |
-|---|---|---|---|
-| `tenant` | `string` | required | Tenant identifier (e.g., `'acme'`) |
-| `apiKey` | `string` | -- | API key for remote mode |
-| `endpoint` | `string` | `'https://db.headless.ly'` | Remote endpoint override |
-| `mode` | `'memory' \| 'local' \| 'remote'` | `'memory'` | Provider mode |
-| `transport` | `'http' \| 'ws'` | `'http'` | Transport for remote mode |
-| `template` | `'b2b' \| 'b2c' \| 'b2d' \| 'b2a'` | -- | ICP template |
+| Option      | Type                               | Default                    | Description                        |
+| ----------- | ---------------------------------- | -------------------------- | ---------------------------------- |
+| `tenant`    | `string`                           | required                   | Tenant identifier (e.g., `'acme'`) |
+| `apiKey`    | `string`                           | --                         | API key for remote mode            |
+| `endpoint`  | `string`                           | `'https://db.headless.ly'` | Remote endpoint override           |
+| `mode`      | `'memory' \| 'local' \| 'remote'`  | `'memory'`                 | Provider mode                      |
+| `transport` | `'http' \| 'ws'`                   | `'http'`                   | Transport for remote mode          |
+| `template`  | `'b2b' \| 'b2c' \| 'b2d' \| 'b2a'` | --                         | ICP template                       |
 
 ### `HeadlesslyOrg` Instance
 

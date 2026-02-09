@@ -76,10 +76,10 @@ Create a code execution client.
 
 **Config:**
 
-| Option | Type | Default | Description |
-|---|---|---|---|
-| `apiKey` | `string` | required | API key for authentication |
-| `endpoint` | `string` | `'https://code.headless.ly'` | Service endpoint |
+| Option     | Type     | Default                      | Description                |
+| ---------- | -------- | ---------------------------- | -------------------------- |
+| `apiKey`   | `string` | required                     | API key for authentication |
+| `endpoint` | `string` | `'https://code.headless.ly'` | Service endpoint           |
 
 ### Sandbox Management
 

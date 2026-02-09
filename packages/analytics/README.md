@@ -31,11 +31,13 @@ await Event.create({
 **Fields**: `name`, `type`, `data`, `source`, `sessionId`, `userId`, `anonymousId`, `timestamp`, `url`, `path`, `referrer`, `properties`
 
 **Relationships**:
+
 - `organization` -> Organization
 
 **Immutability**: `update: null`, `delete: null` — events are append-only
 
 **Enums**:
+
 - `source`: Browser | Node | API | Snippet
 
 ### Metric
@@ -57,9 +59,11 @@ await Metric.create({
 **Fields**: `name`, `value`, `type`, `unit`, `dimensions`, `timestamp`
 
 **Relationships**:
+
 - `organization` -> Organization
 
 **Enums**:
+
 - `type`: Counter | Gauge | Histogram | Summary
 
 ### Funnel
@@ -85,6 +89,7 @@ await Funnel.create({
 **Fields**: `name`, `description`, `steps`, `conversionRate`
 
 **Relationships**:
+
 - `organization` -> Organization
 
 ### Goal
@@ -110,11 +115,13 @@ await Goal.achieve('goal_mN8pZwKj')
 **Fields**: `name`, `description`, `target`, `current`, `unit`, `period`, `status`
 
 **Relationships**:
+
 - `organization` -> Organization
 
 **Verbs**: `achieve()` / `achieving()` / `achieved()` / `achievedBy`
 
 **Enums**:
+
 - `period`: Daily | Weekly | Monthly | Quarterly | Yearly
 - `status`: OnTrack | AtRisk | Behind | Achieved
 
@@ -135,8 +142,7 @@ Goal.achieved((goal) => {
 Built on [rpc.do](https://rpc.do) + capnweb — chain operations in a single round-trip:
 
 ```typescript
-const active = await Goal.find({ status: 'OnTrack' })
-  .filter(g => g.period === 'Monthly')
+const active = await Goal.find({ status: 'OnTrack' }).filter((g) => g.period === 'Monthly')
 ```
 
 ## License

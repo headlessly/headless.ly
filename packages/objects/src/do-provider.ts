@@ -125,7 +125,7 @@ export class DONounProvider implements NounProvider {
               }
               const response = await doFetch(path, { method: 'GET', headers: { 'X-Context': this.context } })
               if (!response.ok) throw new DOProviderError(`find failed`, response.status)
-              const body = await response.json() as Record<string, unknown>
+              const body = (await response.json()) as Record<string, unknown>
               const data = (body?.data ?? body?.items ?? body) as unknown[]
               return Array.isArray(data) ? data : []
             },
@@ -137,7 +137,7 @@ export class DONounProvider implements NounProvider {
               })
               if (response.status === 404) return null
               if (!response.ok) throw new DOProviderError(`get failed`, response.status)
-              const body = await response.json() as Record<string, unknown>
+              const body = (await response.json()) as Record<string, unknown>
               return body?.data ?? body
             },
             put: async (id: string, data: Record<string, unknown>) => {
@@ -148,7 +148,7 @@ export class DONounProvider implements NounProvider {
                 body: JSON.stringify(data),
               })
               if (!response.ok) throw new DOProviderError(`update failed`, response.status)
-              const body = await response.json() as Record<string, unknown>
+              const body = (await response.json()) as Record<string, unknown>
               return body?.data ?? body
             },
             create: async (data: Record<string, unknown>) => {
@@ -159,7 +159,7 @@ export class DONounProvider implements NounProvider {
                 body: JSON.stringify(data),
               })
               if (!response.ok) throw new DOProviderError(`create failed`, response.status)
-              const body = await response.json() as Record<string, unknown>
+              const body = (await response.json()) as Record<string, unknown>
               return body?.data ?? body
             },
             delete: async (id: string) => {
@@ -206,7 +206,7 @@ export class DONounProvider implements NounProvider {
   async find(type: string, where?: Record<string, unknown>): Promise<NounInstance[]> {
     const collection = toCollectionName(type)
     const ns = this.rpc[collection] as Record<string, (...args: unknown[]) => Promise<unknown>>
-    const result = await ns.find(where ?? {}) as unknown[]
+    const result = (await ns.find(where ?? {})) as unknown[]
     if (Array.isArray(result)) return result.map(toNounInstance)
     return []
   }

@@ -37,12 +37,10 @@ Transform results server-side without pulling data to the client first.
 
 ```typescript
 // Server-side map -- the callback runs on the server
-const dealValues = await $.deals.find({ stage: 'Open' }).map(d => d.value)
+const dealValues = await $.deals.find({ stage: 'Open' }).map((d) => d.value)
 
 // Chain maps
-const names = await $.contacts
-  .find({ stage: 'Customer' })
-  .map(c => c.name)
+const names = await $.contacts.find({ stage: 'Customer' }).map((c) => c.name)
 ```
 
 ### Automatic Batching
@@ -51,10 +49,7 @@ Concurrent operations are batched into a single request.
 
 ```typescript
 // One request, not two
-const [contacts, deals] = await Promise.all([
-  $.contacts.find({ stage: 'Lead' }),
-  $.deals.find({ stage: 'Open' }),
-])
+const [contacts, deals] = await Promise.all([$.contacts.find({ stage: 'Lead' }), $.deals.find({ stage: 'Open' })])
 ```
 
 ### WebSocket Transport
@@ -75,12 +70,12 @@ Create a preconfigured rpc.do client for a headless.ly tenant.
 
 **Options:**
 
-| Option | Type | Default | Description |
-|---|---|---|---|
-| `tenant` | `string` | required | Tenant identifier |
-| `apiKey` | `string` | -- | API key for authentication |
-| `endpoint` | `string` | `'https://db.headless.ly'` | Endpoint override |
-| `transport` | `'http' \| 'ws'` | `'http'` | Transport protocol |
+| Option      | Type             | Default                    | Description                |
+| ----------- | ---------------- | -------------------------- | -------------------------- |
+| `tenant`    | `string`         | required                   | Tenant identifier          |
+| `apiKey`    | `string`         | --                         | API key for authentication |
+| `endpoint`  | `string`         | `'https://db.headless.ly'` | Endpoint override          |
+| `transport` | `'http' \| 'ws'` | `'http'`                   | Transport protocol         |
 
 ### Re-exports from rpc.do
 

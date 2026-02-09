@@ -273,7 +273,7 @@ export function EntityForm({
           disabled={submitting}
           data-testid='form-submit'
         >
-          {submitting ? 'Saving...' : submitLabel ?? (isEdit ? 'Update' : 'Create')}
+          {submitting ? 'Saving...' : (submitLabel ?? (isEdit ? 'Update' : 'Create'))}
         </button>
       </div>
     </form>

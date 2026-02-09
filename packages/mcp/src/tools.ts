@@ -28,8 +28,7 @@ export function getTools(context?: MCPContext): MCPTool[] {
           },
           filter: {
             type: 'object',
-            description:
-              'Filter criteria. Keys are field names, values are exact matches. Use $gt, $lt, $gte, $lte, $ne, $in for comparisons.',
+            description: 'Filter criteria. Keys are field names, values are exact matches. Use $gt, $lt, $gte, $lte, $ne, $in for comparisons.',
           },
           limit: {
             type: 'number',
@@ -76,15 +75,13 @@ export function getTools(context?: MCPContext): MCPTool[] {
     },
     {
       name: 'do',
-      description:
-        'Execute an action on headless.ly. Create entities, execute verbs (qualify, close, pause), run workflows, or evaluate TypeScript code.',
+      description: 'Execute an action on headless.ly. Create entities, execute verbs (qualify, close, pause), run workflows, or evaluate TypeScript code.',
       inputSchema: {
         type: 'object',
         properties: {
           action: {
             type: 'string',
-            description:
-              'Action to execute: "create", "update", "delete", a verb name (e.g., "qualify", "close", "pause"), or "eval" for code execution',
+            description: 'Action to execute: "create", "update", "delete", a verb name (e.g., "qualify", "close", "pause"), or "eval" for code execution',
           },
           type: {
             type: 'string',

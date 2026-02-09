@@ -35,6 +35,7 @@ await Ticket.reopen('ticket_k7TmPvQx')
 **Fields**: `subject`, `description`, `status`, `priority`, `category`, `channel`, `tags`, `firstResponseAt`, `resolvedAt`, `satisfaction`
 
 **Relationships**:
+
 - `assignee` -> Contact
 - `requester` -> Contact
 - `organization` -> Organization
@@ -42,6 +43,7 @@ await Ticket.reopen('ticket_k7TmPvQx')
 **Verbs**: `resolve()` / `resolving()` / `resolved()` / `resolvedBy`, `escalate()` / `escalating()` / `escalated()` / `escalatedBy`, `close()` / `closing()` / `closed()` / `closedBy`, `reopen()` / `reopening()` / `reopened()` / `reopenedBy`
 
 **Enums**:
+
 - `status`: Open | Pending | InProgress | Resolved | Closed
 - `priority`: Low | Medium | High | Urgent
 - `channel`: Email | Chat | Phone | Web | API
@@ -72,8 +74,7 @@ Ticket.reopened((ticket, $) => {
 Built on [rpc.do](https://rpc.do) + capnweb — chain operations in a single round-trip:
 
 ```typescript
-const urgent = await Ticket.find({ priority: 'Urgent' })
-  .filter(t => t.status === 'Open')
+const urgent = await Ticket.find({ priority: 'Urgent' }).filter((t) => t.status === 'Open')
 ```
 
 ## License

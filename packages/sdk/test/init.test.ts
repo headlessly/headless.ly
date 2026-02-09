@@ -19,8 +19,12 @@ vi.mock('digital-objects', () => {
     async create(type: string, data: Record<string, unknown>) {
       return { $type: type, $id: `${type.toLowerCase()}_mock123`, ...data }
     }
-    async find() { return [] }
-    async get() { return null }
+    async find() {
+      return []
+    }
+    async get() {
+      return null
+    }
   }
 
   function Noun(name: string, _schema: Record<string, string>) {
@@ -42,7 +46,9 @@ vi.mock('digital-objects', () => {
   return {
     Noun,
     MemoryNounProvider,
-    setProvider: vi.fn((p: unknown) => { currentProvider = p }),
+    setProvider: vi.fn((p: unknown) => {
+      currentProvider = p
+    }),
     getProvider: vi.fn(() => {
       if (!currentProvider) currentProvider = new MemoryNounProvider()
       return currentProvider
@@ -188,11 +194,14 @@ describe('headlessly() initialization', () => {
 
     it('routes $.Contact.create() through the remote provider, not local memory', async () => {
       const fetchSpy = vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({
-          $type: 'Contact',
-          $id: 'contact_fX9bL5nRd',
-          name: 'Alice',
-        }), { status: 200 })
+        new Response(
+          JSON.stringify({
+            $type: 'Contact',
+            $id: 'contact_fX9bL5nRd',
+            name: 'Alice',
+          }),
+          { status: 200 },
+        ),
       )
       vi.stubGlobal('fetch', fetchSpy)
 
@@ -304,21 +313,15 @@ describe('headlessly() initialization', () => {
 
   describe('endpoint URL validation', () => {
     it('throws on invalid URL format', () => {
-      expect(() =>
-        headlessly({ endpoint: 'not-a-url', apiKey: 'hly_sk_test123' })
-      ).toThrow(/invalid/i)
+      expect(() => headlessly({ endpoint: 'not-a-url', apiKey: 'hly_sk_test123' })).toThrow(/invalid/i)
     })
 
     it('throws on empty string endpoint', () => {
-      expect(() =>
-        headlessly({ endpoint: '', apiKey: 'hly_sk_test123' })
-      ).toThrow(/invalid|endpoint|empty/i)
+      expect(() => headlessly({ endpoint: '', apiKey: 'hly_sk_test123' })).toThrow(/invalid|endpoint|empty/i)
     })
 
     it('error message mentions invalid endpoint', () => {
-      expect(() =>
-        headlessly({ endpoint: 'not-a-url', apiKey: 'hly_sk_test123' })
-      ).toThrow(/invalid.*endpoint|invalid.*url/i)
+      expect(() => headlessly({ endpoint: 'not-a-url', apiKey: 'hly_sk_test123' })).toThrow(/invalid.*endpoint|invalid.*url/i)
     })
 
     it('accepts valid HTTPS endpoint', () => {
@@ -326,7 +329,7 @@ describe('headlessly() initialization', () => {
         headlessly({
           endpoint: 'https://db.headless.ly',
           apiKey: 'hly_sk_test123',
-        })
+        }),
       ).not.toThrow()
     })
 
@@ -335,7 +338,7 @@ describe('headlessly() initialization', () => {
         headlessly({
           endpoint: 'http://localhost:8787',
           apiKey: 'hly_sk_test123',
-        })
+        }),
       ).not.toThrow()
     })
 
@@ -462,7 +465,9 @@ describe('headlessly() initialization', () => {
 
     it('$.do auto-initializes', async () => {
       let called = false
-      await $.do(async () => { called = true })
+      await $.do(async () => {
+        called = true
+      })
       expect(called).toBe(true)
       expect(headlessly.isInitialized()).toBe(true)
     })

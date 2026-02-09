@@ -39,12 +39,14 @@ await Experiment.conclude('experiment_fX9bL5nRd')
 **Fields**: `name`, `slug`, `description`, `hypothesis`, `type`, `status`, `startAt`, `endAt`, `targetAudience`, `trafficAllocation`, `variants`, `metrics`, `primaryMetric`, `results`, `winner`, `confidence`, `sampleSize`, `conversions`, `tags`
 
 **Relationships**:
+
 - `organization` -> Organization
 - `owner` -> Contact
 
 **Verbs**: `start()` / `starting()` / `started()` / `startedBy`, `conclude()` / `concluding()` / `concluded()` / `concludedBy`, `pause()` / `pausing()` / `paused()` / `pausedBy`
 
 **Enums**:
+
 - `type`: ABTest | Multivariate | FeatureFlag | MLExperiment | PromptExperiment
 - `status`: Draft | Running | Paused | Completed | Archived
 
@@ -74,12 +76,14 @@ await FeatureFlag.disable('featureflag_k7TmPvQx')
 **Fields**: `key`, `name`, `description`, `type`, `defaultValue`, `variants`, `targetingRules`, `status`, `rolloutPercentage`, `evaluations`, `lastEvaluatedAt`
 
 **Relationships**:
+
 - `organization` -> Organization
 - `experiment` -> Experiment
 
 **Verbs**: `rollout()` / `rollingOut()` / `rolledOut()` / `rolledOutBy`, `enable()` / `enabling()` / `enabled()` / `enabledBy`, `disable()` / `disabling()` / `disabled()` / `disabledBy`
 
 **Enums**:
+
 - `type`: Boolean | String | Number | JSON
 - `status`: Draft | Active | Paused | Archived
 
@@ -108,8 +112,7 @@ FeatureFlag.disabled((flag) => {
 Built on [rpc.do](https://rpc.do) + capnweb — chain operations in a single round-trip:
 
 ```typescript
-const running = await Experiment.find({ status: 'Running' })
-  .filter(e => e.confidence >= 95)
+const running = await Experiment.find({ status: 'Running' }).filter((e) => e.confidence >= 95)
 ```
 
 ## License

@@ -46,18 +46,18 @@ headlessly mcp
 
 ## Commands
 
-| Command | Description |
-|---|---|
-| `search <type>` | Search for entities across the graph |
-| `fetch <type> <id>` | Fetch a specific entity by type and ID |
+| Command              | Description                                                |
+| -------------------- | ---------------------------------------------------------- |
+| `search <type>`      | Search for entities across the graph                       |
+| `fetch <type> <id>`  | Fetch a specific entity by type and ID                     |
 | `do <action> [args]` | Execute an action (create, update, delete, or custom verb) |
-| `login` | Authenticate with headless.ly |
-| `init` | Initialize a new headless.ly project |
-| `status` | Show current org and connection status |
-| `schema [noun]` | Display schema definitions |
-| `mcp` | Start an MCP server |
-| `help` | Show usage information |
-| `--version` | Show version |
+| `login`              | Authenticate with headless.ly                              |
+| `init`               | Initialize a new headless.ly project                       |
+| `status`             | Show current org and connection status                     |
+| `schema [noun]`      | Display schema definitions                                 |
+| `mcp`                | Start an MCP server                                        |
+| `help`               | Show usage information                                     |
+| `--version`          | Show version                                               |
 
 ## API
 

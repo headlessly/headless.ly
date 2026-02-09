@@ -28,6 +28,7 @@
  */
 
 const DEFAULT_ENDPOINT = 'https://headless.ly/e'
+const DEFAULT_FLAG_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
 // =============================================================================
 // Types
@@ -44,6 +45,8 @@ export interface NodeConfig {
   flushInterval?: number
   maxRetries?: number
   timeout?: number
+  maxQueueSize?: number
+  flagCacheTTL?: number
   tags?: Record<string, string>
   onError?: (error: Error) => void
 }
@@ -70,12 +73,14 @@ interface Event {
 // =============================================================================
 
 export class HeadlessNodeClient {
+  readonly apiKey: string
+  readonly endpoint: string
   private config: NodeConfig
-  private endpoint: string
   private queue: Event[] = []
-  private flushTimer?: ReturnType<typeof setInterval>
+  private flushTimer?: ReturnType<typeof setTimeout> | ReturnType<typeof setInterval>
   private tags: Record<string, string> = {}
   private flagCache = new Map<string, { value: FlagValue; expires: number }>()
+  private isShutdown = false
 
   constructor(config: NodeConfig) {
     this.config = {
@@ -87,11 +92,18 @@ export class HeadlessNodeClient {
       ...config,
     }
 
+    this.apiKey = config.apiKey
     this.endpoint = config.endpoint ?? DEFAULT_ENDPOINT
     if (config.tags) this.tags = { ...config.tags }
 
-    this.flushTimer = setInterval(() => this.flush(), this.config.flushInterval)
     this.debug('Initialized')
+  }
+
+  private startFlushTimer(): void {
+    if (this.isShutdown) return
+    this.flushTimer = setInterval(() => {
+      void this.flush()
+    }, this.config.flushInterval!)
   }
 
   private debug(msg: string, ctx?: Record<string, unknown>): void {
@@ -212,7 +224,7 @@ export class HeadlessNodeClient {
   // Feature Flags
   // ===========================================================================
 
-  async getFeatureFlag(key: string, distinctId: string): Promise<FlagValue | undefined> {
+  async getFeatureFlag(key: string, distinctId: string, options?: { defaultValue?: FlagValue }): Promise<FlagValue | undefined> {
     // Check cache
     const cached = this.flagCache.get(`${key}:${distinctId}`)
     if (cached && cached.expires > Date.now()) {
@@ -231,17 +243,38 @@ export class HeadlessNodeClient {
         const data = await res.json()
         const value = data.flags?.[key]
         if (value !== undefined) {
-          // Cache for 5 minutes
-          this.flagCache.set(`${key}:${distinctId}`, { value, expires: Date.now() + 5 * 60 * 1000 })
+          const ttl = this.config.flagCacheTTL ?? DEFAULT_FLAG_CACHE_TTL
+          this.flagCache.set(`${key}:${distinctId}`, { value, expires: Date.now() + ttl })
           this.track('$feature_flag_called', { $feature_flag: key, $feature_flag_response: value }, distinctId)
+          return value
         }
-        return value
+        return options?.defaultValue
       }
     } catch (err) {
       this.debug('Failed to get flag', { key, error: err })
     }
 
-    return undefined
+    return options?.defaultValue !== undefined ? options.defaultValue : undefined
+  }
+
+  async getAllFlags(distinctId: string): Promise<Record<string, FlagValue>> {
+    try {
+      const res = await fetch(`${this.endpoint}/flags`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.config.apiKey}` },
+        body: JSON.stringify({ distinctId }),
+        signal: AbortSignal.timeout(this.config.timeout ?? 30000),
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        return data.flags ?? {}
+      }
+    } catch (err) {
+      this.debug('Failed to get all flags', { error: err })
+    }
+
+    return {}
   }
 
   async isFeatureEnabled(key: string, distinctId: string): Promise<boolean> {
@@ -299,8 +332,20 @@ export class HeadlessNodeClient {
   // Queue & Flush
   // ===========================================================================
 
+  get queueSize(): number {
+    return this.queue.length
+  }
+
   private enqueue(event: Event): void {
+    const maxQueueSize = this.config.maxQueueSize
+    if (maxQueueSize !== undefined && this.queue.length >= maxQueueSize) {
+      // Drop oldest event to make room
+      this.queue.shift()
+    }
     this.queue.push(event)
+    if (!this.flushTimer && !this.isShutdown) {
+      this.startFlushTimer()
+    }
     if (this.queue.length >= (this.config.batchSize ?? 20)) {
       this.flush()
     }
@@ -322,7 +367,15 @@ export class HeadlessNodeClient {
         signal: AbortSignal.timeout(this.config.timeout ?? 30000),
       })
 
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) {
+        const status = res.status
+        // Don't retry on 4xx client errors
+        if (status >= 400 && status < 500) {
+          this.config.onError?.(new Error(`HTTP ${status}`))
+          return
+        }
+        throw new Error(`HTTP ${status}`)
+      }
       this.debug('Sent', { count: events.length })
     } catch (err) {
       this.debug('Send failed', { error: err, attempt })
@@ -337,7 +390,10 @@ export class HeadlessNodeClient {
   }
 
   async shutdown(): Promise<void> {
+    if (this.isShutdown) return
+    this.isShutdown = true
     if (this.flushTimer) clearInterval(this.flushTimer)
+    this.flushTimer = undefined
     await this.flush()
     this.debug('Shutdown')
   }
@@ -351,4 +407,110 @@ export function createClient(config: NodeConfig): HeadlessNodeClient {
   return new HeadlessNodeClient(config)
 }
 
-export default { createClient, HeadlessNodeClient }
+// =============================================================================
+// Singleton (Headlessly.init)
+// =============================================================================
+
+let _singleton: HeadlessNodeClient | undefined
+
+export const Headlessly = {
+  init(config: NodeConfig): HeadlessNodeClient {
+    if (!config.apiKey) {
+      throw new Error('apiKey is required')
+    }
+    if (_singleton) return _singleton
+
+    _singleton = new HeadlessNodeClient(config)
+
+    process.once('SIGTERM', () => {
+      _singleton?.shutdown()
+    })
+    process.once('SIGINT', () => {
+      _singleton?.shutdown()
+    })
+
+    return _singleton
+  },
+
+  reset(): void {
+    if (_singleton) {
+      _singleton.shutdown()
+    }
+    _singleton = undefined
+  },
+}
+
+// =============================================================================
+// Express middleware
+// =============================================================================
+
+export function expressMiddleware(client: HeadlessNodeClient) {
+  return function expressMw(
+    req: { method: string; url: string; path?: string; headers: Record<string, string> },
+    res: { statusCode: number; on: (event: string, cb: () => void) => void },
+    next: () => void,
+  ): void {
+    const start = Date.now()
+
+    res.on('finish', () => {
+      const duration = Date.now() - start
+      client.track('http_request', {
+        method: req.method,
+        path: req.path ?? req.url,
+        status: res.statusCode,
+        duration,
+        userAgent: req.headers['user-agent'],
+      })
+    })
+
+    try {
+      next()
+    } catch (err) {
+      if (err instanceof Error) {
+        client.captureException(err)
+      }
+      throw err
+    }
+  }
+}
+
+// =============================================================================
+// Hono middleware
+// =============================================================================
+
+export function honoMiddleware(client: HeadlessNodeClient) {
+  return async function honoMw(
+    c: {
+      req: {
+        method: string
+        path: string
+        url: string
+        header: (name: string) => string | undefined
+      }
+      res: { status: number }
+    },
+    next: () => Promise<void>,
+  ): Promise<void> {
+    const start = Date.now()
+
+    try {
+      await next()
+    } catch (err) {
+      if (err instanceof Error) {
+        client.captureException(err)
+      }
+      throw err
+    } finally {
+      const duration = Date.now() - start
+      client.track('http_request', {
+        method: c.req.method,
+        path: c.req.path,
+        status: c.res.status,
+        duration,
+        userAgent: c.req.header('user-agent'),
+      })
+    }
+  }
+}
+
+export default { createClient, HeadlessNodeClient, Headlessly, expressMiddleware, honoMiddleware }

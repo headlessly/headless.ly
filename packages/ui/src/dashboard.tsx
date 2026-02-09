@@ -97,19 +97,13 @@ function DashboardCardComponent({
   return (
     <div style={dashboardStyles.card} data-testid={`dashboard-card-${card.noun}`}>
       <div style={dashboardStyles.cardHeader}>
-        <h3
-          style={{ ...dashboardStyles.cardTitle, ...(onNavigate ? { cursor: 'pointer' } : {}) }}
-          onClick={() => onNavigate?.(card.noun)}
-        >
+        <h3 style={{ ...dashboardStyles.cardTitle, ...(onNavigate ? { cursor: 'pointer' } : {}) }} onClick={() => onNavigate?.(card.noun)}>
           {title}
         </h3>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <span style={dashboardStyles.cardCount}>{loading ? '\u2014' : (total ?? entities.length)}</span>
           {onCreate && (
-            <button
-              style={{ ...buttonStyles.base, ...buttonStyles.primary, padding: '4px 12px', fontSize: '12px' }}
-              onClick={() => onCreate(card.noun)}
-            >
+            <button style={{ ...buttonStyles.base, ...buttonStyles.primary, padding: '4px 12px', fontSize: '12px' }} onClick={() => onCreate(card.noun)}>
               + New
             </button>
           )}
@@ -129,9 +123,7 @@ function DashboardCardComponent({
               onClick={() => onEntityClick?.(card.noun, entity)}
             >
               <span>{displayField ? String(entity[displayField] ?? entity.$id) : entity.$id}</span>
-              <span style={{ fontSize: '12px', color: 'var(--hly-text-muted, #6b7280)' }}>
-                {formatCellValue(entity.$createdAt, 'datetime')}
-              </span>
+              <span style={{ fontSize: '12px', color: 'var(--hly-text-muted, #6b7280)' }}>{formatCellValue(entity.$createdAt, 'datetime')}</span>
             </li>
           ))}
         </ul>

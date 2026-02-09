@@ -103,7 +103,7 @@ export function VerbButton({
         data-testid={`verb-button-${verb}`}
         title={`${formatLabel(verb)} this ${noun}`}
       >
-        {loading ? `${formatLabel(verb)}ing...` : label ?? formatLabel(verb)}
+        {loading ? `${formatLabel(verb)}ing...` : (label ?? formatLabel(verb))}
       </button>
       {error && <span style={{ color: 'var(--hly-danger, #dc2626)', fontSize: '11px', marginTop: '4px' }}>{error}</span>}
     </span>

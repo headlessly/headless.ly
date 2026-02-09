@@ -21,6 +21,8 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "prepublishOnly": "pnpm build",
     "typecheck": "tsc --noEmit"
   },
@@ -28,7 +30,8 @@
     "digital-objects": "^1.0.0"
   },
   "devDependencies": {
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^3.0.2"
   },
   "keywords": [
     "headlessly",

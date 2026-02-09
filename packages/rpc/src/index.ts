@@ -46,18 +46,8 @@ export type {
 export { http, capnweb, binding, composite } from 'rpc.do'
 export type { HttpTransportOptions, CapnwebTransportOptions } from 'rpc.do'
 
-export {
-  createDOClient,
-  connectDO,
-} from 'rpc.do'
-export type {
-  DOClient,
-  SqlQuery,
-  RemoteStorage,
-  RemoteCollection,
-  Filter,
-  QueryOptions,
-} from 'rpc.do'
+export { createDOClient, connectDO } from 'rpc.do'
+export type { DOClient, SqlQuery, RemoteStorage, RemoteCollection, Filter, QueryOptions } from 'rpc.do'
 
 import { RPC } from 'rpc.do'
 import type { RpcProxy, RpcOptions } from 'rpc.do'
@@ -92,9 +82,7 @@ export interface HeadlesslyRpcOptions {
  * const deals = await $.deals.find({ stage: 'Open' }).map(d => d.value)
  * ```
  */
-export function headlessly<T extends object = Record<string, unknown>>(
-  options: HeadlesslyRpcOptions,
-): RpcProxy<T> {
+export function headlessly<T extends object = Record<string, unknown>>(options: HeadlesslyRpcOptions): RpcProxy<T> {
   const base = options.endpoint ?? 'https://db.headless.ly'
   const protocol = options.transport === 'ws' ? 'wss' : 'https'
   const url = base.replace(/^https?/, protocol)

@@ -111,7 +111,9 @@ export function EntityDetail({
   if (!entity) {
     return (
       <div style={{ ...detailStyles.wrapper, ...(style ?? {}) }} className={className}>
-        <p style={{ color: 'var(--hly-text-muted, #6b7280)' }}>{noun} not found: {id}</p>
+        <p style={{ color: 'var(--hly-text-muted, #6b7280)' }}>
+          {noun} not found: {id}
+        </p>
       </div>
     )
   }
@@ -129,7 +131,9 @@ export function EntityDetail({
           <h2 style={detailStyles.title} data-testid='entity-detail-title'>
             {String(entity.name ?? entity.title ?? entity.$id)}
           </h2>
-          <span style={{ fontSize: '13px', color: 'var(--hly-text-muted, #6b7280)' }}>{entity.$type} &middot; {entity.$id}</span>
+          <span style={{ fontSize: '13px', color: 'var(--hly-text-muted, #6b7280)' }}>
+            {entity.$type} &middot; {entity.$id}
+          </span>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
           {onEdit && (
@@ -181,22 +185,20 @@ export function EntityDetail({
                     <div key={col.key}>
                       <div style={detailStyles.fieldLabel}>{col.label}</div>
                       <div style={detailStyles.fieldValue}>
-                        {ids.length === 0 ? (
-                          '\u2014'
-                        ) : (
-                          ids.map((relId: unknown, i: number) => (
-                            <span key={i}>
-                              {i > 0 && ', '}
-                              <span
-                                style={onNavigate ? detailStyles.link : {}}
-                                onClick={() => onNavigate?.(col.type ?? noun, String(relId))}
-                                role={onNavigate ? 'link' : undefined}
-                              >
-                                {String(relId)}
+                        {ids.length === 0
+                          ? '\u2014'
+                          : ids.map((relId: unknown, i: number) => (
+                              <span key={i}>
+                                {i > 0 && ', '}
+                                <span
+                                  style={onNavigate ? detailStyles.link : {}}
+                                  onClick={() => onNavigate?.(col.type ?? noun, String(relId))}
+                                  role={onNavigate ? 'link' : undefined}
+                                >
+                                  {String(relId)}
+                                </span>
                               </span>
-                            </span>
-                          ))
-                        )}
+                            ))}
                       </div>
                     </div>
                   )

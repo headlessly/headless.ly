@@ -28,6 +28,7 @@ await Organization.create({
 **Fields**: `name`, `legalName`, `slug`, `domain`, `website`, `description`, `logo`, `type`, `status`, `tier`, `source`, `industry`, `naicsCode`, `employeeCount`, `annualRevenue`, `foundedYear`, `address`, `city`, `state`, `country`, `postalCode`, `timezone`, `lifetimeValue`, `healthScore`, `npsScore`, `linkedinUrl`, `twitterHandle`
 
 **Relationships**:
+
 - `parent` -> Organization (self-referential hierarchy)
 - `subsidiaries` <- Organization.parent[]
 - `contacts` <- Contact.organization[]
@@ -35,6 +36,7 @@ await Organization.create({
 - `subscriptions` <- Subscription.organization[]
 
 **Enums**:
+
 - `type`: Prospect | Customer | Partner | Vendor | Competitor
 - `status`: Active | Inactive | Churned | Archived
 - `tier`: Enterprise | Business | Startup | SMB
@@ -63,6 +65,7 @@ Contact.qualified((contact) => {
 **Fields**: `name`, `firstName`, `lastName`, `email`, `phone`, `mobile`, `avatar`, `title`, `department`, `role`, `status`, `source`, `leadScore`, `preferredChannel`, `timezone`, `language`, `linkedinUrl`, `twitterHandle`, `marketingConsent`, `lastEngagement`
 
 **Relationships**:
+
 - `organization` -> Organization.contacts
 - `manager` -> Contact.reports (self-referential hierarchy)
 - `reports` <- Contact.manager[]
@@ -72,6 +75,7 @@ Contact.qualified((contact) => {
 **Verbs**: `qualify()` / `qualifying()` / `qualified()` / `qualifiedBy`
 
 **Enums**:
+
 - `role`: DecisionMaker | Influencer | Champion | Blocker | User
 - `status`: Active | Inactive | Bounced | Unsubscribed
 - `preferredChannel`: Email | Phone | SMS | Chat
@@ -96,6 +100,7 @@ await Lead.lose('lead_z3RnWqYp')
 **Fields**: `name`, `status`, `source`, `sourceDetail`, `score`, `budget`, `authority`, `need`, `timeline`, `convertedAt`, `lostReason`, `lostAt`, `firstTouchAt`, `lastActivityAt`
 
 **Relationships**:
+
 - `contact` -> Contact.leads
 - `organization` -> Organization
 - `owner` -> Contact
@@ -105,6 +110,7 @@ await Lead.lose('lead_z3RnWqYp')
 **Verbs**: `convert()` / `converting()` / `converted()` / `convertedBy`, `lose()` / `losing()` / `lost()` / `lostBy`
 
 **Enums**:
+
 - `status`: New | Contacted | Qualified | Converted | Lost
 
 ### Deal
@@ -128,6 +134,7 @@ await Deal.win('deal_k7TmPvQx')
 **Fields**: `name`, `value`, `currency`, `recurringValue`, `recurringInterval`, `stage`, `probability`, `expectedCloseDate`, `actualCloseDate`, `description`, `nextStep`, `competitorNotes`, `lostReason`, `wonReason`, `source`, `lastActivityAt`
 
 **Relationships**:
+
 - `organization` -> Organization.deals
 - `contact` -> Contact
 - `owner` -> Contact
@@ -138,6 +145,7 @@ await Deal.win('deal_k7TmPvQx')
 **Verbs**: `close()` / `closing()` / `closed()` / `closedBy`, `win()` / `winning()` / `won()` / `wonBy`, `lose()` / `losing()` / `lost()` / `lostBy`
 
 **Enums**:
+
 - `stage`: Prospecting | Qualification | Proposal | Negotiation | ClosedWon | ClosedLost
 - `recurringInterval`: Monthly | Quarterly | Yearly
 
@@ -162,6 +170,7 @@ await Activity.cancel('activity_mN8pZwKj')
 **Fields**: `subject`, `type`, `description`, `dueAt`, `startAt`, `endAt`, `duration`, `allDay`, `timezone`, `status`, `priority`, `completedAt`, `outcome`, `recordingUrl`, `meetingLink`, `reminderAt`
 
 **Relationships**:
+
 - `deal` -> Deal.activities
 - `contact` -> Contact.activities
 - `organization` -> Organization
@@ -172,6 +181,7 @@ await Activity.cancel('activity_mN8pZwKj')
 **Verbs**: `complete()` / `completing()` / `completed()` / `completedBy`, `cancel()` / `cancelling()` / `cancelled()` / `cancelledBy`
 
 **Enums**:
+
 - `type`: Call | Email | Meeting | Task | Note | Demo | FollowUp
 - `status`: Pending | InProgress | Completed | Cancelled
 - `priority`: Low | Medium | High | Urgent
@@ -213,8 +223,8 @@ Built on [rpc.do](https://rpc.do) + capnweb — chain operations in a single rou
 
 ```typescript
 const qualified = await Contact.find({ status: 'Active' })
-  .map(c => c.deals)
-  .filter(d => d.stage === 'Qualification')
+  .map((c) => c.deals)
+  .filter((d) => d.stage === 'Qualification')
 ```
 
 ## License

@@ -70,20 +70,20 @@ Create a new Node.js client instance.
 
 **Config:**
 
-| Option | Type | Default | Description |
-|---|---|---|---|
-| `apiKey` | `string` | required | API key |
-| `endpoint` | `string` | `'https://headless.ly/e'` | Event endpoint |
-| `debug` | `boolean` | `false` | Enable debug logging |
-| `release` | `string` | -- | Release/version identifier |
-| `environment` | `string` | -- | Environment name |
-| `serverName` | `string` | -- | Server hostname |
-| `batchSize` | `number` | `20` | Events per batch |
-| `flushInterval` | `number` | `10000` | Auto-flush interval in ms |
-| `maxRetries` | `number` | `3` | Max retry attempts |
-| `timeout` | `number` | `30000` | Request timeout in ms |
-| `tags` | `Record<string, string>` | -- | Default tags for all events |
-| `onError` | `(error: Error) => void` | -- | Error callback |
+| Option          | Type                     | Default                   | Description                 |
+| --------------- | ------------------------ | ------------------------- | --------------------------- |
+| `apiKey`        | `string`                 | required                  | API key                     |
+| `endpoint`      | `string`                 | `'https://headless.ly/e'` | Event endpoint              |
+| `debug`         | `boolean`                | `false`                   | Enable debug logging        |
+| `release`       | `string`                 | --                        | Release/version identifier  |
+| `environment`   | `string`                 | --                        | Environment name            |
+| `serverName`    | `string`                 | --                        | Server hostname             |
+| `batchSize`     | `number`                 | `20`                      | Events per batch            |
+| `flushInterval` | `number`                 | `10000`                   | Auto-flush interval in ms   |
+| `maxRetries`    | `number`                 | `3`                       | Max retry attempts          |
+| `timeout`       | `number`                 | `30000`                   | Request timeout in ms       |
+| `tags`          | `Record<string, string>` | --                        | Default tags for all events |
+| `onError`       | `(error: Error) => void` | --                        | Error callback              |
 
 ### Analytics
 

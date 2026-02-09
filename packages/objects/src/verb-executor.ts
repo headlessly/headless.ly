@@ -91,4 +91,3 @@ function validateVerbExists(schema: NounSchema, verb: string): void {
     throw new Error(`Unknown verb '${verb}' on ${schema.name}`)
   }
 }
-

@@ -59,18 +59,11 @@ const v3 = await traveler.asOf('Contact', 'contact_fX9bL5', {
 })
 
 // Diff between two points in time
-const diff = await traveler.diff(
-  'Contact', 'contact_fX9bL5',
-  { asOf: '2025-01-01T00:00:00Z' },
-  { asOf: '2025-06-01T00:00:00Z' },
-)
+const diff = await traveler.diff('Contact', 'contact_fX9bL5', { asOf: '2025-01-01T00:00:00Z' }, { asOf: '2025-06-01T00:00:00Z' })
 console.log(diff.changes) // [{ field: 'stage', from: 'Lead', to: 'Customer' }]
 
 // Rollback (creates a NEW event -- immutability preserved)
-const { rollbackEvent, restoredState } = await traveler.rollback(
-  'Contact', 'contact_fX9bL5',
-  { atVersion: 2 },
-)
+const { rollbackEvent, restoredState } = await traveler.rollback('Contact', 'contact_fX9bL5', { atVersion: 2 })
 ```
 
 ### Change Data Capture

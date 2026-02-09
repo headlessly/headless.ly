@@ -158,12 +158,7 @@ export function RelationshipGraph({
         {layouted.map((node) => {
           const color = typeColor(node.type)
           return (
-            <g
-              key={node.id}
-              style={{ cursor: onNodeClick ? 'pointer' : 'default' }}
-              onClick={() => onNodeClick?.(node)}
-              data-testid={`graph-node-${node.id}`}
-            >
+            <g key={node.id} style={{ cursor: onNodeClick ? 'pointer' : 'default' }} onClick={() => onNodeClick?.(node)} data-testid={`graph-node-${node.id}`}>
               <rect
                 x={node.x - nodeWidth / 2}
                 y={node.y - nodeHeight / 2}

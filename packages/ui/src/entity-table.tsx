@@ -109,17 +109,14 @@ export function EntityTable({
     return cols
   }, [allColumns, visibleColumns, hideColumns])
 
-  const handleSort = useCallback(
-    (field: string) => {
-      setSort((prev) => {
-        if (prev?.field === field) {
-          return prev.direction === 'asc' ? { field, direction: 'desc' } : null
-        }
-        return { field, direction: 'asc' }
-      })
-    },
-    [],
-  )
+  const handleSort = useCallback((field: string) => {
+    setSort((prev) => {
+      if (prev?.field === field) {
+        return prev.direction === 'asc' ? { field, direction: 'desc' } : null
+      }
+      return { field, direction: 'asc' }
+    })
+  }, [])
 
   const handleFilterChange = useCallback((field: string, value: string) => {
     setFilters((prev) => ({ ...prev, [field]: value }))
@@ -162,7 +159,9 @@ export function EntityTable({
   if (error) {
     return (
       <div style={{ ...tableStyles.wrapper, ...(style ?? {}) }} className={className}>
-        <p style={{ color: 'var(--hly-danger, #dc2626)', padding: '16px' }}>Error loading {noun}: {error.message}</p>
+        <p style={{ color: 'var(--hly-danger, #dc2626)', padding: '16px' }}>
+          Error loading {noun}: {error.message}
+        </p>
         <button style={{ ...buttonStyles.base, ...buttonStyles.secondary, margin: '0 16px 16px' }} onClick={() => refetch()}>
           Retry
         </button>
@@ -250,13 +249,19 @@ export function EntityTable({
         <tbody>
           {loading && entities.length === 0 ? (
             <tr>
-              <td colSpan={displayColumns.length + (selectable ? 1 : 0)} style={{ ...tableStyles.td, textAlign: 'center', color: 'var(--hly-text-muted, #6b7280)' }}>
+              <td
+                colSpan={displayColumns.length + (selectable ? 1 : 0)}
+                style={{ ...tableStyles.td, textAlign: 'center', color: 'var(--hly-text-muted, #6b7280)' }}
+              >
                 Loading...
               </td>
             </tr>
           ) : entities.length === 0 ? (
             <tr>
-              <td colSpan={displayColumns.length + (selectable ? 1 : 0)} style={{ ...tableStyles.td, textAlign: 'center', color: 'var(--hly-text-muted, #6b7280)' }}>
+              <td
+                colSpan={displayColumns.length + (selectable ? 1 : 0)}
+                style={{ ...tableStyles.td, textAlign: 'center', color: 'var(--hly-text-muted, #6b7280)' }}
+              >
                 No {schema.plural ?? noun} found
               </td>
             </tr>
@@ -313,7 +318,11 @@ export function EntityTable({
             Previous
           </button>
           <button
-            style={{ ...buttonStyles.base, ...buttonStyles.secondary, ...(!hasMore && (totalPages === undefined || page + 1 >= totalPages) ? buttonStyles.disabled : {}) }}
+            style={{
+              ...buttonStyles.base,
+              ...buttonStyles.secondary,
+              ...(!hasMore && (totalPages === undefined || page + 1 >= totalPages) ? buttonStyles.disabled : {}),
+            }}
             onClick={() => setPage((p) => p + 1)}
             disabled={!hasMore && (totalPages === undefined || page + 1 >= totalPages)}
           >

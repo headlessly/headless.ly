@@ -38,11 +38,13 @@ await Workflow.archive('workflow_fX9bL5nRd')
 **Fields**: `name`, `description`, `trigger`, `steps`, `retryPolicy`, `errorHandling`, `timeout`, `status`, `version`, `lastRunAt`, `runCount`, `successCount`, `failureCount`
 
 **Relationships**:
+
 - `organization` -> Organization
 
 **Verbs**: `activate()` / `activating()` / `activated()` / `activatedBy`, `pause()` / `pausing()` / `paused()` / `pausedBy`, `archive()` / `archiving()` / `archived()` / `archivedBy`
 
 **Enums**:
+
 - `errorHandling`: Stop | Continue | Fallback
 - `status`: Draft | Active | Paused | Archived
 
@@ -72,6 +74,7 @@ await Integration.disconnect('integration_k7TmPvQx')
 **Verbs**: `connect()` / `connecting()` / `connected()` / `connectedBy`, `disconnect()` / `disconnecting()` / `disconnected()` / `disconnectedBy`
 
 **Enums**:
+
 - `category`: Payment | CRM | Marketing | Analytics | Communication | Storage | AI | Other
 - `authType`: OAuth2 | ApiKey | Basic | Custom
 - `status`: Available | ComingSoon | Deprecated
@@ -103,12 +106,14 @@ await Agent.retire('agent_mN8pZwKj')
 **Fields**: `name`, `slug`, `description`, `avatar`, `model`, `systemPrompt`, `instructions`, `persona`, `type`, `status`, `visibility`, `temperature`, `maxTokens`, `tools`, `functions`, `knowledgeBases`, `memory`, `memoryWindow`, `totalTokens`, `totalCost`, `averageLatency`, `successRate`, `rating`, `ratingCount`, `version`, `publishedAt`, `tags`
 
 **Relationships**:
+
 - `organization` -> Organization
 - `owner` -> Contact
 
 **Verbs**: `deploy()` / `deploying()` / `deployed()` / `deployedBy`, `pause()` / `pausing()` / `paused()` / `pausedBy`, `retire()` / `retiring()` / `retired()` / `retiredBy`
 
 **Enums**:
+
 - `type`: Assistant | Autonomous | Workflow | Specialist | Router
 - `status`: Draft | Active | Paused | Archived
 - `visibility`: Private | Team | Organization | Public
@@ -139,8 +144,7 @@ Integration.connected((integration) => {
 Built on [rpc.do](https://rpc.do) + capnweb — chain operations in a single round-trip:
 
 ```typescript
-const active = await Agent.find({ status: 'Active' })
-  .filter(a => a.type === 'Specialist')
+const active = await Agent.find({ status: 'Active' }).filter((a) => a.type === 'Specialist')
 ```
 
 ## License

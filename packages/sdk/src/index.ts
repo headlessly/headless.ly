@@ -224,15 +224,11 @@ function validateEndpoint(endpoint: string): void {
   try {
     const url = new URL(endpoint)
     if (!['http:', 'https:'].includes(url.protocol)) {
-      throw new Error(
-        `Invalid endpoint URL protocol "${url.protocol}" in "${endpoint}". Use https:// for production or http:// for local development.`,
-      )
+      throw new Error(`Invalid endpoint URL protocol "${url.protocol}" in "${endpoint}". Use https:// for production or http:// for local development.`)
     }
   } catch (e) {
     if (e instanceof Error && e.message.includes('protocol')) throw e
-    throw new Error(
-      `Invalid endpoint URL: "${endpoint}". Expected a valid URL like "https://db.headless.ly" or "http://localhost:8787".`,
-    )
+    throw new Error(`Invalid endpoint URL: "${endpoint}". Expected a valid URL like "https://db.headless.ly" or "http://localhost:8787".`)
   }
 }
 
@@ -288,9 +284,7 @@ export function enableLazy(): void {
  */
 function _headlessly(options?: HeadlesslyOptions): HeadlessContext {
   if (_initialized) {
-    throw new Error(
-      'headlessly() already initialized. Call headlessly.reset() before re-initializing, or use headlessly.reconfigure() to update options.',
-    )
+    throw new Error('headlessly() already initialized. Call headlessly.reset() before re-initializing, or use headlessly.reconfigure() to update options.')
   }
 
   // Handle lazy mode

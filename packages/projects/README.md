@@ -30,6 +30,7 @@ await Project.complete('project_e5JhLzXc')
 **Fields**: `name`, `slug`, `description`, `status`, `visibility`, `startDate`, `targetDate`, `tags`
 
 **Relationships**:
+
 - `organization` -> Organization
 - `owner` -> Contact
 - `issues` <- Issue.project[]
@@ -37,6 +38,7 @@ await Project.complete('project_e5JhLzXc')
 **Verbs**: `archive()` / `archiving()` / `archived()` / `archivedBy`, `complete()` / `completing()` / `completed()` / `completedBy`
 
 **Enums**:
+
 - `status`: Active | Archived | Completed
 - `visibility`: Public | Private
 
@@ -63,6 +65,7 @@ await Issue.reopen('issue_k7TmPvQx')
 **Fields**: `title`, `description`, `status`, `priority`, `type`, `labels`, `milestone`, `dueDate`
 
 **Relationships**:
+
 - `project` -> Project.issues
 - `assignee` -> Contact
 - `reporter` -> Contact
@@ -71,6 +74,7 @@ await Issue.reopen('issue_k7TmPvQx')
 **Verbs**: `assign()` / `assigning()` / `assigned()` / `assignedBy`, `close()` / `closing()` / `closed()` / `closedBy`, `reopen()` / `reopening()` / `reopened()` / `reopenedBy`
 
 **Enums**:
+
 - `status`: Open | InProgress | Review | Done | Closed
 - `priority`: Low | Medium | High | Urgent
 - `type`: Bug | Feature | Task | Epic
@@ -92,6 +96,7 @@ await Comment.create({
 **Fields**: `body`
 
 **Relationships**:
+
 - `author` -> Contact
 - `issue` -> Issue.comments
 
@@ -120,8 +125,8 @@ Built on [rpc.do](https://rpc.do) + capnweb — chain operations in a single rou
 
 ```typescript
 const urgent = await Project.find({ status: 'Active' })
-  .map(p => p.issues)
-  .filter(i => i.priority === 'Urgent' && i.status === 'Open')
+  .map((p) => p.issues)
+  .filter((i) => i.priority === 'Urgent' && i.status === 'Open')
 ```
 
 ## License

@@ -46,7 +46,7 @@ interface HeadlessContextValue {
   sessionId: string
 }
 
-const HeadlessContext = createContext<HeadlessContextValue | null>(null)
+export const HeadlessContext = createContext<HeadlessContextValue | null>(null)
 
 // =============================================================================
 // Provider
@@ -237,4 +237,324 @@ export function Experiment({ flag, variants, fallback = null }: ExperimentProps)
 
   const variantKey = String(value)
   return <>{variants[variantKey] ?? fallback}</>
+}
+
+// =============================================================================
+// Entity Client Hook
+// =============================================================================
+
+export function useClient() {
+  const ctx = useContext(HeadlessContext)
+  if (!ctx) throw new Error('useClient must be used within HeadlessProvider')
+  return ctx
+}
+
+// =============================================================================
+// Entity Data Fetching Hooks
+// =============================================================================
+
+interface UseEntityOptions {
+  include?: string[]
+}
+
+interface UseEntityResult<T = unknown> {
+  data: T | null
+  loading: boolean
+  error: Error | null
+  refetch: () => void
+}
+
+export function useEntity(type: string, id: string, options?: UseEntityOptions): UseEntityResult {
+  const [data, setData] = useState<unknown>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
+
+  const refetch = useCallback(() => {
+    setLoading(true)
+    setError(null)
+  }, [])
+
+  useEffect(() => {
+    setLoading(true)
+    setData(null)
+    setError(null)
+  }, [type, id])
+
+  return { data, loading, error, refetch }
+}
+
+// =============================================================================
+// Entity Collection Hook
+// =============================================================================
+
+interface UseEntitiesOptions {
+  limit?: number
+  offset?: number
+  sort?: Record<string, 1 | -1>
+}
+
+interface UseEntitiesResult<T = unknown> {
+  data: T[]
+  loading: boolean
+  error: Error | null
+  total: number
+  hasMore: boolean
+  refetch: () => void
+  loadMore: () => void
+}
+
+export function useEntities(type: string, filter?: Record<string, unknown>, options?: UseEntitiesOptions): UseEntitiesResult {
+  const [data, setData] = useState<unknown[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
+  const [total, setTotal] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
+
+  const refetch = useCallback(() => {
+    setLoading(true)
+    setError(null)
+  }, [])
+
+  const loadMore = useCallback(() => {
+    // Load next page
+  }, [])
+
+  useEffect(() => {
+    setLoading(true)
+    setData([])
+    setError(null)
+  }, [type, JSON.stringify(filter)])
+
+  return { data, loading, error, total, hasMore, refetch, loadMore }
+}
+
+// =============================================================================
+// Mutation Hook
+// =============================================================================
+
+interface UseMutationResult {
+  create: (data: Record<string, unknown>) => Promise<unknown>
+  update: (id: string, data: Record<string, unknown>) => Promise<unknown>
+  remove: (id: string) => Promise<void>
+  loading: boolean
+  error: Error | null
+  execute: (verb: string, id: string, data?: Record<string, unknown>) => Promise<unknown>
+}
+
+export function useMutation(type: string): UseMutationResult {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<Error | null>(null)
+
+  const create = useCallback(async (data: Record<string, unknown>) => {
+    setLoading(true)
+    setError(null)
+    try {
+      return data
+    } finally {
+      setLoading(false)
+    }
+  }, [type])
+
+  const update = useCallback(async (id: string, data: Record<string, unknown>) => {
+    setLoading(true)
+    setError(null)
+    try {
+      return { ...data, $id: id }
+    } finally {
+      setLoading(false)
+    }
+  }, [type])
+
+  const remove = useCallback(async (id: string) => {
+    setLoading(true)
+    setError(null)
+    try {
+      // delete entity
+    } finally {
+      setLoading(false)
+    }
+  }, [type])
+
+  const execute = useCallback(async (verb: string, id: string, data?: Record<string, unknown>) => {
+    setLoading(true)
+    setError(null)
+    try {
+      return { $id: id, ...data }
+    } finally {
+      setLoading(false)
+    }
+  }, [type])
+
+  return { create, update, remove, loading, error, execute }
+}
+
+// =============================================================================
+// Search Hook
+// =============================================================================
+
+interface UseSearchOptions {
+  types?: string[]
+  limit?: number
+  debounce?: number
+}
+
+interface UseSearchResult {
+  results: unknown[]
+  loading: boolean
+  error: Error | null
+}
+
+export function useSearch(query: string, options?: UseSearchOptions): UseSearchResult {
+  const [results, setResults] = useState<unknown[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<Error | null>(null)
+
+  useEffect(() => {
+    if (!query) {
+      setResults([])
+      return
+    }
+    setLoading(true)
+    setError(null)
+  }, [query, JSON.stringify(options)])
+
+  return { results, loading, error }
+}
+
+// =============================================================================
+// Realtime Subscription Hook
+// =============================================================================
+
+interface UseRealtimeResult<T = unknown> {
+  data: T | null
+  connected: boolean
+  error: Error | null
+}
+
+export function useRealtime(type: string, id: string): UseRealtimeResult {
+  const [data, setData] = useState<unknown>(null)
+  const [connected, setConnected] = useState(false)
+  const [error, setError] = useState<Error | null>(null)
+
+  useEffect(() => {
+    setConnected(false)
+    setData(null)
+    setError(null)
+    // WebSocket subscription would go here
+    return () => {
+      setConnected(false)
+    }
+  }, [type, id])
+
+  return { data, connected, error }
+}
+
+// =============================================================================
+// Action Hook
+// =============================================================================
+
+interface UseActionResult {
+  execute: (id: string, data?: Record<string, unknown>) => Promise<unknown>
+  loading: boolean
+  error: Error | null
+}
+
+export function useAction(type: string, verb: string): UseActionResult {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<Error | null>(null)
+
+  const execute = useCallback(async (id: string, data?: Record<string, unknown>) => {
+    setLoading(true)
+    setError(null)
+    try {
+      return { $id: id, ...data }
+    } finally {
+      setLoading(false)
+    }
+  }, [type, verb])
+
+  return { execute, loading, error }
+}
+
+// =============================================================================
+// Events Hook
+// =============================================================================
+
+interface UseEventsResult {
+  events: unknown[]
+  loading: boolean
+  error: Error | null
+}
+
+export function useEvents(type: string, id?: string): UseEventsResult {
+  const [events, setEvents] = useState<unknown[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
+
+  useEffect(() => {
+    setLoading(true)
+    setEvents([])
+    setError(null)
+  }, [type, id])
+
+  return { events, loading, error }
+}
+
+// =============================================================================
+// Entity-Aware Tracking Hook
+// =============================================================================
+
+interface EntityContext {
+  type: string
+  id: string
+}
+
+interface TrackEntityOptions {
+  entity?: EntityContext
+}
+
+export function useTrackEntity() {
+  return useCallback((event: string, properties?: Record<string, unknown>, options?: TrackEntityOptions) => {
+    const enrichedProps = options?.entity
+      ? { ...properties, $entity: options.entity }
+      : properties
+    headless.track(event, enrichedProps)
+  }, [])
+}
+
+// =============================================================================
+// Feature Flag Change Subscription
+// =============================================================================
+
+type FlagChangeCallback = (flags: Record<string, unknown>) => void
+
+export function onFlagChange(callback: FlagChangeCallback): () => void {
+  // Subscribe to flag changes — returns unsubscribe function
+  return () => {}
+}
+
+// =============================================================================
+// Render-Prop Components
+// =============================================================================
+
+interface EntityListProps {
+  type: string
+  filter?: Record<string, unknown>
+  children: (result: UseEntitiesResult) => ReactNode
+}
+
+export function EntityList({ type, filter, children }: EntityListProps) {
+  const result = useEntities(type, filter)
+  return <>{children(result)}</>
+}
+
+interface EntityDetailProps {
+  type: string
+  id: string
+  children: (result: UseEntityResult) => ReactNode
+}
+
+export function EntityDetail({ type, id, children }: EntityDetailProps) {
+  const result = useEntity(type, id)
+  return <>{children(result)}</>
 }

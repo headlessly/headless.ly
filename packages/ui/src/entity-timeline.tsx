@@ -147,10 +147,7 @@ export function EntityTimeline({ entityId, events: eventsProp, limit = 50, onAct
                 {event.actor && (
                   <div style={timelineStyles.actor}>
                     by{' '}
-                    <span
-                      style={onActorClick ? { cursor: 'pointer', textDecoration: 'underline' } : {}}
-                      onClick={() => onActorClick?.(event.actor!)}
-                    >
+                    <span style={onActorClick ? { cursor: 'pointer', textDecoration: 'underline' } : {}} onClick={() => onActorClick?.(event.actor!)}>
                       {event.actor}
                     </span>
                   </div>
@@ -163,8 +160,7 @@ export function EntityTimeline({ entityId, events: eventsProp, limit = 50, onAct
                   <div style={timelineStyles.diff} data-testid='timeline-diff'>
                     {Object.entries(event.diff).map(([key, change]) => (
                       <div key={key} style={{ marginBottom: '4px' }}>
-                        <strong>{formatLabel(key)}:</strong>{' '}
-                        <span style={timelineStyles.diffFrom}>{String(change.from ?? '\u2014')}</span>
+                        <strong>{formatLabel(key)}:</strong> <span style={timelineStyles.diffFrom}>{String(change.from ?? '\u2014')}</span>
                         {' \u2192 '}
                         <span style={timelineStyles.diffTo}>{String(change.to ?? '\u2014')}</span>
                       </div>

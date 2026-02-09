@@ -187,7 +187,7 @@ export class EventLog {
     const hasMore = candidates.length > batchSize
 
     // The cursor is the last event ID in the batch
-    const cursor = batch.length > 0 ? batch[batch.length - 1].$id : options.after ?? ''
+    const cursor = batch.length > 0 ? batch[batch.length - 1].$id : (options.after ?? '')
 
     return { events: batch, cursor, hasMore }
   }

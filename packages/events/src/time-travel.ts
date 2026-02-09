@@ -191,10 +191,7 @@ export class TimeTraveler {
   /**
    * Compute field-level changes between two states.
    */
-  private computeChanges(
-    before: ReconstructedState | null,
-    after: ReconstructedState | null,
-  ): Array<{ field: string; from: unknown; to: unknown }> {
+  private computeChanges(before: ReconstructedState | null, after: ReconstructedState | null): Array<{ field: string; from: unknown; to: unknown }> {
     const changes: Array<{ field: string; from: unknown; to: unknown }> = []
 
     if (!before && !after) return changes

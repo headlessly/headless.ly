@@ -27,6 +27,7 @@ await Customer.create({
 **Fields**: `name`, `email`, `stripeCustomerId`, `paymentMethod`, `currency`, `taxExempt`
 
 **Relationships**:
+
 - `organization` -> Organization
 - `subscriptions` <- Subscription.customer[]
 - `invoices` <- Invoice.customer[]
@@ -50,9 +51,11 @@ await Product.create({
 **Fields**: `name`, `slug`, `description`, `tagline`, `type`, `icon`, `image`, `features`, `highlights`, `status`, `visibility`, `featured`, `stripeProductId`
 
 **Relationships**:
+
 - `plans` <- Plan.product[]
 
 **Enums**:
+
 - `type`: Software | Service | Addon | Bundle
 - `status`: Draft | Active | Archived
 - `visibility`: Public | Private | Hidden
@@ -75,10 +78,12 @@ await Plan.create({
 **Fields**: `name`, `slug`, `description`, `trialDays`, `features`, `limits`, `status`, `isDefault`, `isFree`, `isEnterprise`, `badge`, `order`
 
 **Relationships**:
+
 - `product` -> Product.plans
 - `prices` <- Price.plan[]
 
 **Enums**:
+
 - `status`: Draft | Active | Grandfathered | Archived
 
 ### Price
@@ -99,9 +104,11 @@ await Price.create({
 **Fields**: `amount`, `currency`, `interval`, `intervalCount`, `originalAmount`, `discountPercent`, `active`, `stripeId`
 
 **Relationships**:
+
 - `plan` -> Plan.prices
 
 **Enums**:
+
 - `interval`: Monthly | Quarterly | Yearly | OneTime
 
 ### Subscription
@@ -129,6 +136,7 @@ await Subscription.downgrade('subscription_mN8pZwKj')
 **Fields**: `status`, `currentPeriodStart`, `currentPeriodEnd`, `cancelAtPeriodEnd`, `trialStart`, `trialEnd`, `startedAt`, `canceledAt`, `pausedAt`, `resumesAt`, `endedAt`, `cancelReason`, `cancelFeedback`, `quantity`, `paymentMethod`, `collectionMethod`, `stripeSubscriptionId`, `stripeCustomerId`
 
 **Relationships**:
+
 - `organization` -> Organization.subscriptions
 - `customer` -> Customer.subscriptions
 - `plan` -> Plan
@@ -136,6 +144,7 @@ await Subscription.downgrade('subscription_mN8pZwKj')
 **Verbs**: `pause()` / `pausing()` / `paused()` / `pausedBy`, `cancel()` / `cancelling()` / `cancelled()` / `cancelledBy`, `reactivate()` / `reactivating()` / `reactivated()` / `reactivatedBy`, `upgrade()` / `upgrading()` / `upgraded()` / `upgradedBy`, `downgrade()` / `downgrading()` / `downgraded()` / `downgradedBy`
 
 **Enums**:
+
 - `status`: Active | PastDue | Canceled | Trialing | Paused | Incomplete
 
 ### Invoice
@@ -160,6 +169,7 @@ await Invoice.void('invoice_z3RnWqYp')
 **Fields**: `number`, `subtotal`, `tax`, `discount`, `total`, `amountPaid`, `amountDue`, `currency`, `status`, `periodStart`, `periodEnd`, `issuedAt`, `dueAt`, `paidAt`, `voidedAt`, `lineItems`, `receiptUrl`, `pdfUrl`, `hostedUrl`, `stripeInvoiceId`
 
 **Relationships**:
+
 - `organization` -> Organization
 - `customer` -> Customer.invoices
 - `subscription` -> Subscription
@@ -167,6 +177,7 @@ await Invoice.void('invoice_z3RnWqYp')
 **Verbs**: `pay()` / `paying()` / `paid()` / `paidBy`, `void()` / `voiding()` / `voided()` / `voidedBy`
 
 **Enums**:
+
 - `status`: Draft | Open | Paid | Void | Uncollectible
 
 ### Payment
@@ -189,12 +200,14 @@ await Payment.refund('payment_pQ4xLmRn')
 **Fields**: `amount`, `currency`, `status`, `method`, `stripePaymentId`
 
 **Relationships**:
+
 - `customer` -> Customer.payments
 - `invoice` -> Invoice
 
 **Verbs**: `refund()` / `refunding()` / `refunded()` / `refundedBy`
 
 **Enums**:
+
 - `status`: Pending | Succeeded | Failed | Refunded
 
 ## Event-Driven Reactions
@@ -229,9 +242,9 @@ Built on [rpc.do](https://rpc.do) + capnweb — chain operations in a single rou
 
 ```typescript
 const revenue = await Customer.find({ currency: 'usd' })
-  .map(c => c.subscriptions)
-  .filter(s => s.status === 'Active')
-  .map(s => s.plan)
+  .map((c) => c.subscriptions)
+  .filter((s) => s.status === 'Active')
+  .map((s) => s.plan)
 ```
 
 ## License

@@ -62,9 +62,9 @@ const result = await executeVerb({
 ```typescript
 import { generateSqid, generateEntityId, generateEventId } from '@headlessly/objects'
 
-const sqid = generateSqid()          // 'fX9bL5nRdKpQ'
+const sqid = generateSqid() // 'fX9bL5nRdKpQ'
 const id = generateEntityId('Contact') // 'contact_fX9bL5nRdKpQ'
-const eid = generateEventId()          // 'evt_k7TmPvQxW3hN'
+const eid = generateEventId() // 'evt_k7TmPvQxW3hN'
 ```
 
 ## API

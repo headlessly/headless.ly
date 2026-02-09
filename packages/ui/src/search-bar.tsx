@@ -117,7 +117,7 @@ export function SearchBar({
     [isOpen, results, highlightIndex, handleSelect],
   )
 
-  const showDropdown = isOpen && (query.trim().length > 0)
+  const showDropdown = isOpen && query.trim().length > 0
 
   return (
     <div ref={wrapperRef} style={{ ...searchStyles.wrapper, ...(style ?? {}) }} className={className} data-testid='search-bar'>

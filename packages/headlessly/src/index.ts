@@ -30,18 +30,7 @@ import { setProvider, getProvider, MemoryNounProvider } from 'digital-objects'
 import type { NounProvider, NounInstance } from 'digital-objects'
 import { LocalNounProvider, DONounProvider } from '@headlessly/objects'
 import type { DONounProviderOptions } from '@headlessly/objects'
-import {
-  $,
-  crm,
-  billing,
-  projects,
-  content,
-  support,
-  analytics,
-  marketing,
-  experiments,
-  platform,
-} from '@headlessly/sdk'
+import { $, crm, billing, projects, content, support, analytics, marketing, experiments, platform } from '@headlessly/sdk'
 
 // =============================================================================
 // Types

@@ -33,6 +33,7 @@ await Content.archive('content_fX9bL5nRd')
 **Fields**: `title`, `slug`, `excerpt`, `body`, `type`, `categories`, `tags`, `status`, `publishedAt`, `scheduledAt`, `seoTitle`, `seoDescription`, `ogImage`, `noIndex`, `canonicalUrl`, `readingTime`, `viewCount`, `visibility`
 
 **Relationships**:
+
 - `site` -> Site.content
 - `author` -> Contact
 - `featuredImage` -> Asset
@@ -40,6 +41,7 @@ await Content.archive('content_fX9bL5nRd')
 **Verbs**: `publish()` / `publishing()` / `published()` / `publishedBy`, `archive()` / `archiving()` / `archived()` / `archivedBy`, `schedule()` / `scheduling()` / `scheduled()` / `scheduledBy`
 
 **Enums**:
+
 - `type`: Page | Post | Article | Guide
 - `status`: Draft | Published | Scheduled | Archived
 - `visibility`: Public | Private | Members
@@ -65,9 +67,11 @@ await Asset.create({
 **Fields**: `name`, `filename`, `url`, `type`, `mimeType`, `extension`, `size`, `width`, `height`, `alt`, `caption`, `duration`, `thumbnail`, `tags`, `source`, `license`
 
 **Relationships**:
+
 - `uploadedBy` -> Contact
 
 **Enums**:
+
 - `type`: Image | Video | Document | Audio | Archive | Other
 
 ### Site
@@ -89,9 +93,11 @@ await Site.create({
 **Fields**: `name`, `subdomain`, `title`, `description`, `tagline`, `logo`, `favicon`, `primaryColor`, `accentColor`, `status`, `visibility`, `ogImage`, `defaultLanguage`, `supportedLanguages`, `timezone`
 
 **Relationships**:
+
 - `content` <- Content.site[]
 
 **Enums**:
+
 - `status`: Draft | Published | Maintenance
 - `visibility`: Public | Private | Password
 
@@ -117,8 +123,8 @@ Built on [rpc.do](https://rpc.do) + capnweb — chain operations in a single rou
 
 ```typescript
 const drafts = await Site.find({ status: 'Published' })
-  .map(s => s.content)
-  .filter(c => c.status === 'Draft')
+  .map((s) => s.content)
+  .filter((c) => c.status === 'Draft')
 ```
 
 ## License

@@ -621,7 +621,7 @@ describe('Feature flag evaluation', () => {
     const ttlClient = createClient({
       apiKey: 'hly_sk_test123',
       endpoint: 'https://db.headless.ly',
-      flushInterval: 60000,
+      flushInterval: 120000,
       batchSize: 100,
       flagCacheTTL,
     })

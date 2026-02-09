@@ -59,9 +59,7 @@ export function createHandlers(options: MCPHandlerOptions) {
 
         if (query) {
           const q = query.toLowerCase()
-          const filtered = results.filter((r) =>
-            Object.values(r).some((v) => typeof v === 'string' && v.toLowerCase().includes(q)),
-          )
+          const filtered = results.filter((r) => Object.values(r).some((v) => typeof v === 'string' && v.toLowerCase().includes(q)))
           allResults.push(...filtered)
         } else {
           allResults.push(...results)

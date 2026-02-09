@@ -45,17 +45,17 @@ headless.captureWebVitals({ LCP: 1200, FID: 50, CLS: 0.05 })
 ### Privacy Controls
 
 ```typescript
-headless.optOut()       // Stop all tracking
-headless.optIn()        // Resume tracking
-headless.hasOptedOut()  // Check opt-out status
-headless.reset()        // Clear all state
+headless.optOut() // Stop all tracking
+headless.optIn() // Resume tracking
+headless.hasOptedOut() // Check opt-out status
+headless.reset() // Clear all state
 ```
 
 ### Lifecycle
 
 ```typescript
-headless.flush()     // Flush pending events immediately
-headless.shutdown()  // Flush and clean up
+headless.flush() // Flush pending events immediately
+headless.shutdown() // Flush and clean up
 ```
 
 ## API

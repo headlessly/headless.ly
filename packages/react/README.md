@@ -13,13 +13,7 @@ Requires `react >= 18.0.0` as a peer dependency.
 ## Usage
 
 ```tsx
-import {
-  HeadlessProvider,
-  useTrack,
-  useFeatureFlag,
-  ErrorBoundary,
-  Feature,
-} from '@headlessly/react'
+import { HeadlessProvider, useTrack, useFeatureFlag, ErrorBoundary, Feature } from '@headlessly/react'
 
 function App() {
   return (
@@ -35,11 +29,7 @@ function MyComponent() {
   const track = useTrack()
   const showNewUI = useFeatureFlag('new-ui')
 
-  return (
-    <button onClick={() => track('button_clicked', { page: 'home' })}>
-      {showNewUI ? 'New Button' : 'Old Button'}
-    </button>
-  )
+  return <button onClick={() => track('button_clicked', { page: 'home' })}>{showNewUI ? 'New Button' : 'Old Button'}</button>
 }
 ```
 
@@ -71,7 +61,7 @@ import { Feature, Experiment } from '@headlessly/react'
 import { ErrorBoundary } from '@headlessly/react'
 
 // With render function for reset
-<ErrorBoundary
+;<ErrorBoundary
   fallback={(error, reset) => (
     <div>
       <p>Something went wrong: {error.message}</p>

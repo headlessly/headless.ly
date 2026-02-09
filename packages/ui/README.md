@@ -67,7 +67,7 @@ import { VerbButton } from '@headlessly/ui'
 ```tsx
 import { Dashboard } from '@headlessly/ui'
 
-<Dashboard
+;<Dashboard
   cards={[
     { type: 'metric', noun: 'Contact', aggregate: 'count' },
     { type: 'metric', noun: 'Deal', field: 'value', aggregate: 'sum' },
@@ -81,11 +81,7 @@ import { Dashboard } from '@headlessly/ui'
 ```tsx
 import { RelationshipGraph } from '@headlessly/ui'
 
-<RelationshipGraph
-  rootNoun='Contact'
-  rootId='contact_fX9bL5'
-  depth={2}
-/>
+;<RelationshipGraph rootNoun='Contact' rootId='contact_fX9bL5' depth={2} />
 ```
 
 ## API

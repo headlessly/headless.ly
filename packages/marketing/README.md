@@ -35,12 +35,14 @@ await Campaign.complete('campaign_fX9bL5nRd')
 **Fields**: `name`, `slug`, `description`, `type`, `status`, `startDate`, `endDate`, `launchedAt`, `budget`, `actualCost`, `currency`, `targetLeads`, `targetRevenue`, `actualLeads`, `actualRevenue`, `roi`, `landingPageUrl`, `utmSource`, `utmMedium`, `utmCampaign`
 
 **Relationships**:
+
 - `leads` <- Lead.campaign[]
 - `owner` -> Contact
 
 **Verbs**: `launch()` / `launching()` / `launched()` / `launchedBy`, `pause()` / `pausing()` / `paused()` / `pausedBy`, `complete()` / `completing()` / `completed()` / `completedBy`
 
 **Enums**:
+
 - `type`: Email | Social | Content | Event | Paid | Webinar | Referral
 - `status`: Draft | Scheduled | Active | Paused | Completed | Cancelled
 
@@ -66,6 +68,7 @@ await Segment.create({
 **Fields**: `name`, `description`, `criteria`, `memberCount`, `isDynamic`
 
 **Relationships**:
+
 - `organization` -> Organization
 
 ### Form
@@ -92,11 +95,13 @@ await Form.archive('form_k7TmPvQx')
 **Fields**: `name`, `description`, `fields`, `status`, `submissionCount`
 
 **Relationships**:
+
 - `organization` -> Organization
 
 **Verbs**: `publish()` / `publishing()` / `published()` / `publishedBy`, `archive()` / `archiving()` / `archived()` / `archivedBy`
 
 **Enums**:
+
 - `status`: Draft | Active | Archived
 
 ## Event-Driven Reactions
@@ -125,8 +130,8 @@ Built on [rpc.do](https://rpc.do) + capnweb — chain operations in a single rou
 
 ```typescript
 const active = await Campaign.find({ status: 'Active' })
-  .map(c => c.leads)
-  .filter(l => l.status === 'Qualified')
+  .map((c) => c.leads)
+  .filter((l) => l.status === 'Qualified')
 ```
 
 ## License

@@ -214,9 +214,7 @@ export class SQLiteEventLog {
    * Used by TimeTraveler for state reconstruction.
    */
   getEntityHistory(entityType: string, entityId: string): NounEvent[] {
-    const rows = this.sql
-      .exec(`SELECT * FROM ${this.tableName} WHERE entity_type = ? AND entity_id = ? ORDER BY sequence ASC`, entityType, entityId)
-      .toArray()
+    const rows = this.sql.exec(`SELECT * FROM ${this.tableName} WHERE entity_type = ? AND entity_id = ? ORDER BY sequence ASC`, entityType, entityId).toArray()
     return rows.map((r) => this.rowToEvent(r))
   }
 
@@ -275,7 +273,7 @@ export class SQLiteEventLog {
     const batch = hasMore ? rows.slice(0, batchSize) : rows
     const events = batch.map((r) => this.rowToEvent(r))
 
-    const cursor = events.length > 0 ? events[events.length - 1].$id : options.after ?? ''
+    const cursor = events.length > 0 ? events[events.length - 1].$id : (options.after ?? '')
 
     return { events, cursor, hasMore }
   }

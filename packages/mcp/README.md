@@ -71,6 +71,7 @@ Full MCP server with JSON-RPC protocol support.
 - **`handleHTTP(request)`** -- handle a raw HTTP request, returns a Response
 
 Supported JSON-RPC methods:
+
 - `initialize` -- protocol handshake
 - `tools/list` -- list available tools
 - `tools/call` -- execute a tool
