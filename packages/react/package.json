@@ -13,7 +13,13 @@
     }
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      }
+    }
   },
   "files": [
     "dist",
@@ -29,8 +35,7 @@
   },
   "dependencies": {
     "@headlessly/js": "workspace:*",
-    "@headlessly/sdk": "workspace:*",
-    "digital-objects": "workspace:*"
+    "@headlessly/sdk": "workspace:*"
   },
   "peerDependencies": {
     "react": ">=18.0.0"

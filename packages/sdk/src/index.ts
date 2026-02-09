@@ -84,6 +84,14 @@ const allEntities: Record<string, NounEntity> = {
 setEntityRegistry(allEntities)
 
 /**
+ * Resolve an entity by type name from the registry.
+ * Returns undefined if the type is not a registered entity.
+ */
+export function resolveEntity(type: string): NounEntity | undefined {
+  return allEntities[type]
+}
+
+/**
  * All 35 entity names, for typed iteration and validation
  */
 export const entityNames = Object.keys(allEntities) as EntityName[]
@@ -91,7 +99,7 @@ export const entityNames = Object.keys(allEntities) as EntityName[]
 /**
  * RemoteNounProvider — sends entity operations to a remote headless.ly endpoint
  */
-export class RemoteNounProvider {
+export class RemoteNounProvider implements NounProvider {
   type = 'remote'
   endpoint: string
   apiKey: string
@@ -111,6 +119,9 @@ export class RemoteNounProvider {
       },
       body: JSON.stringify(data),
     })
+    if (!res.ok) {
+      throw new Error(`RemoteNounProvider.create failed for ${type}: ${res.status} ${res.statusText}`)
+    }
     return res.json()
   }
 
@@ -120,6 +131,9 @@ export class RemoteNounProvider {
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${this.apiKey}` },
     })
+    if (!res.ok) {
+      throw new Error(`RemoteNounProvider.find failed for ${type}: ${res.status} ${res.statusText}`)
+    }
     return res.json()
   }
 
@@ -142,6 +156,9 @@ export class RemoteNounProvider {
       },
       body: JSON.stringify(data),
     })
+    if (!res.ok) {
+      throw new Error(`RemoteNounProvider.update failed for ${type}/${id}: ${res.status} ${res.statusText}`)
+    }
     return res.json()
   }
 
@@ -164,6 +181,9 @@ export class RemoteNounProvider {
       },
       body: JSON.stringify(data ?? {}),
     })
+    if (!res.ok) {
+      throw new Error(`RemoteNounProvider.perform failed for ${type}/${id}/${verb}: ${res.status} ${res.statusText}`)
+    }
     return res.json()
   }
 }

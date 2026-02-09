@@ -32,21 +32,11 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode, Component, type ErrorInfo } from 'react'
 import headless, { type HeadlessConfig, type FlagValue, type User, type Breadcrumb } from '@headlessly/js'
-import { $ } from '@headlessly/sdk'
-import type { NounEntity } from 'digital-objects'
+import { $, resolveEntity } from '@headlessly/sdk'
+import type { NounEntity } from '@headlessly/sdk'
 
 // Re-export everything from @headlessly/js
 export * from '@headlessly/js'
-
-/**
- * Resolve an entity from the $ context by type name.
- * Returns the NounEntity or undefined if not found.
- */
-function resolveEntity(type: string): NounEntity | undefined {
-  const entry = $[type]
-  if (!entry || typeof entry === 'function') return undefined
-  return entry as NounEntity
-}
 
 // =============================================================================
 // Context
@@ -359,13 +349,16 @@ export function useEntities(type: string, filter?: Record<string, unknown>, opti
   const [hasMore, setHasMore] = useState(false)
   const [fetchKey, setFetchKey] = useState(0)
   const [currentOffset, setCurrentOffset] = useState(options?.offset ?? 0)
+  const isLoadMoreRef = useRef(false)
 
   const refetch = useCallback(() => {
+    isLoadMoreRef.current = false
     setCurrentOffset(options?.offset ?? 0)
     setFetchKey((k) => k + 1)
   }, [options?.offset])
 
   const loadMore = useCallback(() => {
+    isLoadMoreRef.current = true
     setCurrentOffset((prev) => prev + (options?.limit ?? 20))
     setFetchKey((k) => k + 1)
   }, [options?.limit])
@@ -413,12 +406,13 @@ export function useEntities(type: string, filter?: Record<string, unknown>, opti
         }
 
         if (!cancelled) {
-          if (currentOffset > 0) {
+          if (isLoadMoreRef.current && currentOffset > 0) {
             // Appending for loadMore
             setData((prev) => [...prev, ...results])
           } else {
             setData(results)
           }
+          isLoadMoreRef.current = false
           setTotal(totalCount)
           setHasMore(limit ? currentOffset + results.length < totalCount : false)
           setLoading(false)
@@ -589,6 +583,8 @@ export function useSearch(query: string, options?: UseSearchOptions): UseSearchR
       clearTimeout(debounceRef.current)
     }
 
+    let cancelled = false
+
     debounceRef.current = setTimeout(async () => {
       try {
         const types = options?.types ?? []
@@ -612,16 +608,21 @@ export function useSearch(query: string, options?: UseSearchOptions): UseSearchR
           allResults = allResults.slice(0, options.limit)
         }
 
-        setResults(allResults)
-        setLoading(false)
+        if (!cancelled) {
+          setResults(allResults)
+          setLoading(false)
+        }
       } catch (err) {
-        setError(err instanceof Error ? err : new Error(String(err)))
-        setResults([])
-        setLoading(false)
+        if (!cancelled) {
+          setError(err instanceof Error ? err : new Error(String(err)))
+          setResults([])
+          setLoading(false)
+        }
       }
     }, options?.debounce ?? 300)
 
     return () => {
+      cancelled = true
       if (debounceRef.current) {
         clearTimeout(debounceRef.current)
       }

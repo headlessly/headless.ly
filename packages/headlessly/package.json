@@ -51,7 +51,49 @@
     "dist"
   ],
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./crm": {
+        "types": "./dist/domains/crm.d.ts",
+        "import": "./dist/domains/crm.js"
+      },
+      "./billing": {
+        "types": "./dist/domains/billing.d.ts",
+        "import": "./dist/domains/billing.js"
+      },
+      "./projects": {
+        "types": "./dist/domains/projects.d.ts",
+        "import": "./dist/domains/projects.js"
+      },
+      "./content": {
+        "types": "./dist/domains/content.d.ts",
+        "import": "./dist/domains/content.js"
+      },
+      "./support": {
+        "types": "./dist/domains/support.d.ts",
+        "import": "./dist/domains/support.js"
+      },
+      "./analytics": {
+        "types": "./dist/domains/analytics.d.ts",
+        "import": "./dist/domains/analytics.js"
+      },
+      "./marketing": {
+        "types": "./dist/domains/marketing.d.ts",
+        "import": "./dist/domains/marketing.js"
+      },
+      "./experiments": {
+        "types": "./dist/domains/experiments.d.ts",
+        "import": "./dist/domains/experiments.js"
+      },
+      "./platform": {
+        "types": "./dist/domains/platform.d.ts",
+        "import": "./dist/domains/platform.js"
+      }
+    }
   },
   "scripts": {
     "build": "tsc",

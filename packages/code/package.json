@@ -21,7 +21,21 @@
     }
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./types": {
+        "types": "./dist/types.d.ts",
+        "import": "./dist/types.js"
+      },
+      "./stream": {
+        "types": "./dist/stream.d.ts",
+        "import": "./dist/stream.js"
+      }
+    }
   },
   "files": [
     "dist",

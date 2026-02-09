@@ -17,7 +17,17 @@
     }
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./hooks": {
+        "types": "./dist/hooks/index.d.ts",
+        "import": "./dist/hooks/index.js"
+      }
+    }
   },
   "files": [
     "dist",
