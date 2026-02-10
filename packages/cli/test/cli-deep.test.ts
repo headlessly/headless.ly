@@ -259,11 +259,18 @@ describe('Configuration — Env Vars & Precedence', () => {
   })
 
   it('status should show helpful "run headlessly init" message when no config', async () => {
-    // RED: When no config exists, status should suggest running "headlessly init"
-    // Currently there's no such guidance.
-    await run(['status'])
-    const out = logOutput()
-    expect(out).toContain('headlessly init')
+    // The status command shows "Run headlessly init" when tenant is default/empty.
+    // Mock loadConfig to simulate no-config scenario.
+    const configMod = await import('../src/config.js')
+    const origLoad = configMod.loadConfig
+    vi.spyOn(configMod, 'loadConfig').mockResolvedValue({})
+    try {
+      await run(['status'])
+      const out = logOutput()
+      expect(out).toContain('headlessly init')
+    } finally {
+      vi.mocked(configMod.loadConfig).mockImplementation(origLoad)
+    }
   })
 })
 

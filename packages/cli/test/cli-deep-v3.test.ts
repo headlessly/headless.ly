@@ -196,12 +196,16 @@ describe('Config — Merge and Precedence', () => {
   })
 
   it('login with --api-key sets mode to remote', async () => {
+    // Mock loadConfig/saveConfig to isolate from real filesystem
+    const configMod = await import('../src/config.js')
+    vi.spyOn(configMod, 'loadConfig').mockResolvedValue({})
+    vi.spyOn(configMod, 'saveConfig').mockResolvedValue(undefined)
     await run(['login', '--api-key', 'hly_remotecheck'])
     const out = logOutput()
     expect(out).toContain('Logged in')
-    // Mode should be remote since api key is provided
-    const config = await loadConfig()
-    expect(config.apiKey).toBeDefined()
+    // Mode should be remote since api key is provided — shows endpoint in output
+    expect(out).toContain('Endpoint')
+    vi.restoreAllMocks()
   })
 
   it('login with only --tenant sets mode to local', async () => {

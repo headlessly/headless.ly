@@ -28,9 +28,8 @@ export default defineConfig({
       '@headlessly/marketing': resolve(packages, 'marketing/src/index.ts'),
       '@headlessly/experiments': resolve(packages, 'experiments/src/index.ts'),
       '@headlessly/platform': resolve(packages, 'platform/src/index.ts'),
-      // SDK + entry point
+      // SDK
       '@headlessly/sdk': resolve(packages, 'sdk/src/index.ts'),
-      'headless.ly': resolve(packages, 'headlessly/src/index.ts'),
       // Infrastructure
       '@headlessly/objects': resolve(packages, 'objects/src/index.ts'),
       '@headlessly/events': resolve(packages, 'events/src/index.ts'),
@@ -45,6 +44,9 @@ export default defineConfig({
       '@headlessly/cli': resolve(packages, 'cli/src/index.ts'),
       '@headlessly/code': resolve(packages, 'code/src/index.ts'),
       // External npm dependencies resolved through the monorepo
+      'rpc.do/errors': resolve(root, 'packages/sdk/node_modules/rpc.do/dist/errors.js'),
+      'rpc.do/transports': resolve(root, 'packages/sdk/node_modules/rpc.do/dist/transports.js'),
+      'rpc.do/auth': resolve(root, 'packages/sdk/node_modules/rpc.do/dist/auth.js'),
       'rpc.do': resolve(root, 'packages/sdk/node_modules/rpc.do/dist/index.js'),
     },
   },
