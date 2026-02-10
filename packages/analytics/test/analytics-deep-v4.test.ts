@@ -423,7 +423,7 @@ describe('@headlessly/analytics — deep coverage v4', () => {
 
   describe('Goal status enum — individual value creation and querying', () => {
     it('creates a goal with each status value and queries by $eq', async () => {
-      const statuses = ['OnTrack', 'AtRisk', 'Behind', 'Achieved'] as const
+      const statuses = ['OnTrack', 'AtRisk', 'Behind', 'Achieved', 'Completed', 'Missed'] as const
       for (const status of statuses) {
         await Goal.create({ name: `status_${status}`, target: 100, status })
       }
@@ -533,22 +533,22 @@ describe('@headlessly/analytics — deep coverage v4', () => {
   // ===========================================================================
 
   describe('Schema raw definition — complete raw key sets', () => {
-    it('Metric.$schema.raw has exactly 7 keys', () => {
+    it('Metric.$schema.raw has exactly 9 keys', () => {
       const rawKeys = Object.keys(Metric.$schema.raw)
-      // name, value, type, unit, dimensions, organization, timestamp
-      expect(rawKeys.length).toBe(7)
-    })
-
-    it('Funnel.$schema.raw has exactly 5 keys', () => {
-      const rawKeys = Object.keys(Funnel.$schema.raw)
-      // name, description, steps, organization, conversionRate
-      expect(rawKeys.length).toBe(5)
-    })
-
-    it('Goal.$schema.raw has exactly 9 keys', () => {
-      const rawKeys = Object.keys(Goal.$schema.raw)
-      // name, description, target, current, unit, period, status, organization, achieve
+      // name, value, type, unit, dimensions, organization, timestamp, record, reset
       expect(rawKeys.length).toBe(9)
+    })
+
+    it('Funnel.$schema.raw has exactly 6 keys', () => {
+      const rawKeys = Object.keys(Funnel.$schema.raw)
+      // name, description, steps, organization, conversionRate, analyze
+      expect(rawKeys.length).toBe(6)
+    })
+
+    it('Goal.$schema.raw has exactly 12 keys', () => {
+      const rawKeys = Object.keys(Goal.$schema.raw)
+      // name, description, target, current, unit, period, status, organization, achieve, complete, miss, reset
+      expect(rawKeys.length).toBe(12)
     })
   })
 
@@ -572,9 +572,9 @@ describe('@headlessly/analytics — deep coverage v4', () => {
       expect(field!.enumValues!.length).toBe(5)
     })
 
-    it('Goal status enum has exactly 4 values', () => {
+    it('Goal status enum has exactly 6 values', () => {
       const field = Goal.$schema.fields.get('status')
-      expect(field!.enumValues!.length).toBe(4)
+      expect(field!.enumValues!.length).toBe(6)
     })
 
     it('Event source enum values are in definition order', () => {

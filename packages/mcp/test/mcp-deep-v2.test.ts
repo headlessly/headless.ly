@@ -599,8 +599,8 @@ describe('@headlessly/mcp — deep v2 tests', () => {
 
       const result = await handlers.fetch({ resource: 'events', type: 'Contact', id: contact.$id })
       const parsed = JSON.parse(result.content[0].text!)
-      // create + update (from perform internals) + qualify = 3 events
-      expect(parsed).toHaveLength(3)
+      // create + qualify = 2 events (perform logs verb action, no separate update)
+      expect(parsed).toHaveLength(2)
       const actions = parsed.map((e: { action: string }) => e.action)
       expect(actions).toContain('qualify')
     })

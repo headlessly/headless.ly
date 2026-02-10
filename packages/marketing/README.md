@@ -62,7 +62,7 @@ Campaign.completed(async (campaign, $) => {
 await Segment.create({
   name: 'Churned Enterprise',
   criteria: {
-    subscription: { status: 'Canceled' },
+    subscription: { status: 'Cancelled' },
     organization: { tier: 'Enterprise' },
   },
   isDynamic: true,

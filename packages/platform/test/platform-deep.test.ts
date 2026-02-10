@@ -31,16 +31,16 @@ describe('@headlessly/platform — deep coverage', () => {
       expect(nameField!.modifiers?.required).toBe(true)
     })
 
-    it('defines trigger as a required string field', () => {
+    it('defines triggerEvent as a required string field', () => {
       const schema = Workflow.$schema
-      const triggerField = schema.fields.get('trigger')
+      const triggerField = schema.fields.get('triggerEvent')
       expect(triggerField).toBeDefined()
       expect(triggerField!.kind).toBe('field')
       expect(triggerField!.type).toBe('string')
       expect(triggerField!.modifiers?.required).toBe(true)
     })
 
-    it('defines status as an enum with Draft|Active|Paused|Archived', () => {
+    it('defines status as an enum with Draft|Active|Paused|Triggered|Archived', () => {
       const schema = Workflow.$schema
       const statusField = schema.fields.get('status')
       expect(statusField).toBeDefined()
@@ -49,8 +49,9 @@ describe('@headlessly/platform — deep coverage', () => {
       expect(statusField!.enumValues).toContain('Draft')
       expect(statusField!.enumValues).toContain('Active')
       expect(statusField!.enumValues).toContain('Paused')
+      expect(statusField!.enumValues).toContain('Triggered')
       expect(statusField!.enumValues).toContain('Archived')
-      expect(statusField!.enumValues).toHaveLength(4)
+      expect(statusField!.enumValues).toHaveLength(5)
     })
 
     it('defines errorHandling as an enum with Stop|Continue|Fallback', () => {

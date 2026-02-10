@@ -152,7 +152,7 @@ export class DONounProvider implements NounProvider {
               const body = (await response.json()) as Record<string, unknown>
               return body?.data ?? body
             },
-            put: async (id: string, data: Record<string, unknown>) => {
+            update: async (id: string, data: Record<string, unknown>) => {
               const collection = prop
               const response = await doFetch(`${basePath}/${collection}/${encodeURIComponent(id)}`, {
                 method: 'PUT',
@@ -183,6 +183,17 @@ export class DONounProvider implements NounProvider {
               if (response.status === 404) return false
               if (!response.ok) throw new DOProviderError(`delete failed`, response.status)
               return true
+            },
+            rollback: async (id: string, toVersion: number) => {
+              const collection = prop
+              const response = await doFetch(`${basePath}/${collection}/${encodeURIComponent(id)}/rollback`, {
+                method: 'POST',
+                headers: buildHeaders({ 'Content-Type': 'application/json' }),
+                body: JSON.stringify({ toVersion }),
+              })
+              if (!response.ok) throw new DOProviderError(`rollback failed`, response.status)
+              const body = (await response.json()) as Record<string, unknown>
+              return body?.data ?? body
             },
           }
         },
@@ -226,7 +237,7 @@ export class DONounProvider implements NounProvider {
   async update(type: string, id: string, data: Record<string, unknown>): Promise<NounInstance> {
     const collection = toCollectionName(type)
     const ns = this.rpc[collection] as Record<string, (...args: unknown[]) => Promise<unknown>>
-    const result = await ns.put(id, data)
+    const result = await ns.update(id, data)
     return toNounInstance(result)
   }
 

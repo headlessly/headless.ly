@@ -250,7 +250,7 @@ describe('@headlessly/billing — deep tests', () => {
       const field = Subscription.$schema.fields.get('status')
       expect(field).toBeDefined()
       expect(field!.kind).toBe('enum')
-      expect(field!.enumValues).toEqual(['Active', 'PastDue', 'Canceled', 'Trialing', 'Paused', 'Incomplete'])
+      expect(field!.enumValues).toEqual(['Active', 'PastDue', 'Cancelled', 'Trialing', 'Paused', 'Incomplete'])
     })
 
     it('has required datetime fields: currentPeriodStart, currentPeriodEnd, startedAt', () => {
@@ -674,7 +674,7 @@ describe('@headlessly/billing — deep tests', () => {
       expect(paused.status).toBe('Paused')
     })
 
-    it('Subscription.cancel() transitions status to Canceled', async () => {
+    it('Subscription.cancel() transitions status to Cancelled', async () => {
       const sub = await Subscription.create({
         status: 'Active',
         currentPeriodStart: '2024-01-01T00:00:00Z',
@@ -682,8 +682,7 @@ describe('@headlessly/billing — deep tests', () => {
         startedAt: '2024-01-01T00:00:00Z',
       })
       const cancelled = await (Subscription as any).cancel(sub.$id)
-      // The verb declaration maps to 'Cancelled' but the status enum contains 'Canceled'
-      // The verb resolves to the raw declaration value from the definition
+      // The verb declaration 'Cancelled' matches the status enum value
       expect(cancelled.status).toBe('Cancelled')
     })
 
@@ -844,7 +843,7 @@ describe('@headlessly/billing — deep tests', () => {
   describe('Subscription optional fields', () => {
     it('stores cancelReason and cancelFeedback on create', async () => {
       const sub = await Subscription.create({
-        status: 'Canceled',
+        status: 'Cancelled',
         currentPeriodStart: '2024-01-01T00:00:00Z',
         currentPeriodEnd: '2024-02-01T00:00:00Z',
         startedAt: '2024-01-01T00:00:00Z',

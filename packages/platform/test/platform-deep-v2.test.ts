@@ -573,8 +573,9 @@ describe('@headlessly/platform — deep v2', () => {
     it('Workflow raw definition preserves all original property strings', () => {
       const raw = Workflow.$schema.raw
       expect(raw.name).toBe('string!')
-      expect(raw.trigger).toBe('string!')
-      expect(raw.status).toBe('Draft | Active | Paused | Archived')
+      expect(raw.triggerEvent).toBe('string!')
+      expect(raw.trigger).toBe('Triggered')
+      expect(raw.status).toBe('Draft | Active | Paused | Triggered | Archived')
       expect(raw.errorHandling).toBe('Stop | Continue | Fallback')
       expect(raw.activate).toBe('Activated')
       expect(raw.pause).toBe('Paused')

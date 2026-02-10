@@ -80,19 +80,19 @@ describe('@headlessly/platform — deep v4', () => {
       expect(Agent.$schema.fields.size).toBe(27)
     })
 
-    it('Workflow has exactly 6 verbs (3 CRUD + 3 custom)', () => {
-      // create, update, delete, activate, pause, archive
-      expect(Workflow.$schema.verbs.size).toBe(6)
+    it('Workflow has exactly 7 verbs (3 CRUD + 4 custom)', () => {
+      // create, update, delete, activate, pause, trigger, archive
+      expect(Workflow.$schema.verbs.size).toBe(7)
     })
 
-    it('Integration has exactly 5 verbs (3 CRUD + 2 custom)', () => {
-      // create, update, delete, connect, disconnect
-      expect(Integration.$schema.verbs.size).toBe(5)
+    it('Integration has exactly 6 verbs (3 CRUD + 3 custom)', () => {
+      // create, update, delete, connect, disconnect, sync
+      expect(Integration.$schema.verbs.size).toBe(6)
     })
 
-    it('Agent has exactly 6 verbs (3 CRUD + 3 custom)', () => {
-      // create, update, delete, deploy, pause, retire
-      expect(Agent.$schema.verbs.size).toBe(6)
+    it('Agent has exactly 16 verbs (3 CRUD + 13 custom)', () => {
+      // create, update, delete, do, ask, decide, approve, notify, delegate, escalate, learn, reflect, deploy, pause, stop, retire
+      expect(Agent.$schema.verbs.size).toBe(16)
     })
   })
 
@@ -103,10 +103,10 @@ describe('@headlessly/platform — deep v4', () => {
     it('Workflow raw definition has every property key from the source', () => {
       const raw = Workflow.$schema.raw
       const expectedKeys = [
-        'name', 'description', 'organization', 'trigger', 'steps',
+        'name', 'description', 'organization', 'triggerEvent', 'steps',
         'retryPolicy', 'errorHandling', 'timeout', 'status', 'version',
         'lastRunAt', 'runCount', 'successCount', 'failureCount',
-        'activate', 'pause', 'archive',
+        'activate', 'pause', 'trigger', 'archive',
       ]
       for (const key of expectedKeys) {
         expect(raw).toHaveProperty(key)
@@ -119,7 +119,7 @@ describe('@headlessly/platform — deep v4', () => {
       const expectedKeys = [
         'name', 'slug', 'description', 'provider', 'providerUrl', 'providerLogo',
         'category', 'authType', 'oauthScopes', 'configSchema', 'status',
-        'featured', 'apiBaseUrl', 'webhookSupport', 'connect', 'disconnect',
+        'featured', 'apiBaseUrl', 'webhookSupport', 'connect', 'disconnect', 'sync',
       ]
       for (const key of expectedKeys) {
         expect(raw).toHaveProperty(key)
@@ -135,7 +135,8 @@ describe('@headlessly/platform — deep v4', () => {
         'visibility', 'temperature', 'maxTokens', 'tools', 'functions',
         'knowledgeBases', 'memory', 'memoryWindow', 'totalTokens', 'totalCost',
         'averageLatency', 'successRate', 'rating', 'ratingCount', 'version',
-        'publishedAt', 'tags', 'deploy', 'pause', 'retire',
+        'publishedAt', 'tags', 'do', 'ask', 'decide', 'approve', 'notify',
+        'delegate', 'escalate', 'learn', 'reflect', 'deploy', 'pause', 'stop', 'retire',
       ]
       for (const key of expectedKeys) {
         expect(raw).toHaveProperty(key)

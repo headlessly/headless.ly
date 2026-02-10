@@ -60,7 +60,7 @@ export const Price = Noun('Price', {
 })
 
 export const Subscription = Noun('Subscription', {
-  status: 'Active | PastDue | Canceled | Trialing | Paused | Incomplete',
+  status: 'Active | PastDue | Cancelled | Trialing | Paused | Incomplete',
   organization: '-> Organization.subscriptions',
   customer: '-> Customer.subscriptions',
   plan: '-> Plan',

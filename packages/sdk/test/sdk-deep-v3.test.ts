@@ -272,7 +272,7 @@ describe('enum field values from $schema', () => {
     expect(statusField).toBeDefined()
     expect(statusField!.enumValues).toContain('Active')
     expect(statusField!.enumValues).toContain('PastDue')
-    expect(statusField!.enumValues).toContain('Canceled')
+    expect(statusField!.enumValues).toContain('Cancelled')
     expect(statusField!.enumValues).toContain('Trialing')
     expect(statusField!.enumValues).toContain('Paused')
     expect(statusField!.enumValues).toContain('Incomplete')
@@ -343,17 +343,17 @@ describe('verb completeness per entity', () => {
     Site: [...CRUD],
     Ticket: [...CRUD, 'resolve', 'escalate', 'close', 'reopen'],
     Event: ['create'],  // update + delete disabled
-    Metric: [...CRUD],
-    Funnel: [...CRUD],
-    Goal: [...CRUD, 'achieve'],
+    Metric: [...CRUD, 'record', 'reset'],
+    Funnel: [...CRUD, 'analyze'],
+    Goal: [...CRUD, 'achieve', 'complete', 'miss', 'reset'],
     Campaign: [...CRUD, 'launch', 'pause', 'complete'],
     Segment: [...CRUD],
     Form: [...CRUD, 'publish', 'archive'],
     Experiment: [...CRUD, 'start', 'conclude', 'pause'],
     FeatureFlag: [...CRUD, 'rollout', 'enable', 'disable'],
-    Workflow: [...CRUD, 'activate', 'pause', 'archive'],
-    Integration: [...CRUD, 'connect', 'disconnect'],
-    Agent: [...CRUD, 'deploy', 'pause', 'retire'],
+    Workflow: [...CRUD, 'activate', 'pause', 'trigger', 'archive'],
+    Integration: [...CRUD, 'connect', 'disconnect', 'sync'],
+    Agent: [...CRUD, 'do', 'ask', 'decide', 'approve', 'notify', 'delegate', 'escalate', 'learn', 'reflect', 'deploy', 'pause', 'stop', 'retire'],
     Message: [...CRUD, 'send', 'deliver', 'read'],
   }
 

@@ -729,7 +729,7 @@ describe('@headlessly/platform — deep v3', () => {
   describe('Schema completeness and registry', () => {
     it('Workflow schema contains all expected field names', () => {
       const fieldNames = [...Workflow.$schema.fields.keys()]
-      const expected = ['name', 'description', 'trigger', 'steps', 'retryPolicy', 'timeout', 'status', 'errorHandling', 'version', 'lastRunAt', 'runCount', 'successCount', 'failureCount']
+      const expected = ['name', 'description', 'triggerEvent', 'steps', 'retryPolicy', 'timeout', 'status', 'errorHandling', 'version', 'lastRunAt', 'runCount', 'successCount', 'failureCount']
       for (const name of expected) {
         expect(fieldNames).toContain(name)
       }

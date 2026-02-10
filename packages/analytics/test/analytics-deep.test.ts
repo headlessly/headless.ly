@@ -180,11 +180,11 @@ describe('@headlessly/analytics — deep coverage', () => {
       expect(field!.modifiers?.required).toBe(true)
     })
 
-    it('status field is an enum with OnTrack | AtRisk | Behind | Achieved', () => {
+    it('status field is an enum with OnTrack | AtRisk | Behind | Achieved | Completed | Missed', () => {
       const field = Goal.$schema.fields.get('status')
       expect(field).toBeDefined()
       expect(field!.kind).toBe('enum')
-      expect(field!.enumValues).toEqual(['OnTrack', 'AtRisk', 'Behind', 'Achieved'])
+      expect(field!.enumValues).toEqual(['OnTrack', 'AtRisk', 'Behind', 'Achieved', 'Completed', 'Missed'])
     })
 
     it('period field is an enum with Daily | Weekly | Monthly | Quarterly | Yearly', () => {

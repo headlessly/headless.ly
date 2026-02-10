@@ -140,7 +140,7 @@ await Subscription.downgrade('subscription_mN8pZwKj')
 
 **Verbs**: `pause()` · `cancel()` · `reactivate()` · `upgrade()` · `downgrade()` — each with full lifecycle conjugation
 
-**Key fields**: status (`Active | PastDue | Canceled | Trialing | Paused | Incomplete`), currentPeriodStart, currentPeriodEnd, cancelAtPeriodEnd, trialStart, trialEnd, cancelReason
+**Key fields**: status (`Active | PastDue | Cancelled | Trialing | Paused | Incomplete`), currentPeriodStart, currentPeriodEnd, cancelAtPeriodEnd, trialStart, trialEnd, cancelReason
 
 **Relationships**: → Customer, → Plan, → Organization
 

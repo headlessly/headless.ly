@@ -500,20 +500,26 @@ describe('@headlessly/analytics — deep coverage v3', () => {
       expect(Event.$schema.verbs.has('create')).toBe(true)
     })
 
-    it('Metric schema verbs map has exactly 3 verbs (create, update, delete)', () => {
-      expect(Metric.$schema.verbs.size).toBe(3)
+    it('Metric schema verbs map has exactly 5 verbs (create, update, delete, record, reset)', () => {
+      expect(Metric.$schema.verbs.size).toBe(5)
       expect(Metric.$schema.verbs.has('create')).toBe(true)
       expect(Metric.$schema.verbs.has('update')).toBe(true)
       expect(Metric.$schema.verbs.has('delete')).toBe(true)
+      expect(Metric.$schema.verbs.has('record')).toBe(true)
+      expect(Metric.$schema.verbs.has('reset')).toBe(true)
     })
 
-    it('Funnel schema verbs map has exactly 3 verbs (create, update, delete)', () => {
-      expect(Funnel.$schema.verbs.size).toBe(3)
+    it('Funnel schema verbs map has exactly 4 verbs (create, update, delete, analyze)', () => {
+      expect(Funnel.$schema.verbs.size).toBe(4)
+      expect(Funnel.$schema.verbs.has('analyze')).toBe(true)
     })
 
-    it('Goal schema verbs map has exactly 4 verbs (create, update, delete, achieve)', () => {
-      expect(Goal.$schema.verbs.size).toBe(4)
+    it('Goal schema verbs map has exactly 7 verbs (create, update, delete, achieve, complete, miss, reset)', () => {
+      expect(Goal.$schema.verbs.size).toBe(7)
       expect(Goal.$schema.verbs.has('achieve')).toBe(true)
+      expect(Goal.$schema.verbs.has('complete')).toBe(true)
+      expect(Goal.$schema.verbs.has('miss')).toBe(true)
+      expect(Goal.$schema.verbs.has('reset')).toBe(true)
     })
   })
 
@@ -770,9 +776,12 @@ describe('@headlessly/analytics — deep coverage v3', () => {
       expect(raw.current).toBe('number')
       expect(raw.unit).toBe('string')
       expect(raw.period).toBe('Daily | Weekly | Monthly | Quarterly | Yearly')
-      expect(raw.status).toBe('OnTrack | AtRisk | Behind | Achieved')
+      expect(raw.status).toBe('OnTrack | AtRisk | Behind | Achieved | Completed | Missed')
       expect(raw.organization).toBe('-> Organization')
       expect(raw.achieve).toBe('Achieved')
+      expect(raw.complete).toBe('Completed')
+      expect(raw.miss).toBe('Missed')
+      expect(raw.reset).toBe('Reset')
     })
 
     it('Metric.$schema.raw contains all field declarations', () => {

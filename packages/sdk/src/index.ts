@@ -1,6 +1,6 @@
 import { Noun } from 'digital-objects'
-import { setProvider, getProvider, MemoryNounProvider, setEntityRegistry } from 'digital-objects'
-import type { NounProvider, NounInstance, NounEntity, NounSchema } from 'digital-objects'
+import { setProvider, getProvider, MemoryNounProvider, setEntityRegistry, subscribeToEvents } from 'digital-objects'
+import type { NounProvider, NounInstance, NounEntity, NounSchema, EntityEvent as DOEntityEvent } from 'digital-objects'
 import { RPC } from 'rpc.do'
 import type { RPCProxy, RPCOptions } from 'rpc.do'
 import { LocalNounProvider, DONounProvider } from '@headlessly/objects'
@@ -11,13 +11,17 @@ import type { DONounProviderOptions } from '@headlessly/objects'
 // =============================================================================
 
 /**
- * Entity event emitted for every mutation through the $ context
+ * Entity event emitted for every mutation through the $ context.
+ * Matches digital-objects' EntityEvent exactly so the SDK event bus
+ * and the Noun proxy event bus are type-compatible.
  */
 export interface EntityEvent {
   type: string
-  action: string
+  action: 'created' | 'updated' | 'deleted' | 'performed' | 'rolled_back'
+  verb?: string
   entityId: string
-  data: Record<string, unknown>
+  data: NounInstance | null
+  previousData: NounInstance | null
   timestamp: string
   version: number
 }
@@ -33,46 +37,46 @@ export interface SystemStatus {
 }
 
 // =============================================================================
-// EventBus — in-memory pub/sub for entity events
+// EventBus — bridges to digital-objects' global event bus
 // =============================================================================
 
-type EventCallback = (event: EntityEvent) => void
 type EventFilter = { type?: string; action?: string }
 
-interface EventSubscription {
-  callback: EventCallback
-  filter?: EventFilter
-}
+const _activeUnsubscribes: Array<() => void> = []
 
-const _eventSubscriptions: EventSubscription[] = []
+function _subscribe(callbackOrOptions: ((event: EntityEvent) => void) | EventFilter, maybeCallback?: (event: EntityEvent) => void): () => void {
+  let userCallback: (event: EntityEvent) => void
+  let filter: EventFilter | undefined
 
-function _emitEvent(event: EntityEvent): void {
-  for (const sub of _eventSubscriptions) {
-    if (sub.filter) {
-      if (sub.filter.type && sub.filter.type !== event.type) continue
-      if (sub.filter.action && sub.filter.action !== event.action) continue
+  if (typeof callbackOrOptions === 'function') {
+    userCallback = callbackOrOptions
+  } else {
+    if (!maybeCallback) throw new Error('subscribe() requires a callback')
+    userCallback = maybeCallback
+    filter = callbackOrOptions
+  }
+
+  // Bridge to digital-objects' subscribeToEvents with filtering
+  const unsub = subscribeToEvents((event: DOEntityEvent) => {
+    if (filter) {
+      if (filter.type && filter.type !== event.type) return
+      if (filter.action && filter.action !== event.action) return
     }
     try {
-      sub.callback(event)
+      userCallback(event as EntityEvent)
     } catch {
       // Subscriber errors are silently ignored
     }
-  }
-}
+  })
 
-function _subscribe(callbackOrOptions: EventCallback | EventFilter, maybeCallback?: EventCallback): () => void {
-  let sub: EventSubscription
-  if (typeof callbackOrOptions === 'function') {
-    sub = { callback: callbackOrOptions }
-  } else {
-    if (!maybeCallback) throw new Error('subscribe() requires a callback')
-    sub = { callback: maybeCallback, filter: callbackOrOptions }
+  _activeUnsubscribes.push(unsub)
+
+  const wrappedUnsub = () => {
+    unsub()
+    const idx = _activeUnsubscribes.indexOf(unsub)
+    if (idx >= 0) _activeUnsubscribes.splice(idx, 1)
   }
-  _eventSubscriptions.push(sub)
-  return () => {
-    const idx = _eventSubscriptions.indexOf(sub)
-    if (idx >= 0) _eventSubscriptions.splice(idx, 1)
-  }
+  return wrappedUnsub
 }
 
 const _eventsNamespace = {
@@ -199,13 +203,19 @@ async function _statusFn(): Promise<SystemStatus> {
   }
 
   const entities: Record<string, number> = {}
-  for (const [name, entity] of Object.entries(allEntities)) {
-    try {
-      const items = await entity.find({})
-      entities[name] = items.length
-    } catch {
-      entities[name] = 0
-    }
+  const entries = Object.entries(allEntities)
+  const counts = await Promise.all(
+    entries.map(async ([, entity]) => {
+      try {
+        const items = await entity.find({})
+        return items.length
+      } catch {
+        return 0
+      }
+    }),
+  )
+  for (let i = 0; i < entries.length; i++) {
+    entities[entries[i][0]] = counts[i]
   }
 
   return {
@@ -521,6 +531,11 @@ function _headlessly(options?: HeadlesslyOptions): HeadlessContext {
 _headlessly.reset = function reset(): void {
   _initialized = false
   _lazyEnabled = false
+  // Clean up event subscriptions
+  for (const unsub of _activeUnsubscribes) {
+    unsub()
+  }
+  _activeUnsubscribes.length = 0
   setProvider(null as unknown as NounProvider)
 }
 

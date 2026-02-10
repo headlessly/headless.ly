@@ -192,9 +192,9 @@ describe('@headlessly/billing v3 — deep tests', () => {
   })
 
   // ---------------------------------------------------------------------------
-  // 4. Subscription Lifecycle: Active -> Canceled
+  // 4. Subscription Lifecycle: Active -> Cancelled
   // ---------------------------------------------------------------------------
-  describe('Subscription lifecycle: Active -> Canceled', () => {
+  describe('Subscription lifecycle: Active -> Cancelled', () => {
     it('cancels an active subscription', async () => {
       const sub = await Subscription.create({
         status: 'Active',
@@ -205,9 +205,8 @@ describe('@headlessly/billing v3 — deep tests', () => {
       // The verb is 'cancel' with declaration 'Cancelled'
       // The Noun definition says: cancel: 'Cancelled'
       // resolveVerbTransition looks for an enum field containing 'Cancelled'
-      // Subscription status enum: 'Active | PastDue | Canceled | Trialing | Paused | Incomplete'
-      // 'Cancelled' is NOT in the enum (the enum has 'Canceled' with one l)
-      // So it falls back to the convention field 'status' and sets it to 'Cancelled'
+      // Subscription status enum: 'Active | PastDue | Cancelled | Trialing | Paused | Incomplete'
+      // 'Cancelled' matches the enum — verb transitions status correctly
       const cancelled = await (Subscription as any).cancel(sub.$id)
       expect(cancelled.status).toBe('Cancelled')
     })
@@ -554,7 +553,7 @@ describe('@headlessly/billing v3 — deep tests', () => {
         startedAt: '2024-01-01T00:00:00Z',
       })
       await Subscription.create({
-        status: 'Canceled',
+        status: 'Cancelled',
         currentPeriodStart: '2024-01-01T00:00:00Z',
         currentPeriodEnd: '2024-02-01T00:00:00Z',
         startedAt: '2024-01-01T00:00:00Z',
@@ -897,7 +896,7 @@ describe('@headlessly/billing v3 — deep tests', () => {
 
     it('stores endedAt on a terminated subscription', async () => {
       const sub = await Subscription.create({
-        status: 'Canceled',
+        status: 'Cancelled',
         currentPeriodStart: '2024-01-01T00:00:00Z',
         currentPeriodEnd: '2024-02-01T00:00:00Z',
         startedAt: '2024-01-01T00:00:00Z',
