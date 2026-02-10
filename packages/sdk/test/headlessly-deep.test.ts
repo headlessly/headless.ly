@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { clearRegistry, MemoryNounProvider, setProvider, getProvider } from 'digital-objects'
-import Headlessly from '../src/index'
+import { Headlessly } from '../src/index'
 import type { HeadlesslyOrg } from '../src/index'
 
 describe('headless.ly factory — deep coverage (RED)', () => {

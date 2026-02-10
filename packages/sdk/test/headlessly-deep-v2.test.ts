@@ -1,11 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { clearRegistry, MemoryNounProvider, setProvider, getProvider } from 'digital-objects'
-import Headlessly, { Headlessly as NamedHeadlessly } from '../src/index'
-import type { HeadlesslyOrg, HeadlesslyOptions } from '../src/index'
-import { $ } from '@headlessly/sdk'
+import { Headlessly, $ } from '../src/index'
+import type { HeadlesslyOrg, HeadlesslyOrgOptions } from '../src/index'
 
 // Helper to create a fresh org with isolated provider
-function freshOrg(opts: HeadlesslyOptions): HeadlesslyOrg {
+function freshOrg(opts: HeadlesslyOrgOptions): HeadlesslyOrg {
   clearRegistry()
   setProvider(new MemoryNounProvider())
   return Headlessly(opts)
@@ -21,12 +20,13 @@ describe('headlessly-deep-v2 — 50+ new tests', () => {
   // 1. Exports and Module Shape (6 tests)
   // ===========================================================================
   describe('exports and module shape', () => {
-    it('default export is a function', () => {
+    it('Headlessly is a function', () => {
       expect(typeof Headlessly).toBe('function')
     })
 
-    it('named export Headlessly is the same function as default', () => {
-      expect(NamedHeadlessly).toBe(Headlessly)
+    it('Headlessly is exported as a named export from @headlessly/sdk', async () => {
+      const mod = await import('../src/index')
+      expect(typeof mod.Headlessly).toBe('function')
     })
 
     it('re-exports setProvider from digital-objects', async () => {

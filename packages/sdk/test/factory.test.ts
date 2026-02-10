@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { clearRegistry, MemoryNounProvider, setProvider } from 'digital-objects'
-import Headlessly from '../src/index'
+import { Headlessly } from '../src/index'
 import type { HeadlesslyOrg } from '../src/index'
 
 describe('headless.ly — Headlessly() factory', () => {

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { clearRegistry, MemoryNounProvider, setProvider, getProvider } from 'digital-objects'
-import Headlessly from '../src/index'
+import { Headlessly } from '../src/index'
 import type { HeadlesslyOrg } from '../src/index'
 
 type OrgWithEntities = HeadlesslyOrg & Record<string, any>

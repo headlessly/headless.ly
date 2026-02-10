@@ -3,6 +3,8 @@ import { setProvider, getProvider, MemoryNounProvider, setEntityRegistry } from 
 import type { NounProvider, NounInstance, NounEntity, NounSchema } from 'digital-objects'
 import { RPC } from 'rpc.do'
 import type { RPCProxy, RPCOptions } from 'rpc.do'
+import { LocalNounProvider, DONounProvider } from '@headlessly/objects'
+import type { DONounProviderOptions } from '@headlessly/objects'
 
 // Import all domain packages (side effect: registers nouns)
 import * as crm from '@headlessly/crm'
@@ -52,8 +54,8 @@ const Message = Noun('Message', {
 export { crm, billing, projects, content, support, analytics, marketing, experiments, platform }
 
 // Re-export provider utilities
-export { setProvider, getProvider, MemoryNounProvider }
-export type { NounProvider, NounInstance, NounEntity }
+export { setProvider, getProvider, MemoryNounProvider, LocalNounProvider, DONounProvider }
+export type { NounProvider, NounInstance, NounEntity, DONounProviderOptions }
 
 // All entities flat map (for $ proxy)
 const allEntities: Record<string, NounEntity> = {
@@ -627,3 +629,163 @@ export const $: HeadlessContext = new Proxy({} as HeadlessContext, {
     return allEntities[prop as string]
   },
 })
+
+// =============================================================================
+// Headlessly() — Tenant-scoped org factory
+// =============================================================================
+
+/**
+ * A headless.ly organization instance (tenant-scoped proxy)
+ *
+ * Provides access to all 35 entities via property access (org.Contact, org.Deal, etc.)
+ * plus MCP-like primitives: search, fetch, do.
+ *
+ * Domain namespaces are also available: org.crm, org.billing, org.projects, etc.
+ */
+export interface HeadlesslyOrg {
+  /** Tenant identifier */
+  readonly tenant: string
+  /** Context URL (https://headless.ly/~{tenant}) */
+  readonly context: string
+  /** Search across entities */
+  search: (query: { type?: string; filter?: Record<string, unknown> }) => Promise<unknown[]>
+  /** Fetch a specific entity */
+  fetch: (query: { type: string; id: string; include?: string[] }) => Promise<unknown>
+  /** Execute any action */
+  do: (fn: (ctx: Record<string, unknown>) => Promise<unknown>) => Promise<unknown>
+  /** Entity and namespace access via index signature */
+  [key: string]: unknown
+}
+
+/**
+ * Options for the Headlessly() tenant-scoped factory
+ */
+export interface HeadlesslyOrgOptions {
+  /** Tenant identifier (e.g., 'acme') */
+  tenant: string
+  /** API key for remote mode (format: 'key_...') */
+  apiKey?: string
+  /** Endpoint override for remote mode (default: https://db.headless.ly) */
+  endpoint?: string
+  /** ICP template to apply — controls default entity visibility and workflows */
+  template?: 'b2b' | 'b2c' | 'b2d' | 'b2a'
+  /** Provider mode: 'memory' (default/testing), 'local' (file-based), 'remote' (rpc.do + capnweb) */
+  mode?: 'local' | 'remote' | 'memory'
+  /** Transport for remote mode: 'http' (default) or 'ws' for real-time with WebSocket */
+  transport?: 'http' | 'ws'
+}
+
+/** Domain namespace map for the org proxy */
+const domainNamespaces: Record<string, Record<string, unknown>> = {
+  crm: crm as unknown as Record<string, unknown>,
+  billing: billing as unknown as Record<string, unknown>,
+  projects: projects as unknown as Record<string, unknown>,
+  content: content as unknown as Record<string, unknown>,
+  support: support as unknown as Record<string, unknown>,
+  analytics: analytics as unknown as Record<string, unknown>,
+  marketing: marketing as unknown as Record<string, unknown>,
+  experiments: experiments as unknown as Record<string, unknown>,
+  platform: platform as unknown as Record<string, unknown>,
+}
+
+/**
+ * Configure a provider based on mode selection
+ */
+function configureOrgProvider(options: HeadlesslyOrgOptions): NounProvider {
+  const { tenant, mode = 'memory', apiKey, endpoint, transport } = options
+  const context = `https://headless.ly/~${tenant}`
+
+  switch (mode) {
+    case 'local': {
+      const provider = new LocalNounProvider({ context })
+      setProvider(provider)
+      return provider
+    }
+
+    case 'remote': {
+      const baseUrl = endpoint ?? 'https://db.headless.ly'
+      const provider = new DONounProvider({
+        endpoint: `${baseUrl}/~${tenant}`,
+        apiKey,
+        transport,
+        context,
+      })
+      setProvider(provider)
+      return provider
+    }
+
+    case 'memory':
+    default: {
+      let provider: NounProvider
+      try {
+        provider = getProvider()
+      } catch {
+        provider = new MemoryNounProvider()
+        setProvider(provider)
+      }
+      return provider
+    }
+  }
+}
+
+/**
+ * Headlessly() — Create a tenant-scoped organization instance
+ *
+ * Returns a HeadlesslyOrg proxy with access to all 35 entities + search/fetch/do,
+ * scoped to a specific tenant.
+ *
+ * @example
+ * ```typescript
+ * import { Headlessly } from '@headlessly/sdk'
+ *
+ * // Memory mode (default — for testing and prototyping)
+ * const org = Headlessly({ tenant: 'test' })
+ * await org.Contact.create({ name: 'Alice', stage: 'Lead' })
+ *
+ * // Remote mode (rpc.do + capnweb promise pipelining)
+ * const org = Headlessly({ tenant: 'acme', apiKey: 'key_...', mode: 'remote' })
+ * ```
+ */
+export function Headlessly(options: HeadlesslyOrgOptions): HeadlesslyOrg {
+  const { tenant } = options
+  const context = `https://headless.ly/~${tenant}`
+
+  configureOrgProvider(options)
+
+  return new Proxy({} as HeadlesslyOrg, {
+    get(_target, prop: string | symbol) {
+      if (typeof prop === 'symbol') return undefined
+      if (prop === 'then' || prop === 'catch' || prop === 'finally') return undefined
+      if (prop === 'tenant') return tenant
+      if (prop === 'context') return context
+      if (prop === 'search') return $['search']
+      if (prop === 'fetch') return $['fetch']
+      if (prop === 'do') return $['do']
+      if (prop in domainNamespaces) return domainNamespaces[prop]
+      const entity = $[prop]
+      if (entity !== undefined) return entity
+      return undefined
+    },
+
+    has(_target, prop: string | symbol) {
+      if (typeof prop === 'symbol') return false
+      if (prop === 'tenant' || prop === 'context') return true
+      if (prop === 'search' || prop === 'fetch' || prop === 'do') return true
+      if (prop in domainNamespaces) return true
+      return $[prop] !== undefined
+    },
+
+    ownKeys() {
+      return ['tenant', 'context', 'search', 'fetch', 'do', ...Object.keys(domainNamespaces)]
+    },
+
+    getOwnPropertyDescriptor(_target, prop: string | symbol) {
+      if (typeof prop === 'symbol') return undefined
+      const keys = ['tenant', 'context', 'search', 'fetch', 'do', ...Object.keys(domainNamespaces)]
+      if (keys.includes(prop)) {
+        return { configurable: true, enumerable: true, writable: false }
+      }
+      return undefined
+    },
+  })
+}

@@ -10,8 +10,7 @@ Direct edits are welcome. This content is hand-crafted for quality. When the pac
 
 ```
 packages/
-├── sdk/           → @headlessly/sdk — unified 35-entity SDK, $ context
-├── headlessly/    → headless.ly — main entry point, Headlessly() factory
+├── sdk/           → @headlessly/sdk — unified 35-entity SDK, $ context, Headlessly() factory
 ├── crm/           → @headlessly/crm — Organization, Contact, Lead, Deal, Activity, Pipeline
 ├── billing/       → @headlessly/billing — Customer, Product, Plan, Price, Subscription, Invoice, Payment
 ├── projects/      → @headlessly/projects — Project, Issue, Comment
@@ -91,8 +90,7 @@ await billing.Subscription.create({ plan: 'pro', contact: 'contact_k7TmPvQx' })
 
 | Layer | Packages | Purpose |
 |---|---|---|
-| **SDK** | `@headlessly/sdk` | Full 35-entity graph, exports `$` and domain namespaces |
-| **Entry** | `headless.ly` | Headlessly() factory with provider configuration |
+| **SDK** | `@headlessly/sdk` | Full 35-entity graph, exports `$`, domain namespaces, and `Headlessly()` factory |
 | **CLI** | `@headlessly/cli` | CLI entry point (`npx @headlessly/cli`) |
 | **Domain** | `crm`, `billing`, `projects`, `content`, `support`, `analytics`, `marketing`, `experiments`, `platform` | Each owns a set of entities |
 | **RPC** | `@headlessly/rpc` | Preconfigured rpc.do client for headless.ly |
@@ -142,12 +140,8 @@ for (const lead of leads) {
 ### What NOT to Write
 
 ```typescript
-// WRONG — old pattern
+// WRONG — headless.ly is not a valid npm package name (use @headlessly/sdk)
 import Headlessly from 'headless.ly'
-const org = Headlessly({ tenant: 'my-startup' })
-org.Contact.create(...)
-
-// WRONG — headless.ly is not a valid npm package name for direct imports
 import { Contact } from 'headless.ly'
 
 // WRONG — MCP tools are not function calls
