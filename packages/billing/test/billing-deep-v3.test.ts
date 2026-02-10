@@ -212,12 +212,11 @@ describe('@headlessly/billing v3 — deep tests', () => {
       expect(cancelled.status).toBe('Cancelled')
     })
 
-    it('cancel verb uses American-spelling gerund "canceling"', () => {
-      // The linguistic module does NOT double the consonant for "cancel"
-      // because "cancel" is not in the doubling verbs list
+    it('cancel verb uses British-spelling gerund "cancelling"', () => {
+      // "cancel" is an irregular verb with British English doubling
       const verb = Subscription.$schema.verbs.get('cancel')!
-      expect(verb.activity).toBe('canceling')
-      expect(verb.event).toBe('canceled')
+      expect(verb.activity).toBe('cancelling')
+      expect(verb.event).toBe('cancelled')
     })
   })
 

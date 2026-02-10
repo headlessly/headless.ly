@@ -446,9 +446,9 @@ describe('cross-domain event subscription — chained hooks', () => {
     expect(campaignCreated).toBe(true)
   })
 
-  it('Subscription.canceled hook creates a Ticket', async () => {
+  it('Subscription.cancelled hook creates a Ticket', async () => {
     let ticketId = ''
-    $.Subscription.canceled(async (_instance: Record<string, unknown>, ctx: Record<string, unknown>) => {
+    $.Subscription.cancelled(async (_instance: Record<string, unknown>, ctx: Record<string, unknown>) => {
       const ctxTyped = ctx as typeof $
       if (ctxTyped?.Ticket) {
         const t = await ctxTyped.Ticket.create({ subject: 'Churn alert', status: 'Open', priority: 'Urgent' })

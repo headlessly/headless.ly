@@ -248,8 +248,8 @@ describe('@headlessly/experiments — deep coverage', () => {
       expect(verbs.has('rollout')).toBe(true)
       const rollout = verbs.get('rollout')!
       expect(rollout.action).toBe('rollout')
-      expect(rollout.activity).toBe('rollingout')
-      expect(rollout.event).toBe('rolledout')
+      expect(rollout.activity).toBe('rollingOut')
+      expect(rollout.event).toBe('rolledOut')
     })
 
     it('exposes verb action methods on the proxy', () => {
@@ -263,8 +263,8 @@ describe('@headlessly/experiments — deep coverage', () => {
       expect(typeof FeatureFlag.enabled).toBe('function')
       expect(typeof FeatureFlag.disabling).toBe('function')
       expect(typeof FeatureFlag.disabled).toBe('function')
-      expect(typeof FeatureFlag.rollingout).toBe('function')
-      expect(typeof FeatureFlag.rolledout).toBe('function')
+      expect(typeof FeatureFlag.rollingOut).toBe('function')
+      expect(typeof FeatureFlag.rolledOut).toBe('function')
     })
   })
 

@@ -61,7 +61,7 @@ describe('@headlessly/experiments', () => {
 
     describe('verb conjugation', () => {
       it('has rollout verb conjugation', () => {
-        expectVerbConjugation(FeatureFlag, 'rollout', 'rollingout', 'rolledout')
+        expectVerbConjugation(FeatureFlag, 'rollout', 'rollingOut', 'rolledOut')
       })
 
       it('has enable verb conjugation', () => {

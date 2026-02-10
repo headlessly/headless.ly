@@ -187,11 +187,11 @@ describe('@headlessly/experiments — deep coverage v2', () => {
       expect(verb!.reverseAt).toBe('disabledAt')
     })
 
-    it('rollout verb has rolledoutBy and rolledoutAt reverse forms', () => {
+    it('rollout verb has rolledOutBy and rolledOutAt reverse forms', () => {
       const verb = FeatureFlag.$schema.verbs.get('rollout')
       expect(verb).toBeDefined()
-      expect(verb!.reverseBy).toBe('rolledoutBy')
-      expect(verb!.reverseAt).toBe('rolledoutAt')
+      expect(verb!.reverseBy).toBe('rolledOutBy')
+      expect(verb!.reverseAt).toBe('rolledOutAt')
     })
 
     it('create verb has createdBy and createdAt reverse forms', () => {
@@ -619,9 +619,9 @@ describe('@headlessly/experiments — deep coverage v2', () => {
       expect(entity.status).toBe('Disabled')
     })
 
-    it('rolledout hook fires after rollout verb on FeatureFlag', async () => {
+    it('rolledOut hook fires after rollout verb on FeatureFlag', async () => {
       const hook = vi.fn()
-      FeatureFlag.rolledout(hook)
+      FeatureFlag.rolledOut(hook)
 
       const flag = await FeatureFlag.create({ key: 'ro-hook', name: 'RO Hook', status: 'Draft' })
       await FeatureFlag.rollout(flag.$id)
