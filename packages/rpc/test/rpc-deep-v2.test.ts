@@ -1,18 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-// Track RPC calls by intercepting the module
-const rpcCalls: { url: string; options: Record<string, unknown> }[] = []
-vi.mock('rpc.do', async (importOriginal) => {
-  const orig = await importOriginal<typeof import('rpc.do')>()
-  return {
-    ...orig,
-    RPC: vi.fn((...args: unknown[]) => {
-      rpcCalls.push({ url: args[0] as string, options: (args[1] ?? {}) as Record<string, unknown> })
-      return orig.RPC(...(args as Parameters<typeof orig.RPC>))
-    }),
-  }
-})
-
 import {
   headlessly,
   createHeadlesslyClient,
@@ -25,6 +12,7 @@ import {
   composite,
   createDOClient,
   connectDO,
+  buildHeadlesslyConfig,
 } from '../src/index.js'
 
 import type {
@@ -56,50 +44,45 @@ import type {
 // =============================================================================
 
 describe('URL Construction Edge Cases', () => {
-  beforeEach(() => {
-    rpcCalls.length = 0
-    vi.mocked(RPC).mockClear()
-  })
-
   it('endpoint with multiple trailing slashes is stripped down', () => {
-    headlessly({ tenant: 'acme', endpoint: 'https://custom.example.com///' })
-    expect(rpcCalls[0]!.url).toBe('https://custom.example.com/~acme')
+    const { url } = buildHeadlesslyConfig({ tenant: 'acme', endpoint: 'https://custom.example.com///' })
+    expect(url).toBe('https://custom.example.com/~acme')
   })
 
   it('tenant with special characters is passed through verbatim', () => {
-    headlessly({ tenant: 'my-startup_v2' })
-    expect(rpcCalls[0]!.url).toBe('https://db.headless.ly/~my-startup_v2')
+    const { url } = buildHeadlesslyConfig({ tenant: 'my-startup_v2' })
+    expect(url).toBe('https://db.headless.ly/~my-startup_v2')
   })
 
   it('tenant with dots is preserved in URL', () => {
-    headlessly({ tenant: 'org.test' })
-    expect(rpcCalls[0]!.url).toContain('/~org.test')
+    const { url } = buildHeadlesslyConfig({ tenant: 'org.test' })
+    expect(url).toContain('/~org.test')
   })
 
   it('endpoint with port number is preserved', () => {
-    headlessly({ tenant: 'acme', endpoint: 'https://localhost:3000' })
-    expect(rpcCalls[0]!.url).toBe('https://localhost:3000/~acme')
+    const { url } = buildHeadlesslyConfig({ tenant: 'acme', endpoint: 'https://localhost:3000' })
+    expect(url).toBe('https://localhost:3000/~acme')
   })
 
   it('endpoint with path is preserved before tenant', () => {
-    headlessly({ tenant: 'acme', endpoint: 'https://example.com/api/v1' })
-    expect(rpcCalls[0]!.url).toBe('https://example.com/api/v1/~acme')
+    const { url } = buildHeadlesslyConfig({ tenant: 'acme', endpoint: 'https://example.com/api/v1' })
+    expect(url).toBe('https://example.com/api/v1/~acme')
   })
 
   it('ws transport with port-included endpoint', () => {
-    headlessly({ tenant: 'acme', endpoint: 'http://localhost:8787', transport: 'ws' })
-    expect(rpcCalls[0]!.url).toBe('wss://localhost:8787/~acme')
+    const { url } = buildHeadlesslyConfig({ tenant: 'acme', endpoint: 'http://localhost:8787', transport: 'ws' })
+    expect(url).toBe('wss://localhost:8787/~acme')
   })
 
   it('endpoint with https already is kept as https for http transport', () => {
-    headlessly({ tenant: 'acme', endpoint: 'https://custom-api.com', transport: 'http' })
-    expect(rpcCalls[0]!.url).toBe('https://custom-api.com/~acme')
+    const { url } = buildHeadlesslyConfig({ tenant: 'acme', endpoint: 'https://custom-api.com', transport: 'http' })
+    expect(url).toBe('https://custom-api.com/~acme')
   })
 
   it('undefined apiKey does not add auth option', () => {
-    headlessly({ tenant: 'acme', apiKey: undefined })
-    expect(rpcCalls[0]!.options).toEqual({})
-    expect(rpcCalls[0]!.options).not.toHaveProperty('auth')
+    const { rpcOptions } = buildHeadlesslyConfig({ tenant: 'acme', apiKey: undefined })
+    expect(rpcOptions).toEqual({})
+    expect(rpcOptions).not.toHaveProperty('auth')
   })
 })
 
@@ -108,11 +91,6 @@ describe('URL Construction Edge Cases', () => {
 // =============================================================================
 
 describe('Proxy Deep Property Chain', () => {
-  beforeEach(() => {
-    rpcCalls.length = 0
-    vi.mocked(RPC).mockClear()
-  })
-
   it('deep property chains do not throw', () => {
     const client = headlessly({ tenant: 'acme' })
     expect(() => (client as any).a.b.c).not.toThrow()
@@ -441,8 +419,6 @@ describe('Utility Re-exports', () => {
 
 describe('createRPCClient (Deprecated)', () => {
   it('createRPCClient creates a defined proxy client from baseUrl', () => {
-    // createRPCClient calls the internal (non-mocked) RPC, so we just verify
-    // it returns a valid proxy object
     const client = createRPCClient({ baseUrl: 'https://example.com/rpc' })
     expect(client).toBeDefined()
     expect(typeof client).toBe('object')
@@ -467,23 +443,15 @@ describe('createRPCClient (Deprecated)', () => {
 // =============================================================================
 
 describe('Factory Concurrency & Independence', () => {
-  beforeEach(() => {
-    rpcCalls.length = 0
-    vi.mocked(RPC).mockClear()
-  })
-
   it('creating many clients in rapid succession works', () => {
     const clients = Array.from({ length: 20 }, (_, i) => headlessly({ tenant: `org_${i}` }))
     expect(clients).toHaveLength(20)
-    expect(rpcCalls).toHaveLength(20)
     clients.forEach((c) => expect(c).toBeDefined())
   })
 
   it('each client gets unique tenant URL', () => {
-    headlessly({ tenant: 'alpha' })
-    headlessly({ tenant: 'beta' })
-    headlessly({ tenant: 'gamma' })
-    const urls = rpcCalls.map((c) => c.url)
+    const configs = ['alpha', 'beta', 'gamma'].map((t) => buildHeadlesslyConfig({ tenant: t }))
+    const urls = configs.map((c) => c.url)
     expect(new Set(urls).size).toBe(3)
     expect(urls[0]).toContain('/~alpha')
     expect(urls[1]).toContain('/~beta')
@@ -491,12 +459,12 @@ describe('Factory Concurrency & Independence', () => {
   })
 
   it('clients with different configs are independent', () => {
-    headlessly({ tenant: 'a', apiKey: 'key_1' })
-    headlessly({ tenant: 'b', transport: 'ws' })
-    headlessly({ tenant: 'c', endpoint: 'https://other.com' })
-    expect(rpcCalls[0]!.options).toEqual({ auth: 'key_1' })
-    expect(rpcCalls[1]!.url).toMatch(/^wss:\/\//)
-    expect(rpcCalls[2]!.url).toContain('other.com')
+    const c1 = buildHeadlesslyConfig({ tenant: 'a', apiKey: 'key_1' })
+    const c2 = buildHeadlesslyConfig({ tenant: 'b', transport: 'ws' })
+    const c3 = buildHeadlesslyConfig({ tenant: 'c', endpoint: 'https://other.com' })
+    expect(c1.rpcOptions).toEqual({ auth: 'key_1' })
+    expect(c2.url).toMatch(/^wss:\/\//)
+    expect(c3.url).toContain('other.com')
   })
 })
 

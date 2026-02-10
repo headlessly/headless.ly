@@ -18,39 +18,7 @@
  * 11. useAction, useEvents, EntityList, EntityDetail
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-
-// ---------------------------------------------------------------------------
-// Mock @headlessly/js before any imports that touch it
-// ---------------------------------------------------------------------------
-const mockHeadless = {
-  init: vi.fn(),
-  shutdown: vi.fn(),
-  track: vi.fn(),
-  page: vi.fn(),
-  identify: vi.fn(),
-  captureException: vi.fn().mockReturnValue('event_abc'),
-  captureMessage: vi.fn(),
-  getFeatureFlag: vi.fn().mockReturnValue(undefined),
-  isFeatureEnabled: vi.fn().mockReturnValue(false),
-  getSessionId: vi.fn().mockReturnValue('sess_test123'),
-  getDistinctId: vi.fn().mockReturnValue('anon_test456'),
-  setUser: vi.fn(),
-  addBreadcrumb: vi.fn(),
-  reset: vi.fn(),
-  optOut: vi.fn(),
-  optIn: vi.fn(),
-  hasOptedOut: vi.fn().mockReturnValue(false),
-  flush: vi.fn(),
-  getAllFlags: vi.fn().mockReturnValue({}),
-  reloadFeatureFlags: vi.fn(),
-}
-
-vi.mock('@headlessly/js', () => ({
-  default: mockHeadless,
-  ...mockHeadless,
-  HeadlessClient: vi.fn(),
-}))
+import { describe, it, expect } from 'vitest'
 
 // ---------------------------------------------------------------------------
 // Helper: get the module. Vitest caches so this is cheap after first call.
@@ -60,9 +28,6 @@ async function getModule() {
 }
 
 describe('@headlessly/react — RED TDD tests', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
 
   // =========================================================================
   // 1. HeadlessProvider — initialization and context provisioning

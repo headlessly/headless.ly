@@ -1,17 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-
-// Track RPC calls by intercepting the module
-const rpcCalls: { url: string; options: Record<string, unknown> }[] = []
-vi.mock('rpc.do', async (importOriginal) => {
-  const orig = await importOriginal<typeof import('rpc.do')>()
-  return {
-    ...orig,
-    RPC: vi.fn((...args: unknown[]) => {
-      rpcCalls.push({ url: args[0] as string, options: (args[1] ?? {}) as Record<string, unknown> })
-      return orig.RPC(...(args as Parameters<typeof orig.RPC>))
-    }),
-  }
-})
+import { describe, it, expect, vi } from 'vitest'
 
 import {
   headlessly,
@@ -25,6 +12,7 @@ import {
   composite,
   createDOClient,
   connectDO,
+  buildHeadlesslyConfig,
 } from '../src/index.js'
 
 import type {
@@ -33,8 +21,6 @@ import type {
   Transport,
   HeadlesslyRpcOptions,
   DOClient,
-  StreamResponse,
-  Subscription,
   HttpTransportOptions,
   CapnwebTransportOptions,
 } from '../src/index.js'
@@ -44,45 +30,40 @@ import type {
 // =============================================================================
 
 describe('Factory Configuration', () => {
-  beforeEach(() => {
-    rpcCalls.length = 0
-    vi.mocked(RPC).mockClear()
-  })
-
   it('default endpoint is https://db.headless.ly', () => {
-    headlessly({ tenant: 'test' })
-    expect(rpcCalls[0]!.url).toMatch(/^https:\/\/db\.headless\.ly/)
+    const { url } = buildHeadlesslyConfig({ tenant: 'test' })
+    expect(url).toMatch(/^https:\/\/db\.headless\.ly/)
   })
 
   it('custom endpoint is used when provided', () => {
-    headlessly({ tenant: 'test', endpoint: 'https://custom.example.com' })
-    expect(rpcCalls[0]!.url).toBe('https://custom.example.com/~test')
+    const { url } = buildHeadlesslyConfig({ tenant: 'test', endpoint: 'https://custom.example.com' })
+    expect(url).toBe('https://custom.example.com/~test')
   })
 
   it('tenant is appended as /~{tenant}', () => {
-    headlessly({ tenant: 'myorg' })
-    expect(rpcCalls[0]!.url).toMatch(/\/~myorg$/)
+    const { url } = buildHeadlesslyConfig({ tenant: 'myorg' })
+    expect(url).toMatch(/\/~myorg$/)
   })
 
   it('WebSocket transport converts https to wss', () => {
-    headlessly({ tenant: 'test', transport: 'ws' })
-    expect(rpcCalls[0]!.url).toMatch(/^wss:\/\//)
+    const { url } = buildHeadlesslyConfig({ tenant: 'test', transport: 'ws' })
+    expect(url).toMatch(/^wss:\/\//)
   })
 
   it('HTTP transport keeps https', () => {
-    headlessly({ tenant: 'test', transport: 'http' })
-    expect(rpcCalls[0]!.url).toMatch(/^https:\/\//)
+    const { url } = buildHeadlesslyConfig({ tenant: 'test', transport: 'http' })
+    expect(url).toMatch(/^https:\/\//)
   })
 
   it('apiKey is passed as auth option to RPC', () => {
-    headlessly({ tenant: 'test', apiKey: 'key_secret123' })
-    expect(rpcCalls[0]!.options).toEqual({ auth: 'key_secret123' })
+    const { rpcOptions } = buildHeadlesslyConfig({ tenant: 'test', apiKey: 'key_secret123' })
+    expect(rpcOptions).toEqual({ auth: 'key_secret123' })
   })
 
   it('no apiKey means no auth option', () => {
-    headlessly({ tenant: 'test' })
-    expect(rpcCalls[0]!.options).toEqual({})
-    expect(rpcCalls[0]!.options).not.toHaveProperty('auth')
+    const { rpcOptions } = buildHeadlesslyConfig({ tenant: 'test' })
+    expect(rpcOptions).toEqual({})
+    expect(rpcOptions).not.toHaveProperty('auth')
   })
 
   it('createHeadlesslyClient is identical reference to headlessly', () => {
@@ -170,37 +151,32 @@ describe('Type Re-exports', () => {
 // =============================================================================
 
 describe('Factory Edge Cases', () => {
-  beforeEach(() => {
-    rpcCalls.length = 0
-    vi.mocked(RPC).mockClear()
-  })
-
   it('empty tenant creates valid client with /~ path', () => {
     const client = headlessly({ tenant: '' })
     expect(client).toBeDefined()
-    expect(rpcCalls[0]!.url).toBe('https://db.headless.ly/~')
+    const { url } = buildHeadlesslyConfig({ tenant: '' })
+    expect(url).toBe('https://db.headless.ly/~')
   })
 
   it('endpoint with trailing slash is normalized', () => {
-    headlessly({ tenant: 'acme', endpoint: 'https://custom.example.com/' })
-    // Current behavior: trailing slash is NOT stripped — URL becomes https://custom.example.com//~acme
-    // Expected behavior: trailing slash should be stripped, yielding https://custom.example.com/~acme
-    expect(rpcCalls[0]!.url).toBe('https://custom.example.com/~acme')
+    const { url } = buildHeadlesslyConfig({ tenant: 'acme', endpoint: 'https://custom.example.com/' })
+    expect(url).toBe('https://custom.example.com/~acme')
   })
 
   it('transport defaults to http when not specified', () => {
-    headlessly({ tenant: 'acme' })
-    expect(rpcCalls[0]!.url).toMatch(/^https:\/\//)
-    expect(rpcCalls[0]!.url).not.toMatch(/^wss:\/\//)
+    const { url } = buildHeadlesslyConfig({ tenant: 'acme' })
+    expect(url).toMatch(/^https:\/\//)
+    expect(url).not.toMatch(/^wss:\/\//)
   })
 
   it('multiple calls create independent clients', () => {
     const client1 = headlessly({ tenant: 'org1' })
     const client2 = headlessly({ tenant: 'org2' })
     expect(client1).not.toBe(client2)
-    expect(rpcCalls).toHaveLength(2)
-    expect(rpcCalls[0]!.url).toContain('/~org1')
-    expect(rpcCalls[1]!.url).toContain('/~org2')
+    const config1 = buildHeadlesslyConfig({ tenant: 'org1' })
+    const config2 = buildHeadlesslyConfig({ tenant: 'org2' })
+    expect(config1.url).toContain('/~org1')
+    expect(config2.url).toContain('/~org2')
   })
 
   it('options object is not mutated', () => {
@@ -211,18 +187,18 @@ describe('Factory Edge Cases', () => {
   })
 
   it('http endpoint protocol is replaced with https', () => {
-    headlessly({ tenant: 'acme', endpoint: 'http://localhost:8787' })
-    expect(rpcCalls[0]!.url).toBe('https://localhost:8787/~acme')
+    const { url } = buildHeadlesslyConfig({ tenant: 'acme', endpoint: 'http://localhost:8787' })
+    expect(url).toBe('https://localhost:8787/~acme')
   })
 
   it('ws transport replaces http with wss in custom endpoint', () => {
-    headlessly({ tenant: 'acme', endpoint: 'http://localhost:8787', transport: 'ws' })
-    expect(rpcCalls[0]!.url).toBe('wss://localhost:8787/~acme')
+    const { url } = buildHeadlesslyConfig({ tenant: 'acme', endpoint: 'http://localhost:8787', transport: 'ws' })
+    expect(url).toBe('wss://localhost:8787/~acme')
   })
 
   it('ws transport replaces https with wss in default endpoint', () => {
-    headlessly({ tenant: 'acme', transport: 'ws' })
-    expect(rpcCalls[0]!.url).toBe('wss://db.headless.ly/~acme')
+    const { url } = buildHeadlesslyConfig({ tenant: 'acme', transport: 'ws' })
+    expect(url).toBe('wss://db.headless.ly/~acme')
   })
 })
 
@@ -231,11 +207,6 @@ describe('Factory Edge Cases', () => {
 // =============================================================================
 
 describe('Client Behavior', () => {
-  beforeEach(() => {
-    rpcCalls.length = 0
-    vi.mocked(RPC).mockClear()
-  })
-
   it('returned client is a proxy object (typeof is object)', () => {
     const client = headlessly({ tenant: 'acme' })
     expect(typeof client).toBe('object')

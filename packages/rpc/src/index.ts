@@ -46,7 +46,7 @@ export { http, capnweb, binding, composite } from 'rpc.do'
 export type { HttpTransportOptions, CapnwebTransportOptions } from 'rpc.do'
 
 export { createDOClient, connectDO } from 'rpc.do'
-export type { DOClient, SqlQuery, RemoteStorage, RemoteCollection, Filter, QueryOptions } from 'rpc.do'
+export type { DOClient, SqlQuery, RemoteStorage, RemoteCollection, Filter, QueryOptions, TransportFactory } from 'rpc.do'
 
 import { RPC } from 'rpc.do'
 import type { RPCProxy, RPCOptions } from 'rpc.do'
@@ -67,6 +67,23 @@ export interface HeadlesslyRpcOptions {
 }
 
 /**
+ * Build the RPC URL and options from HeadlesslyRpcOptions.
+ * Exported for testability — used internally by headlessly().
+ */
+export function buildHeadlesslyConfig(options: HeadlesslyRpcOptions): { url: string; rpcOptions: RPCOptions } {
+  const base = (options.endpoint ?? 'https://db.headless.ly').replace(/\/+$/, '')
+  const protocol = options.transport === 'ws' ? 'wss' : 'https'
+  const url = base.replace(/^https?/, protocol)
+
+  const rpcOptions: RPCOptions = {}
+  if (options.apiKey) {
+    rpcOptions.auth = options.apiKey
+  }
+
+  return { url: `${url}/~${options.tenant}`, rpcOptions }
+}
+
+/**
  * Create a preconfigured rpc.do client for a headless.ly tenant.
  *
  * Uses capnweb promise pipelining under the hood — chain dependent
@@ -82,16 +99,8 @@ export interface HeadlesslyRpcOptions {
  * ```
  */
 export function headlessly<T extends object = Record<string, unknown>>(options: HeadlesslyRpcOptions): RPCProxy<T> {
-  const base = (options.endpoint ?? 'https://db.headless.ly').replace(/\/+$/, '')
-  const protocol = options.transport === 'ws' ? 'wss' : 'https'
-  const url = base.replace(/^https?/, protocol)
-
-  const rpcOptions: RPCOptions = {}
-  if (options.apiKey) {
-    rpcOptions.auth = options.apiKey
-  }
-
-  return RPC<T>(`${url}/~${options.tenant}`, rpcOptions) as RPCProxy<T>
+  const { url, rpcOptions } = buildHeadlesslyConfig(options)
+  return RPC<T>(url, rpcOptions) as RPCProxy<T>
 }
 
 /**

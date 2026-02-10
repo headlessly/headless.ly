@@ -28,41 +28,7 @@ import React, { useState } from 'react'
 import { render, screen, cleanup, act, waitFor, fireEvent } from '@testing-library/react'
 
 // ---------------------------------------------------------------------------
-// Mock @headlessly/js — factory must be self-contained (vi.mock is hoisted)
-// ---------------------------------------------------------------------------
-
-vi.mock('@headlessly/js', () => {
-  const mock = {
-    init: vi.fn(),
-    shutdown: vi.fn(),
-    track: vi.fn(),
-    page: vi.fn(),
-    identify: vi.fn(),
-    captureException: vi.fn().mockReturnValue('event_abc'),
-    captureMessage: vi.fn(),
-    getFeatureFlag: vi.fn().mockReturnValue(undefined),
-    isFeatureEnabled: vi.fn().mockReturnValue(false),
-    getSessionId: vi.fn().mockReturnValue('sess_deep'),
-    getDistinctId: vi.fn().mockReturnValue('anon_deep'),
-    setUser: vi.fn(),
-    addBreadcrumb: vi.fn(),
-    reset: vi.fn(),
-    optOut: vi.fn(),
-    optIn: vi.fn(),
-    hasOptedOut: vi.fn().mockReturnValue(false),
-    flush: vi.fn(),
-    getAllFlags: vi.fn().mockReturnValue({}),
-    reloadFeatureFlags: vi.fn(),
-  }
-  return {
-    default: mock,
-    ...mock,
-    HeadlessClient: vi.fn(),
-  }
-})
-
-// ---------------------------------------------------------------------------
-// Imports (after mock)
+// Imports — using real @headlessly/js (no mocks)
 // ---------------------------------------------------------------------------
 
 import {
@@ -97,9 +63,12 @@ import {
 
 import { $ } from '@headlessly/sdk'
 
-// Get a reference to the mocked headless module
-import headlessMock from '@headlessly/js'
-const mockHeadless = headlessMock as unknown as Record<string, ReturnType<typeof vi.fn>>
+// Get the real headless default export for spying — this is the same object
+// that src/index.tsx imports as `headless` and calls methods on.
+import headless from '@headlessly/js'
+
+// Spies on the real headless default export — set up in beforeEach, restored in afterEach
+const spies: Record<string, ReturnType<typeof vi.spyOn>> = {}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -107,10 +76,19 @@ const mockHeadless = headlessMock as unknown as Record<string, ReturnType<typeof
 
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true })
-  vi.clearAllMocks()
-  mockHeadless.getFeatureFlag.mockReturnValue(undefined)
-  mockHeadless.getDistinctId.mockReturnValue('anon_deep')
-  mockHeadless.getSessionId.mockReturnValue('sess_deep')
+  vi.restoreAllMocks()
+  // Create spies on the default export object methods (same object React hooks use)
+  spies.init = vi.spyOn(headless, 'init')
+  spies.shutdown = vi.spyOn(headless, 'shutdown').mockImplementation(() => {})
+  spies.track = vi.spyOn(headless, 'track')
+  spies.page = vi.spyOn(headless, 'page')
+  spies.identify = vi.spyOn(headless, 'identify')
+  spies.captureException = vi.spyOn(headless, 'captureException')
+  spies.setUser = vi.spyOn(headless, 'setUser')
+  spies.addBreadcrumb = vi.spyOn(headless, 'addBreadcrumb')
+  spies.getFeatureFlag = vi.spyOn(headless, 'getFeatureFlag')
+  spies.getDistinctId = vi.spyOn(headless, 'getDistinctId')
+  spies.getSessionId = vi.spyOn(headless, 'getSessionId')
 })
 
 afterEach(() => {
@@ -168,7 +146,7 @@ describe('HeadlessProvider — initialization', () => {
       )
     })
 
-    expect(mockHeadless.init).toHaveBeenCalledWith(
+    expect(spies.init).toHaveBeenCalledWith(
       expect.objectContaining({ apiKey: 'init_test_key' }),
     )
   })
@@ -182,9 +160,9 @@ describe('HeadlessProvider — initialization', () => {
       ),
     )
 
-    expect(mockHeadless.shutdown).not.toHaveBeenCalled()
+    expect(spies.shutdown).not.toHaveBeenCalled()
     unmount()
-    expect(mockHeadless.shutdown).toHaveBeenCalled()
+    expect(spies.shutdown).toHaveBeenCalled()
   })
 
   it('re-initializes when apiKey changes', async () => {
@@ -201,14 +179,14 @@ describe('HeadlessProvider — initialization', () => {
       render(<DynamicKeyApp />)
     })
 
-    expect(mockHeadless.init).toHaveBeenCalledTimes(1)
+    expect(spies.init).toHaveBeenCalledTimes(1)
 
     await act(async () => {
       fireEvent.click(screen.getByText('change key'))
     })
 
     // After key change, init should be called again
-    expect(mockHeadless.init).toHaveBeenCalledTimes(2)
+    expect(spies.init).toHaveBeenCalledTimes(2)
   })
 
   it('provides distinctId and sessionId in context', async () => {
@@ -230,8 +208,9 @@ describe('HeadlessProvider — initialization', () => {
       )
     })
 
-    expect(screen.getByTestId('did').textContent).toBe('anon_deep')
-    expect(screen.getByTestId('sid').textContent).toBe('sess_deep')
+    // Real @headlessly/js generates unique IDs — verify they are non-empty strings
+    expect(screen.getByTestId('did').textContent!.length).toBeGreaterThan(0)
+    expect(screen.getByTestId('sid').textContent!.length).toBeGreaterThan(0)
   })
 })
 
@@ -254,7 +233,7 @@ describe('useIdentify', () => {
 
     expect(typeof identifyFn).toBe('function')
     identifyFn!('user_42', { email: 'alice@test.com' })
-    expect(mockHeadless.identify).toHaveBeenCalledWith('user_42', { email: 'alice@test.com' })
+    expect(spies.identify).toHaveBeenCalledWith('user_42', { email: 'alice@test.com' })
   })
 })
 
@@ -277,7 +256,7 @@ describe('usePage', () => {
 
     expect(typeof pageFn).toBe('function')
     pageFn!('dashboard', { section: 'metrics' })
-    expect(mockHeadless.page).toHaveBeenCalledWith('dashboard', { section: 'metrics' })
+    expect(spies.page).toHaveBeenCalledWith('dashboard', { section: 'metrics' })
   })
 })
 
@@ -301,10 +280,10 @@ describe('useUser', () => {
 
     expect(typeof setUserFn).toBe('function')
     setUserFn!({ id: 'user_99' })
-    expect(mockHeadless.setUser).toHaveBeenCalledWith({ id: 'user_99' })
+    expect(spies.setUser).toHaveBeenCalledWith({ id: 'user_99' })
 
     setUserFn!(null)
-    expect(mockHeadless.setUser).toHaveBeenCalledWith(null)
+    expect(spies.setUser).toHaveBeenCalledWith(null)
   })
 })
 
@@ -327,7 +306,7 @@ describe('useBreadcrumb', () => {
 
     expect(typeof crumbFn).toBe('function')
     crumbFn!({ message: 'Navigated to settings' })
-    expect(mockHeadless.addBreadcrumb).toHaveBeenCalledWith({ message: 'Navigated to settings' })
+    expect(spies.addBreadcrumb).toHaveBeenCalledWith({ message: 'Navigated to settings' })
   })
 })
 
@@ -337,7 +316,7 @@ describe('useBreadcrumb', () => {
 
 describe('useFeatureFlag — deep', () => {
   it('returns the current flag value from headless.getFeatureFlag', async () => {
-    mockHeadless.getFeatureFlag.mockReturnValue('variant_a')
+    spies.getFeatureFlag.mockReturnValue('variant_a')
 
     function FlagDisplay() {
       const value = useFeatureFlag('my-flag')
@@ -352,7 +331,7 @@ describe('useFeatureFlag — deep', () => {
   })
 
   it('returns undefined when flag does not exist', async () => {
-    mockHeadless.getFeatureFlag.mockReturnValue(undefined)
+    spies.getFeatureFlag.mockReturnValue(undefined)
 
     function FlagDisplay() {
       const value = useFeatureFlag('nonexistent-flag')
@@ -368,7 +347,7 @@ describe('useFeatureFlag — deep', () => {
 
   it('re-reads flag value when key prop changes', async () => {
     let callCount = 0
-    mockHeadless.getFeatureFlag.mockImplementation((key: string) => {
+    spies.getFeatureFlag.mockImplementation((key: string) => {
       callCount++
       return key === 'flag-a' ? 'alpha' : 'beta'
     })
@@ -404,7 +383,7 @@ describe('useFeatureFlag — deep', () => {
 
 describe('useFeatureEnabled — boolean conversion', () => {
   it('returns true for boolean true', async () => {
-    mockHeadless.getFeatureFlag.mockReturnValue(true)
+    spies.getFeatureFlag.mockReturnValue(true)
 
     function FE() {
       const v = useFeatureEnabled('f')
@@ -416,7 +395,7 @@ describe('useFeatureEnabled — boolean conversion', () => {
   })
 
   it('returns true for string "true"', async () => {
-    mockHeadless.getFeatureFlag.mockReturnValue('true')
+    spies.getFeatureFlag.mockReturnValue('true')
 
     function FE() {
       const v = useFeatureEnabled('f')
@@ -428,7 +407,7 @@ describe('useFeatureEnabled — boolean conversion', () => {
   })
 
   it('returns false for boolean false', async () => {
-    mockHeadless.getFeatureFlag.mockReturnValue(false)
+    spies.getFeatureFlag.mockReturnValue(false)
 
     function FE() {
       const v = useFeatureEnabled('f')
@@ -440,7 +419,7 @@ describe('useFeatureEnabled — boolean conversion', () => {
   })
 
   it('returns false for string "false"', async () => {
-    mockHeadless.getFeatureFlag.mockReturnValue('false')
+    spies.getFeatureFlag.mockReturnValue('false')
 
     function FE() {
       const v = useFeatureEnabled('f')
@@ -452,7 +431,7 @@ describe('useFeatureEnabled — boolean conversion', () => {
   })
 
   it('returns false for string "control"', async () => {
-    mockHeadless.getFeatureFlag.mockReturnValue('control')
+    spies.getFeatureFlag.mockReturnValue('control')
 
     function FE() {
       const v = useFeatureEnabled('f')
@@ -464,7 +443,7 @@ describe('useFeatureEnabled — boolean conversion', () => {
   })
 
   it('returns false for undefined', async () => {
-    mockHeadless.getFeatureFlag.mockReturnValue(undefined)
+    spies.getFeatureFlag.mockReturnValue(undefined)
 
     function FE() {
       const v = useFeatureEnabled('f')
@@ -476,7 +455,7 @@ describe('useFeatureEnabled — boolean conversion', () => {
   })
 
   it('returns true for a non-empty, non-false, non-control string variant', async () => {
-    mockHeadless.getFeatureFlag.mockReturnValue('variant_b')
+    spies.getFeatureFlag.mockReturnValue('variant_b')
 
     function FE() {
       const v = useFeatureEnabled('f')
@@ -494,7 +473,7 @@ describe('useFeatureEnabled — boolean conversion', () => {
 
 describe('Experiment component', () => {
   it('renders the matching variant when flag value matches a key', async () => {
-    mockHeadless.getFeatureFlag.mockReturnValue('variant_a')
+    spies.getFeatureFlag.mockReturnValue('variant_a')
 
     await act(async () => {
       render(
@@ -512,7 +491,7 @@ describe('Experiment component', () => {
   })
 
   it('renders fallback when flag value is undefined', async () => {
-    mockHeadless.getFeatureFlag.mockReturnValue(undefined)
+    spies.getFeatureFlag.mockReturnValue(undefined)
 
     await act(async () => {
       render(
@@ -530,7 +509,7 @@ describe('Experiment component', () => {
   })
 
   it('renders fallback when flag value does not match any variant', async () => {
-    mockHeadless.getFeatureFlag.mockReturnValue('variant_c')
+    spies.getFeatureFlag.mockReturnValue('variant_c')
 
     await act(async () => {
       render(
@@ -548,7 +527,7 @@ describe('Experiment component', () => {
   })
 
   it('renders null when no fallback is provided and flag is undefined', async () => {
-    mockHeadless.getFeatureFlag.mockReturnValue(undefined)
+    spies.getFeatureFlag.mockReturnValue(undefined)
 
     const { container } = await act(async () =>
       render(
@@ -639,7 +618,7 @@ describe('ErrorBoundary — deep', () => {
       )
     })
 
-    expect(mockHeadless.captureException).toHaveBeenCalledWith(
+    expect(spies.captureException).toHaveBeenCalledWith(
       expect.any(Error),
       expect.objectContaining({
         extra: expect.objectContaining({
@@ -665,7 +644,7 @@ describe('PageView — deep', () => {
       )
     })
 
-    expect(mockHeadless.page).toHaveBeenCalledWith('pricing', { referrer: 'google' })
+    expect(spies.page).toHaveBeenCalledWith('pricing', { referrer: 'google' })
   })
 
   it('re-tracks when name changes', async () => {
@@ -683,13 +662,13 @@ describe('PageView — deep', () => {
       render(<DynamicPage />, { wrapper: Wrapper })
     })
 
-    expect(mockHeadless.page).toHaveBeenCalledWith('home', undefined)
+    expect(spies.page).toHaveBeenCalledWith('home', undefined)
 
     await act(async () => {
       fireEvent.click(screen.getByText('navigate'))
     })
 
-    expect(mockHeadless.page).toHaveBeenCalledWith('about', undefined)
+    expect(spies.page).toHaveBeenCalledWith('about', undefined)
   })
 })
 
@@ -725,7 +704,7 @@ describe('useTrackEntity', () => {
 
     trackEntityFn!('deal_viewed', { value: 50000 }, { entity: { type: 'Deal', id: 'deal_abc' } })
 
-    expect(mockHeadless.track).toHaveBeenCalledWith('deal_viewed', {
+    expect(spies.track).toHaveBeenCalledWith('deal_viewed', {
       value: 50000,
       $entity: { type: 'Deal', id: 'deal_abc' },
     })
@@ -745,7 +724,7 @@ describe('useTrackEntity', () => {
 
     trackEntityFn!('button_clicked', { btn: 'cta' })
 
-    expect(mockHeadless.track).toHaveBeenCalledWith('button_clicked', { btn: 'cta' })
+    expect(spies.track).toHaveBeenCalledWith('button_clicked', { btn: 'cta' })
   })
 })
 
@@ -1414,7 +1393,7 @@ describe('useEvents — deep', () => {
 
 describe('Feature component — deep', () => {
   it('renders children when flag is truthy string', async () => {
-    mockHeadless.getFeatureFlag.mockReturnValue('enabled_variant')
+    spies.getFeatureFlag.mockReturnValue('enabled_variant')
 
     await act(async () => {
       render(
@@ -1430,7 +1409,7 @@ describe('Feature component — deep', () => {
   })
 
   it('renders fallback for undefined flag', async () => {
-    mockHeadless.getFeatureFlag.mockReturnValue(undefined)
+    spies.getFeatureFlag.mockReturnValue(undefined)
 
     await act(async () => {
       render(
@@ -1446,7 +1425,7 @@ describe('Feature component — deep', () => {
   })
 
   it('renders nothing when no fallback and flag is off', async () => {
-    mockHeadless.getFeatureFlag.mockReturnValue(false)
+    spies.getFeatureFlag.mockReturnValue(false)
 
     const { container } = await act(async () =>
       render(
@@ -1480,11 +1459,13 @@ describe('useCaptureException — deep', () => {
     })
 
     const result = captureFn!(new Error('test error'), { tags: { env: 'test' } })
-    expect(mockHeadless.captureException).toHaveBeenCalledWith(
+    expect(spies.captureException).toHaveBeenCalledWith(
       expect.any(Error),
       { tags: { env: 'test' } },
     )
-    expect(result).toBe('event_abc')
+    // Real captureException returns a hex event ID string
+    expect(typeof result).toBe('string')
+    expect((result as string).length).toBeGreaterThan(0)
   })
 })
 

@@ -26,42 +26,10 @@ import React, { useState } from 'react'
 import { render, screen, cleanup, act, waitFor, fireEvent } from '@testing-library/react'
 
 // ---------------------------------------------------------------------------
-// Mock @headlessly/js
-// ---------------------------------------------------------------------------
-
-vi.mock('@headlessly/js', () => {
-  const mock = {
-    init: vi.fn(),
-    shutdown: vi.fn(),
-    track: vi.fn(),
-    page: vi.fn(),
-    identify: vi.fn(),
-    captureException: vi.fn().mockReturnValue('event_v4'),
-    captureMessage: vi.fn(),
-    getFeatureFlag: vi.fn().mockReturnValue(undefined),
-    isFeatureEnabled: vi.fn().mockReturnValue(false),
-    getSessionId: vi.fn().mockReturnValue('sess_v4'),
-    getDistinctId: vi.fn().mockReturnValue('anon_v4'),
-    setUser: vi.fn(),
-    addBreadcrumb: vi.fn(),
-    reset: vi.fn(),
-    optOut: vi.fn(),
-    optIn: vi.fn(),
-    hasOptedOut: vi.fn().mockReturnValue(false),
-    flush: vi.fn(),
-    getAllFlags: vi.fn().mockReturnValue({}),
-    reloadFeatureFlags: vi.fn(),
-  }
-  return {
-    default: mock,
-    ...mock,
-    HeadlessClient: vi.fn(),
-  }
-})
-
-// ---------------------------------------------------------------------------
 // Imports
 // ---------------------------------------------------------------------------
+
+import headless from '@headlessly/js'
 
 import {
   HeadlessProvider,
@@ -85,8 +53,8 @@ import {
 
 import { $ } from '@headlessly/sdk'
 
-import headlessMock from '@headlessly/js'
-const mockHeadless = headlessMock as unknown as Record<string, ReturnType<typeof vi.fn>>
+// Spies on the real default export — React hooks reference the same object
+const spies: Record<string, ReturnType<typeof vi.spyOn>> = {}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -94,10 +62,18 @@ const mockHeadless = headlessMock as unknown as Record<string, ReturnType<typeof
 
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true })
-  vi.clearAllMocks()
-  mockHeadless.getFeatureFlag.mockReturnValue(undefined)
-  mockHeadless.getDistinctId.mockReturnValue('anon_v4')
-  mockHeadless.getSessionId.mockReturnValue('sess_v4')
+  vi.restoreAllMocks()
+  spies.init = vi.spyOn(headless, 'init')
+  spies.shutdown = vi.spyOn(headless, 'shutdown').mockImplementation(() => {})
+  spies.track = vi.spyOn(headless, 'track')
+  spies.page = vi.spyOn(headless, 'page')
+  spies.identify = vi.spyOn(headless, 'identify')
+  spies.captureException = vi.spyOn(headless, 'captureException')
+  spies.setUser = vi.spyOn(headless, 'setUser')
+  spies.addBreadcrumb = vi.spyOn(headless, 'addBreadcrumb')
+  spies.getFeatureFlag = vi.spyOn(headless, 'getFeatureFlag')
+  spies.getDistinctId = vi.spyOn(headless, 'getDistinctId')
+  spies.getSessionId = vi.spyOn(headless, 'getSessionId')
 })
 
 afterEach(() => {
@@ -886,7 +862,7 @@ describe('Accessibility of rendered components', () => {
 
 describe('Feature and Experiment edge cases', () => {
   it('Feature renders empty Fragment when children are null and flag is on', async () => {
-    mockHeadless.getFeatureFlag.mockReturnValue(true)
+    spies.getFeatureFlag.mockReturnValue(true)
 
     const { container } = await act(async () =>
       render(
@@ -901,7 +877,7 @@ describe('Feature and Experiment edge cases', () => {
   })
 
   it('Experiment renders fallback when variants object is empty', async () => {
-    mockHeadless.getFeatureFlag.mockReturnValue('any_value')
+    spies.getFeatureFlag.mockReturnValue('any_value')
 
     await act(async () => {
       render(
@@ -915,7 +891,7 @@ describe('Feature and Experiment edge cases', () => {
   })
 
   it('Experiment converts boolean true flag to string key "true"', async () => {
-    mockHeadless.getFeatureFlag.mockReturnValue(true)
+    spies.getFeatureFlag.mockReturnValue(true)
 
     await act(async () => {
       render(
@@ -932,7 +908,7 @@ describe('Feature and Experiment edge cases', () => {
   })
 
   it('Feature renders fallback of null by default when flag is off', async () => {
-    mockHeadless.getFeatureFlag.mockReturnValue(false)
+    spies.getFeatureFlag.mockReturnValue(false)
 
     const { container } = await act(async () =>
       render(
@@ -985,7 +961,7 @@ describe('Multiple hooks in same component', () => {
   })
 
   it('uses useTrack and useFeatureFlag together', async () => {
-    mockHeadless.getFeatureFlag.mockReturnValue('v2')
+    spies.getFeatureFlag.mockReturnValue('v2')
 
     let trackFn: ((event: string) => void) | undefined
 
@@ -1003,7 +979,7 @@ describe('Multiple hooks in same component', () => {
     expect(typeof trackFn).toBe('function')
 
     trackFn!('multi_hook_event')
-    expect(mockHeadless.track).toHaveBeenCalledWith('multi_hook_event', undefined)
+    expect(spies.track).toHaveBeenCalledWith('multi_hook_event', undefined)
   })
 
   it('uses useMutation and useEntity together for optimistic UI', async () => {
@@ -1266,7 +1242,7 @@ describe('useEntities triple loadMore', () => {
 
 describe('useFeatureEnabled with empty string', () => {
   it('returns false for empty string flag value', async () => {
-    mockHeadless.getFeatureFlag.mockReturnValue('')
+    spies.getFeatureFlag.mockReturnValue('')
 
     function FE() {
       const v = useFeatureEnabled('f')
@@ -1302,7 +1278,7 @@ describe('Provider with additional config', () => {
       )
     })
 
-    expect(mockHeadless.init).toHaveBeenCalledWith(
+    expect(spies.init).toHaveBeenCalledWith(
       expect.objectContaining({
         apiKey: 'extra_config',
         host: 'https://custom.headless.ly',
@@ -1330,8 +1306,10 @@ describe('useHeadless complete return value', () => {
 
     expect(result).toBeDefined()
     expect(result!.initialized).toBe(true)
-    expect(result!.distinctId).toBe('anon_v4')
-    expect(result!.sessionId).toBe('sess_v4')
+    expect(typeof result!.distinctId).toBe('string')
+    expect(result!.distinctId.length).toBeGreaterThan(0)
+    expect(typeof result!.sessionId).toBe('string')
+    expect(result!.sessionId.length).toBeGreaterThan(0)
   })
 })
 

@@ -1,18 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-// Track RPC calls by intercepting the module
-const rpcCalls: { url: string; options: Record<string, unknown> }[] = []
-vi.mock('rpc.do', async (importOriginal) => {
-  const orig = await importOriginal<typeof import('rpc.do')>()
-  return {
-    ...orig,
-    RPC: vi.fn((...args: unknown[]) => {
-      rpcCalls.push({ url: args[0] as string, options: (args[1] ?? {}) as Record<string, unknown> })
-      return orig.RPC(...(args as Parameters<typeof orig.RPC>))
-    }),
-  }
-})
-
 import {
   headlessly,
   RPC,
@@ -23,6 +10,7 @@ import {
   composite,
   createDOClient,
   createRPCClient,
+  buildHeadlesslyConfig,
 } from '../src/index.js'
 
 import type {
@@ -643,11 +631,6 @@ describe('createDOClient SQL — raw and interpolation', () => {
 // =============================================================================
 
 describe('RPC() with Transport and TransportFactory', () => {
-  beforeEach(() => {
-    rpcCalls.length = 0
-    vi.mocked(RPC).mockClear()
-  })
-
   it('RPC() with a direct Transport object returns a DOClient via createDOClient', () => {
     const mockTransport: Transport = { call: vi.fn(async () => null) }
     // createDOClient accepts a Transport directly (same as RPC with transport arg)
@@ -675,9 +658,9 @@ describe('RPC() with Transport and TransportFactory', () => {
   })
 
   it('headlessly() with http transport creates HTTPS URL', () => {
-    headlessly({ tenant: 'acme', transport: 'http' })
-    expect(rpcCalls[0]!.url).toMatch(/^https:\/\//)
-    expect(rpcCalls[0]!.url).toContain('/~acme')
+    const { url } = buildHeadlesslyConfig({ tenant: 'acme', transport: 'http' })
+    expect(url).toMatch(/^https:\/\//)
+    expect(url).toContain('/~acme')
   })
 
   it('createRPCClient delegates to RPC with baseUrl', () => {
@@ -908,24 +891,19 @@ describe('ReconnectingWebSocketTransport', () => {
 // =============================================================================
 
 describe('headlessly() — tenant URL encoding edge cases', () => {
-  beforeEach(() => {
-    rpcCalls.length = 0
-    vi.mocked(RPC).mockClear()
-  })
-
   it('tenant with unicode characters is passed through verbatim', () => {
-    headlessly({ tenant: 'caf\u00e9' })
-    expect(rpcCalls[0]!.url).toContain('/~caf\u00e9')
+    const { url } = buildHeadlesslyConfig({ tenant: 'caf\u00e9' })
+    expect(url).toContain('/~caf\u00e9')
   })
 
   it('tenant with spaces is passed through verbatim', () => {
-    headlessly({ tenant: 'my org' })
-    expect(rpcCalls[0]!.url).toContain('/~my org')
+    const { url } = buildHeadlesslyConfig({ tenant: 'my org' })
+    expect(url).toContain('/~my org')
   })
 
   it('very long tenant name works', () => {
     const longTenant = 'a'.repeat(200)
-    headlessly({ tenant: longTenant })
-    expect(rpcCalls[0]!.url).toContain(`/~${longTenant}`)
+    const { url } = buildHeadlesslyConfig({ tenant: longTenant })
+    expect(url).toContain(`/~${longTenant}`)
   })
 })

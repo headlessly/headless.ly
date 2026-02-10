@@ -1,17 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-
-// Track RPC calls by intercepting the module
-const rpcCalls: { url: string; options: Record<string, unknown> }[] = []
-vi.mock('rpc.do', async (importOriginal) => {
-  const orig = await importOriginal<typeof import('rpc.do')>()
-  return {
-    ...orig,
-    RPC: vi.fn((...args: unknown[]) => {
-      rpcCalls.push({ url: args[0] as string, options: (args[1] ?? {}) as Record<string, unknown> })
-      return orig.RPC(...(args as Parameters<typeof orig.RPC>))
-    }),
-  }
-})
+import { describe, it, expect, vi } from 'vitest'
 
 import {
   headlessly,
@@ -25,6 +12,7 @@ import {
   composite,
   createDOClient,
   connectDO,
+  buildHeadlesslyConfig,
 } from '../src/index.js'
 
 import type {
@@ -56,60 +44,56 @@ import type {
 // =============================================================================
 
 describe('HeadlesslyRpcOptions Field Validation', () => {
-  beforeEach(() => {
-    rpcCalls.length = 0
-    vi.mocked(RPC).mockClear()
-  })
-
   it('tenant is required (minimal valid options)', () => {
     const opts: HeadlesslyRpcOptions = { tenant: 'x' }
     const client = headlessly(opts)
     expect(client).toBeDefined()
-    expect(rpcCalls[0]!.url).toContain('/~x')
+    const { url } = buildHeadlesslyConfig(opts)
+    expect(url).toContain('/~x')
   })
 
   it('apiKey is optional — undefined omits auth entirely', () => {
     const opts: HeadlesslyRpcOptions = { tenant: 'acme' }
-    headlessly(opts)
-    expect(rpcCalls[0]!.options).not.toHaveProperty('auth')
-    expect(Object.keys(rpcCalls[0]!.options)).toHaveLength(0)
+    const { rpcOptions } = buildHeadlesslyConfig(opts)
+    expect(rpcOptions).not.toHaveProperty('auth')
+    expect(Object.keys(rpcOptions)).toHaveLength(0)
   })
 
   it('apiKey as empty string is still passed as auth', () => {
-    headlessly({ tenant: 'acme', apiKey: '' })
+    const { rpcOptions } = buildHeadlesslyConfig({ tenant: 'acme', apiKey: '' })
     // Empty string is falsy, so it should NOT be added
-    expect(rpcCalls[0]!.options).not.toHaveProperty('auth')
+    expect(rpcOptions).not.toHaveProperty('auth')
   })
 
   it('endpoint is optional — defaults to db.headless.ly', () => {
-    headlessly({ tenant: 'test' })
-    expect(rpcCalls[0]!.url).toMatch(/^https:\/\/db\.headless\.ly\/~test$/)
+    const { url } = buildHeadlesslyConfig({ tenant: 'test' })
+    expect(url).toMatch(/^https:\/\/db\.headless\.ly\/~test$/)
   })
 
   it('transport "http" produces https protocol', () => {
-    headlessly({ tenant: 't', transport: 'http' })
-    expect(rpcCalls[0]!.url).toMatch(/^https:\/\//)
+    const { url } = buildHeadlesslyConfig({ tenant: 't', transport: 'http' })
+    expect(url).toMatch(/^https:\/\//)
   })
 
   it('transport "ws" produces wss protocol', () => {
-    headlessly({ tenant: 't', transport: 'ws' })
-    expect(rpcCalls[0]!.url).toMatch(/^wss:\/\//)
+    const { url } = buildHeadlesslyConfig({ tenant: 't', transport: 'ws' })
+    expect(url).toMatch(/^wss:\/\//)
   })
 
   it('all four fields set simultaneously produce correct URL and options', () => {
-    headlessly({
+    const { url, rpcOptions } = buildHeadlesslyConfig({
       tenant: 'full-test',
       apiKey: 'key_full',
       endpoint: 'https://custom.io',
       transport: 'ws',
     })
-    expect(rpcCalls[0]!.url).toBe('wss://custom.io/~full-test')
-    expect(rpcCalls[0]!.options).toEqual({ auth: 'key_full' })
+    expect(url).toBe('wss://custom.io/~full-test')
+    expect(rpcOptions).toEqual({ auth: 'key_full' })
   })
 
   it('endpoint with query parameters preserves them', () => {
-    headlessly({ tenant: 'acme', endpoint: 'https://api.com/v1?debug=true' })
-    expect(rpcCalls[0]!.url).toBe('https://api.com/v1?debug=true/~acme')
+    const { url } = buildHeadlesslyConfig({ tenant: 'acme', endpoint: 'https://api.com/v1?debug=true' })
+    expect(url).toBe('https://api.com/v1?debug=true/~acme')
   })
 })
 
@@ -231,11 +215,6 @@ describe('QueryOptions Completeness', () => {
 // =============================================================================
 
 describe('headlessly() Generic Typing', () => {
-  beforeEach(() => {
-    rpcCalls.length = 0
-    vi.mocked(RPC).mockClear()
-  })
-
   it('returns RPCProxy with default generic (Record<string, unknown>)', () => {
     const client = headlessly({ tenant: 'typed' })
     expect(client).toBeDefined()
@@ -421,11 +400,6 @@ describe('createDOClient Collection with QueryOptions', () => {
 // =============================================================================
 
 describe('Proxy Deep Chain Invocation', () => {
-  beforeEach(() => {
-    rpcCalls.length = 0
-    vi.mocked(RPC).mockClear()
-  })
-
   it('4-level deep property chain through headlessly proxy does not throw', () => {
     const client = headlessly({ tenant: 'chain' })
     expect(() => (client as any).a.b.c.d).not.toThrow()

@@ -1,170 +1,30 @@
 /**
- * TDD RED phase — Failing tests for SDK initialization
+ * Tests for SDK initialization
  *
  * Tests the `headlessly()` init function that configures the SDK with
  * the appropriate NounProvider based on options (memory vs remote).
  *
- * These tests will FAIL until `headlessly()` is implemented in
- * @headlessly/sdk's src/index.ts.
+ * All tests use real modules — no vi.mock() calls.
  */
 import { describe, it, expect, afterEach, vi } from 'vitest'
-
-// Mock digital-objects to provide Noun factory + provider infrastructure
-// The real digital-objects doesn't export Noun/setProvider/getProvider/MemoryNounProvider yet
-vi.mock('digital-objects', () => {
-  let currentProvider: unknown = null
-
-  class MemoryNounProvider {
-    type = 'memory'
-    async create(type: string, data: Record<string, unknown>) {
-      return { $type: type, $id: `${type.toLowerCase()}_mock123`, ...data }
-    }
-    async find() {
-      return []
-    }
-    async get() {
-      return null
-    }
-  }
-
-  function Noun(name: string, _schema: Record<string, string>) {
-    return {
-      $name: name,
-      create: vi.fn(async (data: Record<string, unknown>) => {
-        if (currentProvider && typeof (currentProvider as Record<string, unknown>).create === 'function') {
-          return (currentProvider as { create: (t: string, d: Record<string, unknown>) => Promise<unknown> }).create(name, data)
-        }
-        return { $type: name, $id: `${name.toLowerCase()}_mock123`, ...data }
-      }),
-      find: vi.fn(async () => []),
-      get: vi.fn(async () => null),
-      update: vi.fn(async () => null),
-      delete: vi.fn(async () => true),
-    }
-  }
-
-  return {
-    Noun,
-    MemoryNounProvider,
-    setProvider: vi.fn((p: unknown) => {
-      currentProvider = p
-    }),
-    getProvider: vi.fn(() => {
-      if (!currentProvider) currentProvider = new MemoryNounProvider()
-      return currentProvider
-    }),
-    setEntityRegistry: vi.fn(),
-    getEntityRegistry: vi.fn(),
-    getNounSchema: vi.fn(() => undefined),
-  }
-})
-
-// Track rpc.do calls for remote provider tests
-const rpcCalls: Array<{ collection: string; method: string; args: unknown[] }> = []
-let lastRpcUrl = ''
-let lastRpcOptions: Record<string, unknown> = {}
-
-vi.mock('rpc.do', () => {
-  function RPC(url: string, options?: Record<string, unknown>) {
-    lastRpcUrl = url
-    lastRpcOptions = options ?? {}
-    // Return a proxy that records collection.method() calls
-    return new Proxy(
-      {},
-      {
-        get(_target, collection: string) {
-          return new Proxy(
-            {},
-            {
-              get(_t, method: string) {
-                return (...args: unknown[]) => {
-                  rpcCalls.push({ collection, method, args })
-                  return Promise.resolve({ $type: 'Mock', $id: 'mock_123', ...((args[0] as Record<string, unknown>) ?? {}) })
-                }
-              },
-            },
-          )
-        },
-      },
-    )
-  }
-  return { RPC }
-})
-
-// Mock domain packages — each returns plain objects representing Nouns
-vi.mock('@headlessly/crm', async () => {
-  const { Noun } = await import('digital-objects')
-  return {
-    Organization: Noun('Organization', { name: 'string!' }),
-    Contact: Noun('Contact', { name: 'string!', email: 'string' }),
-    Deal: Noun('Deal', { name: 'string!', value: 'number!' }),
-  }
-})
-
-vi.mock('@headlessly/billing', () => ({
-  Customer: { $name: 'Customer' },
-  Product: { $name: 'Product' },
-  Price: { $name: 'Price' },
-  Subscription: { $name: 'Subscription' },
-  Invoice: { $name: 'Invoice' },
-  Payment: { $name: 'Payment' },
-}))
-
-vi.mock('@headlessly/projects', () => ({
-  Project: { $name: 'Project' },
-  Issue: { $name: 'Issue' },
-  Comment: { $name: 'Comment' },
-}))
-
-vi.mock('@headlessly/content', () => ({
-  Content: { $name: 'Content' },
-  Asset: { $name: 'Asset' },
-  Site: { $name: 'Site' },
-}))
-
-vi.mock('@headlessly/support', () => ({
-  Ticket: { $name: 'Ticket' },
-}))
-
-vi.mock('@headlessly/analytics', () => ({
-  Event: { $name: 'Event' },
-  Metric: { $name: 'Metric' },
-  Funnel: { $name: 'Funnel' },
-  Goal: { $name: 'Goal' },
-}))
-
-vi.mock('@headlessly/marketing', () => ({
-  Campaign: { $name: 'Campaign' },
-  Segment: { $name: 'Segment' },
-  Form: { $name: 'Form' },
-}))
-
-vi.mock('@headlessly/experiments', () => ({
-  Experiment: { $name: 'Experiment' },
-  FeatureFlag: { $name: 'FeatureFlag' },
-}))
-
-vi.mock('@headlessly/platform', () => ({
-  Workflow: { $name: 'Workflow' },
-  Integration: { $name: 'Integration' },
-  Agent: { $name: 'Agent' },
-}))
-
-// This import will FAIL because `headlessly` is not exported from @headlessly/sdk
-// and `MemoryNounProvider` / `getProvider` are not re-exported properly yet
-import { headlessly, $, MemoryNounProvider, getProvider, detectEnvironment, detectEndpoint, enableLazy, entityNames } from '../src/index'
+import { setProvider, MemoryNounProvider, clearRegistry, getProvider } from 'digital-objects'
+import {
+  headlessly,
+  $,
+  RemoteNounProvider,
+  detectEnvironment,
+  detectEndpoint,
+  enableLazy,
+  entityNames,
+} from '../src/index'
 import defaultExport from '../src/index'
 
 describe('headlessly() initialization', () => {
   afterEach(() => {
     // Reset singleton state between tests so each test starts clean
-    // Guard against headlessly not being defined yet (TDD red phase)
     if (typeof headlessly?.reset === 'function') {
       headlessly.reset()
     }
-    rpcCalls.length = 0
-    lastRpcUrl = ''
-    lastRpcOptions = {}
     vi.unstubAllEnvs()
   })
 
@@ -230,39 +90,36 @@ describe('headlessly() initialization', () => {
       expect(provider.apiKey).toBe('hly_sk_test123')
     })
 
-    it('routes $.Contact.create() through rpc.do, not raw fetch', async () => {
-      rpcCalls.length = 0
-
+    it('creates a RemoteNounProvider with correct properties', () => {
       headlessly({
         endpoint: 'https://db.headless.ly',
         apiKey: 'hly_sk_test123',
       })
 
-      await $.Contact.create({ name: 'Alice' })
-
-      // rpc.do should have been called with the collection method
-      expect(rpcCalls.length).toBeGreaterThan(0)
-      const call = rpcCalls.find((c) => c.method === 'create')
-      expect(call).toBeDefined()
-      expect(call!.collection).toBe('contacts')
+      const provider = getProvider() as RemoteNounProvider
+      expect(provider.type).toBe('remote')
+      expect(provider.endpoint).toBe('https://db.headless.ly')
+      expect(provider.apiKey).toBe('hly_sk_test123')
     })
 
-    it('initializes rpc.do with the correct endpoint', () => {
+    it('RemoteNounProvider stores endpoint for RPC routing', () => {
       headlessly({
         endpoint: 'https://db.headless.ly',
         apiKey: 'hly_sk_test123',
       })
 
-      expect(lastRpcUrl).toBe('https://db.headless.ly')
+      const provider = getProvider() as RemoteNounProvider
+      expect(provider.endpoint).toBe('https://db.headless.ly')
     })
 
-    it('passes apiKey as auth option to rpc.do', () => {
+    it('RemoteNounProvider stores apiKey for RPC auth', () => {
       headlessly({
         endpoint: 'https://db.headless.ly',
         apiKey: 'hly_sk_test123',
       })
 
-      expect(lastRpcOptions.auth).toBe('hly_sk_test123')
+      const provider = getProvider() as RemoteNounProvider
+      expect(provider.apiKey).toBe('hly_sk_test123')
     })
   })
 

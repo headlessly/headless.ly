@@ -18,41 +18,7 @@ import React, { useState } from 'react'
 import { render, screen, cleanup, act, waitFor, fireEvent } from '@testing-library/react'
 
 // ---------------------------------------------------------------------------
-// Mock @headlessly/js
-// ---------------------------------------------------------------------------
-
-vi.mock('@headlessly/js', () => {
-  const mock = {
-    init: vi.fn(),
-    shutdown: vi.fn(),
-    track: vi.fn(),
-    page: vi.fn(),
-    identify: vi.fn(),
-    captureException: vi.fn().mockReturnValue('event_new'),
-    captureMessage: vi.fn(),
-    getFeatureFlag: vi.fn().mockReturnValue(undefined),
-    isFeatureEnabled: vi.fn().mockReturnValue(false),
-    getSessionId: vi.fn().mockReturnValue('sess_new'),
-    getDistinctId: vi.fn().mockReturnValue('anon_new'),
-    setUser: vi.fn(),
-    addBreadcrumb: vi.fn(),
-    reset: vi.fn(),
-    optOut: vi.fn(),
-    optIn: vi.fn(),
-    hasOptedOut: vi.fn().mockReturnValue(false),
-    flush: vi.fn(),
-    getAllFlags: vi.fn().mockReturnValue({}),
-    reloadFeatureFlags: vi.fn(),
-  }
-  return {
-    default: mock,
-    ...mock,
-    HeadlessClient: vi.fn(),
-  }
-})
-
-// ---------------------------------------------------------------------------
-// Imports
+// Imports — using real @headlessly/js (no mocks)
 // ---------------------------------------------------------------------------
 
 import {

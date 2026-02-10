@@ -11,41 +11,7 @@ import React from 'react'
 import { render, screen, cleanup, act, waitFor } from '@testing-library/react'
 
 // ---------------------------------------------------------------------------
-// Mock @headlessly/js (required by the React SDK provider layer)
-// vi.mock is hoisted so the factory must be self-contained
-// ---------------------------------------------------------------------------
-vi.mock('@headlessly/js', () => {
-  const mock = {
-    init: vi.fn(),
-    shutdown: vi.fn(),
-    track: vi.fn(),
-    page: vi.fn(),
-    identify: vi.fn(),
-    captureException: vi.fn().mockReturnValue('event_abc'),
-    captureMessage: vi.fn(),
-    getFeatureFlag: vi.fn().mockReturnValue(undefined),
-    isFeatureEnabled: vi.fn().mockReturnValue(false),
-    getSessionId: vi.fn().mockReturnValue('sess_test123'),
-    getDistinctId: vi.fn().mockReturnValue('anon_test456'),
-    setUser: vi.fn(),
-    addBreadcrumb: vi.fn(),
-    reset: vi.fn(),
-    optOut: vi.fn(),
-    optIn: vi.fn(),
-    hasOptedOut: vi.fn().mockReturnValue(false),
-    flush: vi.fn(),
-    getAllFlags: vi.fn().mockReturnValue({}),
-    reloadFeatureFlags: vi.fn(),
-  }
-  return {
-    default: mock,
-    ...mock,
-    HeadlessClient: vi.fn(),
-  }
-})
-
-// ---------------------------------------------------------------------------
-// Import the hooks and SDK
+// Import the hooks and SDK — using real @headlessly/js (no mocks)
 // ---------------------------------------------------------------------------
 import { HeadlessProvider, useEntity, useEntities, useMutation, useSearch, useAction, useEvents, useRealtime, EntityList, EntityDetail } from '../src/index.js'
 
