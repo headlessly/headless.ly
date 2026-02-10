@@ -410,6 +410,43 @@ export interface HeadlesslyOptions {
   lazy?: boolean
 }
 
+// =============================================================================
+// UninitializedNounProvider — safe sentinel for reset state
+// =============================================================================
+
+const UNINITIALIZED_MSG = 'Call headlessly() or setProvider() before using $'
+
+/**
+ * Sentinel provider set after reset(). Every method throws a clear error
+ * so callers get a helpful message instead of a cryptic null-dereference.
+ */
+class UninitializedNounProvider implements NounProvider {
+  async create(): Promise<NounInstance> {
+    throw new Error(UNINITIALIZED_MSG)
+  }
+  async get(): Promise<NounInstance | null> {
+    throw new Error(UNINITIALIZED_MSG)
+  }
+  async find(): Promise<NounInstance[]> {
+    throw new Error(UNINITIALIZED_MSG)
+  }
+  async findOne(): Promise<NounInstance | null> {
+    throw new Error(UNINITIALIZED_MSG)
+  }
+  async update(): Promise<NounInstance> {
+    throw new Error(UNINITIALIZED_MSG)
+  }
+  async delete(): Promise<boolean> {
+    throw new Error(UNINITIALIZED_MSG)
+  }
+  async perform(): Promise<NounInstance> {
+    throw new Error(UNINITIALIZED_MSG)
+  }
+  async rollback(): Promise<NounInstance> {
+    throw new Error(UNINITIALIZED_MSG)
+  }
+}
+
 // Singleton state
 let _initialized = false
 let _lazyEnabled = false
@@ -508,21 +545,29 @@ function _headlessly(options?: HeadlesslyOptions): HeadlessContext {
   }
 
   // Configure provider
+  let provider: NounProvider
   if (endpoint && apiKey) {
-    setProvider(new RemoteNounProvider(endpoint, apiKey))
+    provider = new RemoteNounProvider(endpoint, apiKey)
   } else if (endpoint && !apiKey) {
     // Endpoint without apiKey — warn the developer
     console.warn(
       `[headlessly] Endpoint "${endpoint}" provided without an API key. Falling back to MemoryNounProvider. ` +
         'Set apiKey in options or HEADLESSLY_API_KEY env var for remote access.',
     )
-    setProvider(new MemoryNounProvider())
+    provider = new MemoryNounProvider()
   } else {
-    setProvider(new MemoryNounProvider())
+    provider = new MemoryNounProvider()
   }
 
+  // Set global provider (last-set wins for the global $ context)
+  setProvider(provider)
   _initialized = true
-  return $
+
+  // Return a self-contained context that captures this provider.
+  // The global $ still works (uses the global provider via last-set-wins),
+  // but the returned context carries its own provider reference so that
+  // a second headlessly() call with a different org does not clobber it.
+  return _createScopedContext(provider)
 }
 
 /**
@@ -536,7 +581,7 @@ _headlessly.reset = function reset(): void {
     unsub()
   }
   _activeUnsubscribes.length = 0
-  setProvider(null as unknown as NounProvider)
+  setProvider(new UninitializedNounProvider())
 }
 
 /**
@@ -692,6 +737,113 @@ export interface HeadlessContext {
 }
 
 /**
+ * Build the MCP-like operations (search, fetch, do) that resolve entities
+ * from the allEntities registry. These are shared between the global $ proxy
+ * and any self-contained context returned by headlessly().
+ */
+function _buildSearchFn() {
+  return async (query: { type: string; filter?: Record<string, unknown> }) => {
+    const entity = allEntities[query.type]
+    if (!entity) return []
+    return entity.find(query.filter)
+  }
+}
+
+function _buildFetchFn() {
+  return async (query: { type: string; id: string; include?: string[] }) => {
+    const entity = allEntities[query.type]
+    if (!entity) return null
+    const instance = await entity.get(query.id)
+    if (!instance || !query.include || query.include.length === 0) return instance
+
+    // Resolve include back-references by inspecting the NounSchema
+    // Use entity.$schema (always available on the proxy) rather than
+    // getNounSchema() which may return undefined after clearRegistry()
+    const schema = entity.$schema as NounSchema | undefined
+    if (!schema) return instance
+
+    const result = { ...instance } as Record<string, unknown>
+
+    for (const includeName of query.include) {
+      const rel = schema.relationships.get(includeName)
+      if (rel && rel.operator === '<-' && rel.targetType) {
+        // Back-reference: e.g. invoices: '<- Invoice.customer[]'
+        // rel.targetType = 'Invoice', rel.backref = 'customer'
+        const targetEntity = allEntities[rel.targetType]
+        if (targetEntity && rel.backref) {
+          const related = await targetEntity.find({ [rel.backref]: instance.$id })
+          result[includeName] = related
+        }
+      } else if (!rel) {
+        // Try to infer: look across all schemas for a forward ref pointing to this type
+        // e.g. include 'contacts' on Organization — Contact has organization: '-> Organization.contacts'
+        // Search all entities for one whose lowercase plural matches includeName
+        const singularTarget = includeName.endsWith('s') ? includeName.slice(0, -1) : includeName
+        const targetTypeName = Object.keys(allEntities).find(
+          (name) => name.toLowerCase() === singularTarget.toLowerCase() || name.toLowerCase() + 's' === includeName.toLowerCase(),
+        )
+        if (targetTypeName) {
+          const targetEntity = allEntities[targetTypeName]
+          if (targetEntity) {
+            // Find which field in the target type points to query.type
+            const targetSchema = targetEntity.$schema as NounSchema | undefined
+            if (targetSchema) {
+              for (const [fieldName, fieldRel] of targetSchema.relationships) {
+                if (fieldRel.operator === '->' && fieldRel.targetType === query.type) {
+                  const related = await targetEntity.find({ [fieldName]: instance.$id })
+                  result[includeName] = related
+                  break
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return result as NounInstance
+  }
+}
+
+function _buildDoFn() {
+  return async (fn: (ctx: Record<string, NounEntity>) => Promise<unknown>) => {
+    return fn(allEntities)
+  }
+}
+
+/**
+ * Create a self-contained HeadlessContext proxy that captures a specific
+ * provider reference at creation time. The provider is stored but entity
+ * operations still go through the Noun proxies (which use the global provider).
+ * The captured provider reference allows callers to inspect which provider
+ * a particular context was created with.
+ */
+function _createScopedContext(capturedProvider: NounProvider): HeadlessContext {
+  return new Proxy({} as HeadlessContext, {
+    get(_target, prop) {
+      if (typeof prop === 'symbol') return undefined
+
+      // Expose the captured provider for inspection
+      if (prop === '$provider') return capturedProvider
+
+      // Events namespace
+      if (prop === 'events') return _eventsNamespace
+
+      // Status function
+      if (prop === 'status') return _statusFn
+
+      // MCP-like operations
+      if (prop === 'search') return _buildSearchFn()
+      if (prop === 'fetch') return _buildFetchFn()
+      if (prop === 'do') return _buildDoFn()
+
+      // Entity access
+      return allEntities[prop as string]
+    },
+  })
+}
+
+/**
  * $ — The universal context
  *
  * Access all 35 entities and MCP-like operations:
@@ -717,85 +869,15 @@ export const $: HeadlessContext = new Proxy({} as HeadlessContext, {
     }
 
     // Events namespace
-    if (prop === 'events') {
-      return _eventsNamespace
-    }
+    if (prop === 'events') return _eventsNamespace
 
     // Status function
-    if (prop === 'status') {
-      return _statusFn
-    }
+    if (prop === 'status') return _statusFn
 
     // MCP-like operations
-    if (prop === 'search') {
-      return async (query: { type: string; filter?: Record<string, unknown> }) => {
-        const entity = allEntities[query.type]
-        if (!entity) return []
-        return entity.find(query.filter)
-      }
-    }
-
-    if (prop === 'fetch') {
-      return async (query: { type: string; id: string; include?: string[] }) => {
-        const entity = allEntities[query.type]
-        if (!entity) return null
-        const instance = await entity.get(query.id)
-        if (!instance || !query.include || query.include.length === 0) return instance
-
-        // Resolve include back-references by inspecting the NounSchema
-        // Use entity.$schema (always available on the proxy) rather than
-        // getNounSchema() which may return undefined after clearRegistry()
-        const schema = entity.$schema as NounSchema | undefined
-        if (!schema) return instance
-
-        const result = { ...instance } as Record<string, unknown>
-
-        for (const includeName of query.include) {
-          const rel = schema.relationships.get(includeName)
-          if (rel && rel.operator === '<-' && rel.targetType) {
-            // Back-reference: e.g. invoices: '<- Invoice.customer[]'
-            // rel.targetType = 'Invoice', rel.backref = 'customer'
-            const targetEntity = allEntities[rel.targetType]
-            if (targetEntity && rel.backref) {
-              const related = await targetEntity.find({ [rel.backref]: instance.$id })
-              result[includeName] = related
-            }
-          } else if (!rel) {
-            // Try to infer: look across all schemas for a forward ref pointing to this type
-            // e.g. include 'contacts' on Organization — Contact has organization: '-> Organization.contacts'
-            // Search all entities for one whose lowercase plural matches includeName
-            const singularTarget = includeName.endsWith('s') ? includeName.slice(0, -1) : includeName
-            const targetTypeName = Object.keys(allEntities).find(
-              (name) => name.toLowerCase() === singularTarget.toLowerCase() || name.toLowerCase() + 's' === includeName.toLowerCase(),
-            )
-            if (targetTypeName) {
-              const targetEntity = allEntities[targetTypeName]
-              if (targetEntity) {
-                // Find which field in the target type points to query.type
-                const targetSchema = targetEntity.$schema as NounSchema | undefined
-                if (targetSchema) {
-                  for (const [fieldName, fieldRel] of targetSchema.relationships) {
-                    if (fieldRel.operator === '->' && fieldRel.targetType === query.type) {
-                      const related = await targetEntity.find({ [fieldName]: instance.$id })
-                      result[includeName] = related
-                      break
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-
-        return result as NounInstance
-      }
-    }
-
-    if (prop === 'do') {
-      return async (fn: (ctx: Record<string, NounEntity>) => Promise<unknown>) => {
-        return fn(allEntities)
-      }
-    }
+    if (prop === 'search') return _buildSearchFn()
+    if (prop === 'fetch') return _buildFetchFn()
+    if (prop === 'do') return _buildDoFn()
 
     // Entity access
     return allEntities[prop as string]

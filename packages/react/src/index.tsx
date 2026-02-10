@@ -110,6 +110,10 @@ export function useFeatureFlag(key: string): FlagValue | undefined {
 
   useEffect(() => {
     setValue(headless.getFeatureFlag(key))
+    const handler = (newValue: FlagValue) => {
+      setValue(newValue)
+    }
+    headless.onFlagChange(key, handler)
   }, [key])
 
   return value
@@ -899,20 +903,21 @@ interface HeadlesslyProviderProps {
  */
 export function HeadlesslyProvider({ tenant, apiKey, endpoint, mode, children }: HeadlesslyProviderProps) {
   const [initialized, setInitialized] = useState(false)
-  const orgRef = useRef<ReturnType<typeof Headlessly> | null>(null)
+  const [org, setOrg] = useState<ReturnType<typeof Headlessly> | null>(null)
 
   useEffect(() => {
     const orgOptions: HeadlesslyOrgOptions = { tenant }
     if (apiKey) orgOptions.apiKey = apiKey
     if (endpoint) orgOptions.endpoint = endpoint
     if (mode) orgOptions.mode = mode
-    orgRef.current = Headlessly(orgOptions)
+    const newOrg = Headlessly(orgOptions)
+    setOrg(newOrg)
     setInitialized(true)
   }, [tenant, apiKey, endpoint, mode])
 
   const value = useMemo<HeadlesslyContextValue>(
-    () => ({ tenant, initialized, org: orgRef.current }),
-    [tenant, initialized],
+    () => ({ tenant, initialized, org }),
+    [tenant, initialized, org],
   )
 
   return <HeadlesslyContext.Provider value={value}>{children}</HeadlesslyContext.Provider>
@@ -1156,10 +1161,13 @@ export function useSubscription<T = unknown>(
   const [connected, setConnected] = useState(false)
   const [error, setError] = useState<Error | null>(null)
   const unsubscribedRef = useRef(false)
+  const lastResultsRef = useRef<string | null>(null)
 
   // Normalize arguments: useSubscription(type, handler) or useSubscription(type, filter, handler)
   const filter = typeof filterOrHandler === 'function' ? undefined : filterOrHandler
   const callback = typeof filterOrHandler === 'function' ? filterOrHandler : handler
+  const callbackRef = useRef(callback)
+  callbackRef.current = callback
 
   const unsubscribe = useCallback(() => {
     unsubscribedRef.current = true
@@ -1168,6 +1176,7 @@ export function useSubscription<T = unknown>(
 
   useEffect(() => {
     unsubscribedRef.current = false
+    lastResultsRef.current = null
     setConnected(false)
     setError(null)
 
@@ -1183,7 +1192,12 @@ export function useSubscription<T = unknown>(
         const results = (await entity.find(filter)) as T[]
         if (!unsubscribedRef.current) {
           setConnected(true)
-          callback?.(results)
+          // Shallow comparison: only call handler when data has changed
+          const serialized = JSON.stringify(results)
+          if (serialized !== lastResultsRef.current) {
+            lastResultsRef.current = serialized
+            callbackRef.current?.(results)
+          }
         }
       } catch (err) {
         if (!unsubscribedRef.current) {

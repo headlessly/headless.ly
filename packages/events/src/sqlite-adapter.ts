@@ -29,6 +29,24 @@ export interface SqlStorageResult {
 }
 
 // =============================================================================
+// Table Name Validation
+// =============================================================================
+
+const TABLE_NAME_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/
+
+/**
+ * Validate a table name to prevent SQL injection.
+ * Only allows alphanumeric characters and underscores, must start with a letter or underscore.
+ * Throws if the name is invalid.
+ */
+function sanitizeTableName(name: string): string {
+  if (!TABLE_NAME_PATTERN.test(name)) {
+    throw new Error(`Invalid table name "${name}": must contain only alphanumeric characters and underscores, and start with a letter or underscore`)
+  }
+  return name
+}
+
+// =============================================================================
 // ID Generation
 // =============================================================================
 
@@ -62,7 +80,7 @@ export class SQLiteEventLog {
 
   constructor(sql: SqlStorage, options?: SQLiteEventLogOptions) {
     this.sql = sql
-    this.tableName = options?.tableName ?? 'event_log'
+    this.tableName = sanitizeTableName(options?.tableName ?? 'event_log')
     this.initSchema()
   }
 

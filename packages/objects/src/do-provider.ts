@@ -90,7 +90,7 @@ function toNounInstance(raw: unknown): NounInstance {
  * Collection operations map to the DO's collection API:
  * - $.contacts.find({ stage: 'Lead' })
  * - $.contacts.get('contact_abc')
- * - $.contacts.put('contact_abc', { ... })
+ * - $.contacts.update('contact_abc', { ... })
  */
 export class DONounProvider implements NounProvider {
   private rpc: RPCProxy<Record<string, unknown>>
@@ -205,8 +205,9 @@ export class DONounProvider implements NounProvider {
         rpcOptions.auth = options.apiKey
       }
 
-      const protocol = options.transport === 'ws' ? 'wss' : 'https'
-      const url = options.endpoint.replace(/^https?/, protocol)
+      const isSecure = /^https:\/\//.test(options.endpoint)
+      const protocol = options.transport === 'ws' ? (isSecure ? 'wss' : 'ws') : isSecure ? 'https' : 'http'
+      const url = options.endpoint.replace(/^https?:\/\//, `${protocol}://`)
       this.rpc = RPC(url, rpcOptions) as RPCProxy<Record<string, unknown>>
     }
   }

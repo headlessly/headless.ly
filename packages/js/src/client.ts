@@ -64,11 +64,19 @@ export class HeadlessClient {
   private optedOut = false
   private initialized = false
   private _preflushed = false
+  private _trackingFlag = false
 
   // Forwarding, realtime, and auto-capture
   private forwarding = new ForwardingManager()
   private realtime: RealtimeManager | null = null
   private autoCapture: AutoCaptureManager | null = null
+
+  // Stored listener references for cleanup
+  private _visibilityListener: (() => void) | null = null
+  private _pagehideListener: (() => void) | null = null
+  private _errorListener: ((e: ErrorEvent | { error?: Error; message?: string }) => void) | null = null
+  private _rejectionListener: ((e: { reason?: unknown }) => void) | null = null
+  private _vitalsVisibilityListener: (() => void) | null = null
 
   // ===========================================================================
   // Initialization
@@ -134,22 +142,26 @@ export class HeadlessClient {
     // Page lifecycle
     if (typeof window !== 'undefined' && window) {
       try {
-        window.addEventListener('visibilitychange', () => {
+        this._visibilityListener = () => {
           if (typeof document !== 'undefined' && document?.visibilityState === 'hidden') this.flush(true)
-        })
-        window.addEventListener('pagehide', () => this.flush(true))
+        }
+        this._pagehideListener = () => this.flush(true)
+        window.addEventListener('visibilitychange', this._visibilityListener)
+        window.addEventListener('pagehide', this._pagehideListener)
       } catch {}
 
       // Auto error capture
       if (this.config.captureErrors) {
         try {
-          window.addEventListener('error', (e: ErrorEvent | { error?: Error; message?: string }) => {
+          this._errorListener = (e: ErrorEvent | { error?: Error; message?: string }) => {
             const err = (e as { error?: Error }).error || new Error((e as { message?: string }).message || 'Unknown error')
             this.captureException(err)
-          })
-          window.addEventListener('unhandledrejection', (e: { reason?: unknown }) => {
+          }
+          this._rejectionListener = (e: { reason?: unknown }) => {
             this.captureException(e.reason instanceof Error ? e.reason : new Error(String(e.reason)))
-          })
+          }
+          window.addEventListener('error', this._errorListener as EventListener)
+          window.addEventListener('unhandledrejection', this._rejectionListener as EventListener)
         } catch {}
       }
 
@@ -196,8 +208,8 @@ export class HeadlessClient {
 
   private getStorage(): Storage | null {
     try {
+      if (this.config.persistence === 'memory') return null
       if (this.config.persistence === 'sessionStorage') return sessionStorage
-      if (this.config.persistence === 'memory') return sessionStorage // fallback
       return localStorage
     } catch {
       return null
@@ -451,8 +463,13 @@ export class HeadlessClient {
     }
 
     const flag = this.featureFlags.get(key)
-    if (flag) {
-      this.track('$feature_flag_called', { $feature_flag: key, $feature_flag_response: flag.value })
+    if (flag && !this._trackingFlag) {
+      this._trackingFlag = true
+      try {
+        this.track('$feature_flag_called', { $feature_flag: key, $feature_flag_response: flag.value })
+      } finally {
+        this._trackingFlag = false
+      }
     }
     return flag?.value
   }
@@ -550,9 +567,10 @@ export class HeadlessClient {
       }).observe({ type: 'layout-shift', buffered: true })
 
       if (typeof window !== 'undefined' && window) {
-        window.addEventListener('visibilitychange', () => {
+        this._vitalsVisibilityListener = () => {
           if (typeof document !== 'undefined' && document?.visibilityState === 'hidden' && cls > 0) this.captureWebVitals({ cls })
-        })
+        }
+        window.addEventListener('visibilitychange', this._vitalsVisibilityListener)
       }
     } catch {}
   }
@@ -791,6 +809,23 @@ export class HeadlessClient {
     this.forwarding.shutdown()
     this.realtime?.shutdown()
     this.realtime = null
+
+    // Remove window event listeners
+    if (typeof window !== 'undefined' && window) {
+      try {
+        if (this._visibilityListener) window.removeEventListener('visibilitychange', this._visibilityListener)
+        if (this._pagehideListener) window.removeEventListener('pagehide', this._pagehideListener)
+        if (this._errorListener) window.removeEventListener('error', this._errorListener as EventListener)
+        if (this._rejectionListener) window.removeEventListener('unhandledrejection', this._rejectionListener as EventListener)
+        if (this._vitalsVisibilityListener) window.removeEventListener('visibilitychange', this._vitalsVisibilityListener)
+      } catch {}
+    }
+    this._visibilityListener = null
+    this._pagehideListener = null
+    this._errorListener = null
+    this._rejectionListener = null
+    this._vitalsVisibilityListener = null
+
     await this.flush()
     this.initialized = false
   }

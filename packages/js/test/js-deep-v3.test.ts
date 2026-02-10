@@ -247,11 +247,13 @@ describe('@headlessly/js — deep v3 tests', () => {
       expect(sessionStorage.getItem('hl_anon')).toBe(anonId)
     })
 
-    it('memory mode falls back to sessionStorage for ID persistence', () => {
+    it('memory mode does not persist anonymousId to any storage', () => {
       client.init({ apiKey: 'test_key', persistence: 'memory' })
       const anonId = client.getDistinctId()
-      // Source code: memory mode returns sessionStorage as fallback
-      expect(sessionStorage.getItem('hl_anon')).toBe(anonId)
+      expect(anonId).toBeTruthy()
+      // Memory mode should NOT write to localStorage or sessionStorage
+      expect(localStorage.getItem('hl_anon')).toBeNull()
+      expect(sessionStorage.getItem('hl_anon')).toBeNull()
     })
 
     it('opt-out is stored in the configured storage', () => {

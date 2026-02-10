@@ -186,14 +186,14 @@ describe('Factory Edge Cases', () => {
     expect(opts).toEqual(copy)
   })
 
-  it('http endpoint protocol is replaced with https', () => {
+  it('http endpoint protocol is preserved', () => {
     const { url } = buildHeadlesslyConfig({ tenant: 'acme', endpoint: 'http://localhost:8787' })
-    expect(url).toBe('https://localhost:8787/~acme')
+    expect(url).toBe('http://localhost:8787/~acme')
   })
 
-  it('ws transport replaces http with wss in custom endpoint', () => {
+  it('ws transport maps http to ws in custom endpoint', () => {
     const { url } = buildHeadlesslyConfig({ tenant: 'acme', endpoint: 'http://localhost:8787', transport: 'ws' })
-    expect(url).toBe('wss://localhost:8787/~acme')
+    expect(url).toBe('ws://localhost:8787/~acme')
   })
 
   it('ws transport replaces https with wss in default endpoint', () => {

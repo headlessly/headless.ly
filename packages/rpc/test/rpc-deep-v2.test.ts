@@ -71,7 +71,7 @@ describe('URL Construction Edge Cases', () => {
 
   it('ws transport with port-included endpoint', () => {
     const { url } = buildHeadlesslyConfig({ tenant: 'acme', endpoint: 'http://localhost:8787', transport: 'ws' })
-    expect(url).toBe('wss://localhost:8787/~acme')
+    expect(url).toBe('ws://localhost:8787/~acme')
   })
 
   it('endpoint with https already is kept as https for http transport', () => {

@@ -534,24 +534,24 @@ describe('@headlessly/node — deep v3', () => {
   // =========================================================================
 
   describe('Singleton edge cases', () => {
-    afterEach(() => {
-      Headlessly.reset()
+    afterEach(async () => {
+      await Headlessly.reset()
     })
 
     it('reset() calls shutdown on the existing singleton', async () => {
       const client = Headlessly.init({ apiKey: 'key1' })
       client.track('pre_reset')
 
-      Headlessly.reset()
+      await Headlessly.reset()
       // After reset, the singleton is cleared and shutdown was called
       // Events from before reset should have been flushed
       const events = allSentEvents()
       expect(events.some((e) => e.event === 'pre_reset')).toBe(true)
     })
 
-    it('after reset, init creates a fresh client with new config', () => {
+    it('after reset, init creates a fresh client with new config', async () => {
       const a = Headlessly.init({ apiKey: 'key_a', endpoint: 'https://a.example.com' })
-      Headlessly.reset()
+      await Headlessly.reset()
       const b = Headlessly.init({ apiKey: 'key_b', endpoint: 'https://b.example.com' })
 
       expect(a).not.toBe(b)

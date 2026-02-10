@@ -72,8 +72,9 @@ export interface HeadlesslyRpcOptions {
  */
 export function buildHeadlesslyConfig(options: HeadlesslyRpcOptions): { url: string; rpcOptions: RPCOptions } {
   const base = (options.endpoint ?? 'https://db.headless.ly').replace(/\/+$/, '')
-  const protocol = options.transport === 'ws' ? 'wss' : 'https'
-  const url = base.replace(/^https?/, protocol)
+  const isSecure = /^https:\/\//.test(base)
+  const protocol = options.transport === 'ws' ? (isSecure ? 'wss' : 'ws') : isSecure ? 'https' : 'http'
+  const url = base.replace(/^https?:\/\//, `${protocol}://`)
 
   const rpcOptions: RPCOptions = {}
   if (options.apiKey) {

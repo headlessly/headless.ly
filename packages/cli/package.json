@@ -5,11 +5,15 @@
   "type": "module",
   "main": "src/index.ts",
   "bin": {
-    "headlessly": "./src/bin.ts"
+    "headlessly": "./dist/bin.js"
   },
   "exports": {
     ".": "./src/index.ts"
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",

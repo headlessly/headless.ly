@@ -31,12 +31,22 @@ describe('headlessly()', () => {
 
   it('uses custom endpoint', () => {
     const { url } = buildHeadlesslyConfig({ tenant: 'acme', endpoint: 'http://localhost:8787' })
-    expect(url).toBe('https://localhost:8787/~acme')
+    expect(url).toBe('http://localhost:8787/~acme')
+  })
+
+  it('uses custom https endpoint', () => {
+    const { url } = buildHeadlesslyConfig({ tenant: 'acme', endpoint: 'https://custom.example.com' })
+    expect(url).toBe('https://custom.example.com/~acme')
   })
 
   it('uses custom endpoint with ws transport', () => {
     const { url } = buildHeadlesslyConfig({ tenant: 'acme', endpoint: 'http://localhost:8787', transport: 'ws' })
-    expect(url).toBe('wss://localhost:8787/~acme')
+    expect(url).toBe('ws://localhost:8787/~acme')
+  })
+
+  it('uses custom https endpoint with ws transport', () => {
+    const { url } = buildHeadlesslyConfig({ tenant: 'acme', endpoint: 'https://custom.example.com', transport: 'ws' })
+    expect(url).toBe('wss://custom.example.com/~acme')
   })
 
   it('combines apiKey and ws transport', () => {

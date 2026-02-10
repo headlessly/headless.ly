@@ -423,18 +423,18 @@ export const Headlessly = {
     _singleton = new HeadlessNodeClient(config)
 
     process.once('SIGTERM', () => {
-      _singleton?.shutdown()
+      void _singleton?.shutdown().then(() => process.exit(0))
     })
     process.once('SIGINT', () => {
-      _singleton?.shutdown()
+      void _singleton?.shutdown().then(() => process.exit(0))
     })
 
     return _singleton
   },
 
-  reset(): void {
+  async reset(): Promise<void> {
     if (_singleton) {
-      _singleton.shutdown()
+      await _singleton.shutdown()
     }
     _singleton = undefined
   },

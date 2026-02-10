@@ -909,7 +909,8 @@ describe('headlessly() initialization edge cases', () => {
     headlessly()
     expect(headlessly.isInitialized()).toBe(true)
     const ctx = headlessly.reconfigure({})
-    expect(ctx).toBe($)
+    expect(ctx).toBeDefined()
+    expect(ctx.Contact).toBeDefined()
     expect(headlessly.isInitialized()).toBe(true)
   })
 

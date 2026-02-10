@@ -83,9 +83,18 @@ export class CDCStream {
 
   /** Get the number of unconsumed events for a consumer */
   async lag(consumerId: string): Promise<number> {
-    const cursor = this.cursors.get(consumerId)
-    const result = await this.eventLog.cdc({ after: cursor })
-    return result.events.length + (result.hasMore ? 1 : 0)
+    let cursor = this.cursors.get(consumerId)
+    let total = 0
+    let hasMore = true
+    while (hasMore) {
+      const result = await this.eventLog.cdc({ after: cursor, batchSize: 1000 })
+      total += result.events.length
+      hasMore = result.hasMore
+      if (result.events.length > 0) {
+        cursor = result.cursor
+      }
+    }
+    return total
   }
 
   /**

@@ -39,10 +39,13 @@ describe('headlessly() initialization', () => {
   })
 
   describe('default (no args) — MemoryNounProvider', () => {
-    it('returns the $ context object when called with no arguments', () => {
+    it('returns a self-contained HeadlessContext when called with no arguments', () => {
       const ctx = headlessly()
       expect(ctx).toBeDefined()
-      expect(ctx).toBe($)
+      // The returned context is self-contained (not the global $ reference)
+      // but provides the same entity access
+      expect(ctx.Contact).toBeDefined()
+      expect(ctx.Deal).toBeDefined()
     })
 
     it('uses MemoryNounProvider when no options are provided', () => {
@@ -124,9 +127,11 @@ describe('headlessly() initialization', () => {
   })
 
   describe('return value', () => {
-    it('returns the $ context object', () => {
+    it('returns a self-contained HeadlessContext with entity access', () => {
       const ctx = headlessly()
-      expect(ctx).toBe($)
+      expect(ctx).toBeDefined()
+      expect(ctx.Contact).toBeDefined()
+      expect(typeof ctx.search).toBe('function')
     })
 
     it('returned context provides entity access', () => {
@@ -343,7 +348,7 @@ describe('headlessly() initialization', () => {
       expect(() => headlessly({ lazy: true })).not.toThrow()
     })
 
-    it('headlessly({ lazy: true }) returns $ context', () => {
+    it('headlessly({ lazy: true }) returns $ context (lazy returns global)', () => {
       const ctx = headlessly({ lazy: true })
       expect(ctx).toBe($)
     })
@@ -403,13 +408,15 @@ describe('headlessly() initialization', () => {
       expect(provider2.endpoint).toBe('https://db.headless.ly')
     })
 
-    it('returns the $ context', () => {
+    it('returns a self-contained HeadlessContext', () => {
       headlessly()
       const ctx = headlessly.reconfigure({
         endpoint: 'https://db.headless.ly',
         apiKey: 'hly_sk_reconfig',
       })
-      expect(ctx).toBe($)
+      expect(ctx).toBeDefined()
+      expect(ctx.Contact).toBeDefined()
+      expect(typeof ctx.search).toBe('function')
     })
   })
 

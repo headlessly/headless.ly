@@ -941,13 +941,13 @@ describe('@headlessly/node — deep v2', () => {
   // =========================================================================
 
   describe('Headlessly singleton — advanced', () => {
-    afterEach(() => {
-      Headlessly.reset()
+    afterEach(async () => {
+      await Headlessly.reset()
     })
 
-    it('reset() clears the singleton so init can create a new one', () => {
+    it('reset() clears the singleton so init can create a new one', async () => {
       const a = Headlessly.init({ apiKey: 'key_a' })
-      Headlessly.reset()
+      await Headlessly.reset()
       const b = Headlessly.init({ apiKey: 'key_b' })
 
       expect(a).not.toBe(b)
