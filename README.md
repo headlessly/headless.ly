@@ -189,7 +189,6 @@ export const Contact = Noun('Contact', {
 | Package | Description |
 |---------|-------------|
 | [`@headlessly/sdk`](packages/sdk) | All 35 entities, `$` context, domain namespaces |
-| [`headless.ly`](packages/headlessly) | `Headlessly()` factory — create an org, get everything |
 | [`@headlessly/cli`](packages/cli) | search, fetch, do — from your terminal |
 
 ### Domain Packages
