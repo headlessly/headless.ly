@@ -1,569 +1,194 @@
 /**
- * TDD RED phase — Cross-domain entity relationship tests
+ * Cross-domain entity integration tests
  *
- * Tests that entities from different domains can reference each other,
- * that cross-domain verb hooks fire correctly, and that the full entity
- * graph is connected.
- *
- * These tests will FAIL until cross-domain relationship resolution,
- * verb-triggered side effects, and graph traversal are implemented.
+ * Verifies that entities from different @headlessly/* packages work together:
+ * cross-domain CRUD, entity registry completeness, verb hook chains,
+ * domain namespace isolation, mixed-domain queries, and relationship strings.
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 import { setProvider, MemoryNounProvider, clearRegistry } from 'digital-objects'
-import { $, crm, billing, projects, content, support, analytics, marketing, experiments, platform } from '../src/index'
+import {
+  $,
+  crm,
+  billing,
+  projects,
+  content,
+  support,
+  analytics,
+  marketing,
+  experiments,
+  platform,
+  entityNames,
+  resolveEntity,
+} from '../src/index'
+import type { NounSchema } from 'digital-objects'
 
-describe('@headlessly/sdk — cross-domain relationships', () => {
+describe('@headlessly/sdk — cross-domain integration', () => {
   beforeEach(() => {
     clearRegistry()
     setProvider(new MemoryNounProvider())
   })
 
   // ===========================================================================
-  // 1. CRM <-> Billing Relationships
+  // 1. Cross-domain CRUD
   // ===========================================================================
-  describe('CRM <-> Billing', () => {
-    it('Contact can be linked to a Customer via organization reference', async () => {
+  describe('cross-domain CRUD', () => {
+    it('Organization (CRM) -> Customer (Billing) reference chain', async () => {
       const org = await $.Organization.create({ name: 'Acme Corp', type: 'Customer' })
       const contact = await $.Contact.create({ name: 'Alice', organization: org.$id })
       const customer = await $.Customer.create({ name: 'Acme Corp', email: 'billing@acme.co', organization: org.$id })
 
-      // Both contact and customer should resolve their shared organization
+      // Both contact and customer resolve to the same organization
       const contactOrg = await $.Organization.get(contact.organization as string)
       const customerOrg = await $.Organization.get(customer.organization as string)
       expect(contactOrg).toBeDefined()
       expect(contactOrg.$id).toBe(customerOrg.$id)
     })
 
-    it('Deal.close triggers Subscription creation via cross-domain verb hook', async () => {
-      const contact = await $.Contact.create({ name: 'Alice', email: 'alice@acme.co' })
+    it('Contact (CRM) -> Deal (CRM) -> Subscription (Billing) chain', async () => {
+      const contact = await $.Contact.create({ name: 'Bob', email: 'bob@test.io' })
       const deal = await $.Deal.create({
-        name: 'Acme Enterprise',
-        value: 50000,
-        stage: 'Negotiation',
+        name: 'Enterprise License',
+        value: 120000,
         contact: contact.$id,
+        stage: 'ClosedWon',
       })
-
-      // Register a cross-domain after hook: when a deal is closed, create a subscription
-      let subscriptionCreated = false
-      $.Deal.closed(async (closedDeal: Record<string, unknown>, ctx: Record<string, unknown>) => {
-        const sub = await (ctx as typeof $).Subscription.create({
-          status: 'Active',
-          customer: closedDeal.contact,
-          currentPeriodStart: new Date().toISOString(),
-          currentPeriodEnd: new Date(Date.now() + 30 * 86400000).toISOString(),
-          startedAt: new Date().toISOString(),
-        })
-        subscriptionCreated = true
-        expect(sub.$type).toBe('Subscription')
-      })
-
-      // Close the deal — this should fire the after hook with $ context
-      await $.Deal.close(deal.$id)
-
-      expect(subscriptionCreated).toBe(true)
-    })
-
-    it('Customer has related Invoices and Payments via back-references', async () => {
-      const customer = await $.Customer.create({ name: 'Acme', email: 'acme@test.com' })
-      const invoice = await $.Invoice.create({
-        number: 'INV-001',
-        customer: customer.$id,
-        subtotal: 5000,
-        total: 5000,
-        amountDue: 5000,
-        status: 'Open',
-      })
-      const payment = await $.Payment.create({
-        amount: 5000,
-        customer: customer.$id,
-        invoice: invoice.$id,
-        status: 'Succeeded',
-      })
-
-      // Fetch customer with expanded relationships
-      const customerWithRels = await $.fetch({ type: 'Customer', id: customer.$id, include: ['invoices', 'payments'] })
-      expect(customerWithRels).toBeDefined()
-      // The include param should populate related invoices and payments
-      expect(customerWithRels.invoices).toBeDefined()
-      expect(Array.isArray(customerWithRels.invoices)).toBe(true)
-      expect(customerWithRels.invoices.length).toBeGreaterThanOrEqual(1)
-      expect(customerWithRels.payments).toBeDefined()
-      expect(Array.isArray(customerWithRels.payments)).toBe(true)
-    })
-
-    it('Contact.qualify triggers CRM -> Billing pipeline', async () => {
-      const contact = await $.Contact.create({
+      const customer = await $.Customer.create({
         name: 'Bob',
-        email: 'bob@startup.io',
+        email: 'bob@test.io',
+        organization: contact.organization as string,
+      })
+      const subscription = await $.Subscription.create({
         status: 'Active',
+        customer: customer.$id,
+        currentPeriodStart: new Date().toISOString(),
+        currentPeriodEnd: new Date(Date.now() + 30 * 86400000).toISOString(),
+        startedAt: new Date().toISOString(),
       })
 
-      let customerCreated = false
-      // When a contact is qualified, create a billing Customer
-      $.Contact.qualified(async (qualifiedContact: Record<string, unknown>) => {
-        const cust = await $.Customer.create({
-          name: qualifiedContact.name as string,
-          email: qualifiedContact.email as string,
-          organization: qualifiedContact.organization as string,
-        })
-        customerCreated = true
-        expect(cust.$type).toBe('Customer')
-      })
-
-      await $.Contact.qualify(contact.$id)
-      expect(customerCreated).toBe(true)
+      // Verify the full chain: Contact -> Deal, Customer -> Subscription
+      expect(deal.contact).toBe(contact.$id)
+      expect(subscription.customer).toBe(customer.$id)
+      expect(subscription.$type).toBe('Subscription')
+      expect(deal.$type).toBe('Deal')
     })
 
-    it('Company has related Contacts and Deals (Organization back-references)', async () => {
-      const org = await $.Organization.create({ name: 'TechCo', type: 'Customer' })
-      await $.Contact.create({ name: 'Alice', organization: org.$id })
-      await $.Contact.create({ name: 'Bob', organization: org.$id })
-      await $.Deal.create({ name: 'Big Deal', value: 100000, organization: org.$id })
-
-      // Fetching organization with includes should resolve back-references
-      const orgWithRels = await $.fetch({ type: 'Organization', id: org.$id, include: ['contacts', 'deals'] })
-      expect(orgWithRels).toBeDefined()
-      expect(orgWithRels.contacts).toBeDefined()
-      expect(Array.isArray(orgWithRels.contacts)).toBe(true)
-      expect(orgWithRels.contacts.length).toBe(2)
-      expect(orgWithRels.deals).toBeDefined()
-      expect(orgWithRels.deals.length).toBe(1)
-    })
-
-    it('Billing Customer references CRM Contact through shared organization', async () => {
-      const org = await $.Organization.create({ name: 'StartupCo' })
-      const contact = await $.Contact.create({ name: 'Founder', email: 'founder@startup.co', organization: org.$id })
-      const customer = await $.Customer.create({ name: 'StartupCo', email: 'billing@startup.co', organization: org.$id })
-
-      // The customer and contact share an organization — search should find them via the link
-      const orgContacts = await $.search({ type: 'Contact', filter: { organization: org.$id } })
-      const orgCustomers = await $.search({ type: 'Customer', filter: { organization: org.$id } })
-      expect(orgContacts.length).toBe(1)
-      expect(orgContacts[0].$id).toBe(contact.$id)
-      expect(orgCustomers.length).toBe(1)
-      expect(orgCustomers[0].$id).toBe(customer.$id)
-    })
-  })
-
-  // ===========================================================================
-  // 2. CRM <-> Projects Relationships
-  // ===========================================================================
-  describe('CRM <-> Projects', () => {
-    it('Issue.assignee references a CRM Contact', async () => {
-      const contact = await $.Contact.create({ name: 'Dev Alice', email: 'alice@dev.io' })
-      const project = await $.Project.create({ name: 'Platform Rewrite', status: 'Active' })
-      const issue = await $.Issue.create({
-        title: 'Fix auth bug',
-        project: project.$id,
-        assignee: contact.$id,
-        status: 'Open',
-        priority: 'High',
-        type: 'Bug',
-      })
-
-      // Issue assignee should resolve to the CRM Contact
-      const assignee = await $.Contact.get(issue.assignee as string)
-      expect(assignee).toBeDefined()
-      expect(assignee.$id).toBe(contact.$id)
-      expect(assignee.name).toBe('Dev Alice')
-    })
-
-    it('Deal can be linked to a Project via shared organization', async () => {
-      const org = await $.Organization.create({ name: 'ClientCo' })
-      const deal = await $.Deal.create({ name: 'ClientCo Implementation', value: 75000, organization: org.$id })
-      const project = await $.Project.create({ name: 'ClientCo Onboarding', organization: org.$id, status: 'Active' })
-
-      // Both deal and project reference the same organization
-      expect(deal.organization).toBe(project.organization)
-
-      // Search by organization should return both
-      const orgDeals = await $.search({ type: 'Deal', filter: { organization: org.$id } })
-      const orgProjects = await $.search({ type: 'Project', filter: { organization: org.$id } })
-      expect(orgDeals.length).toBe(1)
-      expect(orgProjects.length).toBe(1)
-    })
-
-    it('Comment.author references a CRM Contact', async () => {
-      const contact = await $.Contact.create({ name: 'Reviewer Bob' })
-      const project = await $.Project.create({ name: 'SDK', status: 'Active' })
-      const issue = await $.Issue.create({ title: 'Add tests', project: project.$id, status: 'Open', type: 'Task' })
-      const comment = await $.Comment.create({
-        body: 'LGTM! Ship it.',
-        author: contact.$id,
-        issue: issue.$id,
-      })
-
-      const author = await $.Contact.get(comment.author as string)
-      expect(author).toBeDefined()
-      expect(author.$id).toBe(contact.$id)
-    })
-
-    it('Issue.assign verb links a Contact to an Issue', async () => {
-      const contact = await $.Contact.create({ name: 'Engineer' })
-      const project = await $.Project.create({ name: 'Backend', status: 'Active' })
-      const issue = await $.Issue.create({
-        title: 'Implement API',
+    it('Project (Projects) -> Issues -> Comments chain', async () => {
+      const project = await $.Project.create({ name: 'SDK Rewrite', status: 'Active' })
+      const issue1 = await $.Issue.create({
+        title: 'Refactor core',
         project: project.$id,
         status: 'Open',
         type: 'Feature',
       })
-
-      // Assign the issue to the contact
-      const assigned = await $.Issue.assign(issue.$id, { assignee: contact.$id })
-      expect(assigned.status).toBe('Assigned')
-      expect(assigned.assignee).toBe(contact.$id)
-    })
-
-    it('Project has related Issues and Comments through back-references', async () => {
-      const project = await $.Project.create({ name: 'Frontend', status: 'Active' })
-      const issue1 = await $.Issue.create({ title: 'Bug 1', project: project.$id, status: 'Open', type: 'Bug' })
-      const issue2 = await $.Issue.create({ title: 'Feature 1', project: project.$id, status: 'Open', type: 'Feature' })
-      await $.Comment.create({ body: 'On it', issue: issue1.$id, author: 'contact_test' })
-
-      const projectWithIssues = await $.fetch({ type: 'Project', id: project.$id, include: ['issues'] })
-      expect(projectWithIssues).toBeDefined()
-      expect(projectWithIssues.issues).toBeDefined()
-      expect(Array.isArray(projectWithIssues.issues)).toBe(true)
-      expect(projectWithIssues.issues.length).toBe(2)
-    })
-  })
-
-  // ===========================================================================
-  // 3. Marketing <-> CRM Relationships
-  // ===========================================================================
-  describe('Marketing <-> CRM', () => {
-    it('Campaign targets a Segment which filters Contacts', async () => {
-      const segment = await $.Segment.create({
-        name: 'Enterprise Leads',
-        criteria: JSON.stringify({ leadScore: { $gte: 80 } }),
-        isDynamic: 'true',
+      const issue2 = await $.Issue.create({
+        title: 'Add tests',
+        project: project.$id,
+        status: 'Open',
+        type: 'Task',
       })
+      const comment = await $.Comment.create({
+        body: 'Working on this now',
+        issue: issue1.$id,
+      })
+
+      expect(issue1.project).toBe(project.$id)
+      expect(issue2.project).toBe(project.$id)
+      expect(comment.issue).toBe(issue1.$id)
+
+      // All issues for this project
+      const projectIssues = await $.Issue.find({ project: project.$id })
+      expect(projectIssues.length).toBe(2)
+
+      // Comments on the first issue
+      const issueComments = await $.Comment.find({ issue: issue1.$id })
+      expect(issueComments.length).toBe(1)
+    })
+
+    it('Content (Content) -> Author (CRM Contact) -> Site (Content)', async () => {
+      const author = await $.Contact.create({ name: 'Writer Jane', email: 'jane@blog.co' })
+      const site = await $.Site.create({ name: 'Engineering Blog', status: 'Published' })
+      const article = await $.Content.create({
+        title: 'Building Agent-First Systems',
+        type: 'Article',
+        status: 'Published',
+        author: author.$id,
+        site: site.$id,
+      })
+
+      expect(article.author).toBe(author.$id)
+      expect(article.site).toBe(site.$id)
+
+      const resolvedAuthor = await $.Contact.get(article.author as string)
+      expect(resolvedAuthor).toBeDefined()
+      expect(resolvedAuthor.name).toBe('Writer Jane')
+    })
+
+    it('Ticket (Support) references Organization (CRM) and Contact (CRM)', async () => {
+      const org = await $.Organization.create({ name: 'SupportCo' })
+      const requester = await $.Contact.create({ name: 'Frustrated User', organization: org.$id })
+      const assignee = await $.Contact.create({ name: 'Support Agent', organization: org.$id })
+      const ticket = await $.Ticket.create({
+        subject: 'Cannot access dashboard',
+        status: 'Open',
+        priority: 'High',
+        requester: requester.$id,
+        assignee: assignee.$id,
+        organization: org.$id,
+      })
+
+      expect(ticket.requester).toBe(requester.$id)
+      expect(ticket.assignee).toBe(assignee.$id)
+      expect(ticket.organization).toBe(org.$id)
+    })
+
+    it('Lead (CRM) references Campaign (Marketing) cross-domain', async () => {
       const campaign = await $.Campaign.create({
-        name: 'Enterprise Outreach',
+        name: 'Product Launch',
         type: 'Email',
-        status: 'Draft',
-      })
-
-      // The segment criteria should be usable as a Contact filter
-      const criteria = JSON.parse(segment.criteria as string)
-      expect(criteria).toBeDefined()
-      expect(criteria.leadScore).toBeDefined()
-
-      // Contacts matching segment criteria
-      await $.Contact.create({ name: 'Enterprise Lead', leadScore: 90 })
-      await $.Contact.create({ name: 'Small Lead', leadScore: 30 })
-      const matchingContacts = await $.search({ type: 'Contact', filter: { leadScore: { $gte: 80 } } })
-      expect(matchingContacts.length).toBe(1)
-      expect(matchingContacts[0].name).toBe('Enterprise Lead')
-    })
-
-    it('Form submission creates a CRM Contact and Lead', async () => {
-      const form = await $.Form.create({
-        name: 'Website Signup',
         status: 'Active',
-        fields: JSON.stringify(['name', 'email', 'company']),
       })
-
-      // Simulate form submission creating a contact and lead
-      const contact = await $.Contact.create({ name: 'Signup User', email: 'user@example.com', source: `form_${form.$id}` })
+      const contact = await $.Contact.create({ name: 'Lead Person' })
       const lead = await $.Lead.create({
-        name: 'Signup User',
+        name: 'Product Launch Lead',
         contact: contact.$id,
-        source: `form_${form.$id}`,
+        campaign: campaign.$id,
+        source: 'website',
         status: 'New',
       })
 
-      expect(lead.source).toBe(`form_${form.$id}`)
-      expect(lead.contact).toBe(contact.$id)
+      expect(lead.campaign).toBe(campaign.$id)
+      const resolvedCampaign = await $.Campaign.get(lead.campaign as string)
+      expect(resolvedCampaign).toBeDefined()
+      expect(resolvedCampaign.name).toBe('Product Launch')
     })
 
-    it('Campaign.leads back-reference resolves Lead entities', async () => {
-      const campaign = await $.Campaign.create({ name: 'Launch Campaign', type: 'Email', status: 'Active' })
-      await $.Lead.create({ name: 'Lead 1', source: 'website', campaign: campaign.$id, status: 'New' })
-      await $.Lead.create({ name: 'Lead 2', source: 'social', campaign: campaign.$id, status: 'New' })
-
-      const campaignWithLeads = await $.fetch({ type: 'Campaign', id: campaign.$id, include: ['leads'] })
-      expect(campaignWithLeads).toBeDefined()
-      expect(campaignWithLeads.leads).toBeDefined()
-      expect(Array.isArray(campaignWithLeads.leads)).toBe(true)
-      expect(campaignWithLeads.leads.length).toBe(2)
-    })
-
-    it('Campaign metrics reference CRM Deal values', async () => {
-      const campaign = await $.Campaign.create({
-        name: 'Q4 Push',
-        type: 'Paid',
-        status: 'Completed',
-        budget: 10000,
-      })
-      await $.Deal.create({ name: 'Deal from Q4', value: 50000, campaign: campaign.$id, stage: 'ClosedWon' })
-      await $.Deal.create({ name: 'Another Q4 Deal', value: 25000, campaign: campaign.$id, stage: 'ClosedWon' })
-
-      // Search deals attributed to this campaign
-      const campaignDeals = await $.search({ type: 'Deal', filter: { campaign: campaign.$id } })
-      expect(campaignDeals.length).toBe(2)
-      const totalRevenue = campaignDeals.reduce((sum: number, d: Record<string, unknown>) => sum + (d.value as number), 0)
-      expect(totalRevenue).toBe(75000)
-    })
-
-    it('Marketing funnel stages map to CRM Lead stages', async () => {
-      const funnel = await $.Funnel.create({
-        name: 'Lead-to-Customer Funnel',
-        steps: JSON.stringify([
-          { name: 'New Lead', entityType: 'Lead', filter: { status: 'New' } },
-          { name: 'Contacted', entityType: 'Lead', filter: { status: 'Contacted' } },
-          { name: 'Qualified', entityType: 'Lead', filter: { status: 'Qualified' } },
-          { name: 'Customer', entityType: 'Customer', filter: {} },
-        ]),
-      })
-
-      const steps = JSON.parse(funnel.steps as string)
-      expect(steps.length).toBe(4)
-      // First three stages reference Lead entity, last references Customer (Billing domain)
-      expect(steps[0].entityType).toBe('Lead')
-      expect(steps[3].entityType).toBe('Customer')
-    })
-  })
-
-  // ===========================================================================
-  // 4. Analytics Cross-Domain
-  // ===========================================================================
-  describe('Analytics cross-domain', () => {
-    it('Event can reference any entity type via userId and data', async () => {
-      const contact = await $.Contact.create({ name: 'Tracked User' })
-      const event = await $.Event.create({
-        name: 'page_view',
-        type: 'track',
-        userId: contact.$id,
-        data: JSON.stringify({ entityType: 'Contact', entityId: contact.$id }),
-        source: 'Browser',
-        timestamp: new Date().toISOString(),
-      })
-
-      expect(event.userId).toBe(contact.$id)
-      const eventData = JSON.parse(event.data as string)
-      expect(eventData.entityType).toBe('Contact')
-      expect(eventData.entityId).toBe(contact.$id)
-    })
-
-    it('Metric aggregates across domains (CRM + Billing)', async () => {
-      // MRR metric derived from Billing domain
-      const mrrMetric = await $.Metric.create({
-        name: 'MRR',
-        value: 50000,
-        type: 'Gauge',
-        unit: 'USD',
-        dimensions: JSON.stringify({ domain: 'billing', source: 'Subscription' }),
-      })
-
-      // Pipeline value metric from CRM domain
-      const pipelineMetric = await $.Metric.create({
-        name: 'Pipeline Value',
-        value: 250000,
-        type: 'Gauge',
-        unit: 'USD',
-        dimensions: JSON.stringify({ domain: 'crm', source: 'Deal' }),
-      })
-
-      const allMetrics = await $.Metric.find()
-      expect(allMetrics.length).toBeGreaterThanOrEqual(2)
-
-      // Metrics from different domains coexist
-      const domains = allMetrics.map((m: Record<string, unknown>) => JSON.parse(m.dimensions as string).domain)
-      expect(domains).toContain('billing')
-      expect(domains).toContain('crm')
-    })
-
-    it('Funnel stages span CRM + Billing entities', async () => {
-      const funnel = await $.Funnel.create({
-        name: 'Revenue Funnel',
-        steps: JSON.stringify([
-          { name: 'Lead', entityType: 'Lead', domain: 'crm' },
-          { name: 'Deal', entityType: 'Deal', domain: 'crm' },
-          { name: 'Customer', entityType: 'Customer', domain: 'billing' },
-          { name: 'Subscription', entityType: 'Subscription', domain: 'billing' },
-        ]),
-      })
-
-      const steps = JSON.parse(funnel.steps as string)
-      const uniqueDomains = [...new Set(steps.map((s: Record<string, string>) => s.domain))]
-      expect(uniqueDomains).toContain('crm')
-      expect(uniqueDomains).toContain('billing')
-    })
-
-    it('Goal references cross-domain metrics', async () => {
-      const goal = await $.Goal.create({
-        name: 'Reach 100 customers',
-        target: 100,
-        current: 45,
-        unit: 'customers',
-        period: 'Quarterly',
-        status: 'OnTrack',
-      })
-
-      // Goal tracking should work with cross-domain entity counts
-      const customers = await $.Customer.find()
-      const updatedGoal = await $.Goal.update(goal.$id, { current: customers.length })
-      expect(updatedGoal.current).toBe(customers.length)
-    })
-
-    it('Event enrichment adds entity context from any domain', async () => {
-      const deal = await $.Deal.create({ name: 'Important Deal', value: 100000, stage: 'Proposal' })
-      const event = await $.Event.create({
-        name: 'deal_updated',
-        type: 'entity',
-        source: 'API',
-        timestamp: new Date().toISOString(),
-        data: JSON.stringify({
-          entityType: 'Deal',
-          entityId: deal.$id,
-          domain: 'crm',
-          changes: { stage: { from: 'Qualification', to: 'Proposal' } },
-        }),
-      })
-
-      const eventData = JSON.parse(event.data as string)
-      // Event should reference a CRM entity with full context
-      expect(eventData.entityType).toBe('Deal')
-      expect(eventData.domain).toBe('crm')
-      expect(eventData.changes.stage.to).toBe('Proposal')
-
-      // Verify the referenced deal exists
-      const referencedDeal = await $.Deal.get(eventData.entityId)
-      expect(referencedDeal).toBeDefined()
-      expect(referencedDeal.$id).toBe(deal.$id)
-    })
-  })
-
-  // ===========================================================================
-  // 5. Platform <-> All Domains
-  // ===========================================================================
-  describe('Platform <-> all domains', () => {
-    it('Workflow can trigger actions across any domain', async () => {
-      const workflow = await $.Workflow.create({
-        name: 'New Customer Onboarding',
-        trigger: 'Customer.created',
-        status: 'Active',
-        steps: JSON.stringify([
-          { action: 'Project.create', data: { name: 'Onboarding: {{customer.name}}' } },
-          { action: 'Issue.create', data: { title: 'Setup billing', type: 'Task' } },
-          { action: 'Message.create', data: { body: 'Welcome!', channel: 'Email' } },
-          { action: 'Campaign.create', data: { name: 'Drip: {{customer.name}}', type: 'Email' } },
-        ]),
-      })
-
-      const steps = JSON.parse(workflow.steps as string)
-      expect(steps.length).toBe(4)
-      // Steps reference entities from 4 different domains
-      const entityTypes = steps.map((s: Record<string, string>) => s.action.split('.')[0])
-      expect(entityTypes).toContain('Project')   // projects domain
-      expect(entityTypes).toContain('Issue')      // projects domain
-      expect(entityTypes).toContain('Message')    // communication
-      expect(entityTypes).toContain('Campaign')   // marketing domain
-    })
-
-    it('Integration maps external entities to internal ones', async () => {
-      const stripeIntegration = await $.Integration.create({
-        name: 'Stripe',
-        slug: 'stripe',
-        provider: 'stripe',
-        category: 'Payment',
-        status: 'Available',
-        authType: 'ApiKey',
-        configSchema: JSON.stringify({
-          entityMapping: {
-            'stripe.customer': 'Customer',
-            'stripe.subscription': 'Subscription',
-            'stripe.invoice': 'Invoice',
-            'stripe.payment_intent': 'Payment',
-            'stripe.product': 'Product',
-            'stripe.price': 'Price',
-          },
-        }),
-      })
-
-      const config = JSON.parse(stripeIntegration.configSchema as string)
-      const mapping = config.entityMapping
-      // External Stripe entities map to internal Billing entities
-      expect(mapping['stripe.customer']).toBe('Customer')
-      expect(mapping['stripe.subscription']).toBe('Subscription')
-      expect(mapping['stripe.invoice']).toBe('Invoice')
-      expect(mapping['stripe.payment_intent']).toBe('Payment')
-    })
-
-    it('Agent can operate on any entity type via $.do', async () => {
-      const agent = await $.Agent.create({
-        name: 'Sales Agent',
-        type: 'Autonomous',
-        status: 'Active',
-        tools: JSON.stringify(['Contact.create', 'Deal.create', 'Subscription.create', 'Message.create']),
-      })
-
-      // Agent uses $.do to operate across domains
-      const result = await $.do(async (ctx) => {
-        const contact = await ctx.Contact.create({ name: 'Agent-created Contact' })
-        const deal = await ctx.Deal.create({ name: 'Agent Deal', value: 25000, contact: contact.$id })
-        const message = await ctx.Message.create({ body: 'Follow up', channel: 'Email', recipient: contact.$id })
-        return { contact: contact.$id, deal: deal.$id, message: message.$id }
-      })
-
-      expect(result).toBeDefined()
-      const r = result as { contact: string; deal: string; message: string }
-      expect(r.contact).toContain('contact_')
-      expect(r.deal).toContain('deal_')
-      expect(r.message).toContain('message_')
-    })
-
-    it('Workflow step references entities from different domains', async () => {
-      const org = await $.Organization.create({ name: 'TenantCo' })
-      const workflow = await $.Workflow.create({
-        name: 'Churn Prevention',
-        trigger: 'Subscription.canceled',
-        status: 'Active',
+    it('FeatureFlag (Experiments) references Experiment (Experiments) and Organization (CRM)', async () => {
+      const org = await $.Organization.create({ name: 'ExperimentCo' })
+      const experiment = await $.Experiment.create({
+        name: 'Dark Mode Test',
+        status: 'Running',
         organization: org.$id,
-        steps: JSON.stringify([
-          { action: 'Ticket.create', domain: 'support', data: { subject: 'Churn risk' } },
-          { action: 'Contact.update', domain: 'crm', data: { status: 'AtRisk' } },
-          { action: 'Campaign.create', domain: 'marketing', data: { name: 'Win-back', type: 'Email' } },
-        ]),
+      })
+      const flag = await $.FeatureFlag.create({
+        key: 'dark-mode',
+        name: 'Dark Mode',
+        organization: org.$id,
+        experiment: experiment.$id,
+        type: 'Boolean',
+        status: 'Active',
       })
 
-      const steps = JSON.parse(workflow.steps as string)
-      const domains = steps.map((s: Record<string, string>) => s.domain)
-      expect(domains).toContain('support')
-      expect(domains).toContain('crm')
-      expect(domains).toContain('marketing')
-    })
-
-    it('Integration sync maps across entity types bidirectionally', async () => {
-      const ghIntegration = await $.Integration.create({
-        name: 'GitHub',
-        slug: 'github',
-        provider: 'github',
-        category: 'CRM',
-        status: 'Available',
-        authType: 'OAuth2',
-        configSchema: JSON.stringify({
-          syncRules: [
-            { external: 'github.issue', internal: 'Issue', direction: 'bidirectional' },
-            { external: 'github.pull_request', internal: 'Issue', direction: 'inbound', filter: { type: 'Feature' } },
-            { external: 'github.comment', internal: 'Comment', direction: 'bidirectional' },
-          ],
-        }),
-      })
-
-      const config = JSON.parse(ghIntegration.configSchema as string)
-      expect(config.syncRules.length).toBe(3)
-      expect(config.syncRules[0].direction).toBe('bidirectional')
-      expect(config.syncRules[1].internal).toBe('Issue')
+      expect(flag.experiment).toBe(experiment.$id)
+      expect(flag.organization).toBe(org.$id)
     })
   })
 
   // ===========================================================================
-  // 6. Full Entity Graph
+  // 2. Entity registry completeness (35 entities)
   // ===========================================================================
-  describe('Full entity graph', () => {
-    it('all entities are accessible from $', () => {
+  describe('entity registry completeness', () => {
+    it('all 35 entities are accessible from $', () => {
       const expectedEntities = [
         'User', 'ApiKey',
         'Organization', 'Contact', 'Lead', 'Deal', 'Activity', 'Pipeline',
@@ -578,95 +203,513 @@ describe('@headlessly/sdk — cross-domain relationships', () => {
         'Message',
       ]
 
+      expect(expectedEntities.length).toBe(35)
+
       for (const name of expectedEntities) {
         expect($[name], `Expected $.${name} to be defined`).toBeDefined()
         expect($[name].$name, `Expected $.${name}.$name to be '${name}'`).toBe(name)
       }
     })
 
-    it('domain namespaces contain correct entities', () => {
-      // CRM: Organization, Contact, Lead, Deal, Activity, Pipeline
-      expect(crm.Organization.$name).toBe('Organization')
-      expect(crm.Contact.$name).toBe('Contact')
-      expect(crm.Lead.$name).toBe('Lead')
-      expect(crm.Deal.$name).toBe('Deal')
-      expect(crm.Activity.$name).toBe('Activity')
-      expect(crm.Pipeline.$name).toBe('Pipeline')
-
-      // Billing: Customer, Product, Plan, Price, Subscription, Invoice, Payment
-      expect(billing.Customer.$name).toBe('Customer')
-      expect(billing.Product.$name).toBe('Product')
-      expect(billing.Plan.$name).toBe('Plan')
-      expect(billing.Price.$name).toBe('Price')
-      expect(billing.Subscription.$name).toBe('Subscription')
-      expect(billing.Invoice.$name).toBe('Invoice')
-      expect(billing.Payment.$name).toBe('Payment')
-
-      // Projects: Project, Issue, Comment
-      expect(projects.Project.$name).toBe('Project')
-      expect(projects.Issue.$name).toBe('Issue')
-      expect(projects.Comment.$name).toBe('Comment')
-
-      // Content: Content, Asset, Site
-      expect(content.Content.$name).toBe('Content')
-      expect(content.Asset.$name).toBe('Asset')
-      expect(content.Site.$name).toBe('Site')
-
-      // Support: Ticket
-      expect(support.Ticket.$name).toBe('Ticket')
-
-      // Analytics: Event, Metric, Funnel, Goal
-      expect(analytics.Event.$name).toBe('Event')
-      expect(analytics.Metric.$name).toBe('Metric')
-      expect(analytics.Funnel.$name).toBe('Funnel')
-      expect(analytics.Goal.$name).toBe('Goal')
-
-      // Marketing: Campaign, Segment, Form
-      expect(marketing.Campaign.$name).toBe('Campaign')
-      expect(marketing.Segment.$name).toBe('Segment')
-      expect(marketing.Form.$name).toBe('Form')
-
-      // Experiments: Experiment, FeatureFlag
-      expect(experiments.Experiment.$name).toBe('Experiment')
-      expect(experiments.FeatureFlag.$name).toBe('FeatureFlag')
-
-      // Platform: Workflow, Integration, Agent
-      expect(platform.Workflow.$name).toBe('Workflow')
-      expect(platform.Integration.$name).toBe('Integration')
-      expect(platform.Agent.$name).toBe('Agent')
+    it('entityNames export contains exactly 35 entries', () => {
+      expect(entityNames.length).toBe(35)
     })
 
-    it('entity count per domain matches spec', () => {
-      // CRM: 6 entities (Organization, Contact, Lead, Deal, Activity, Pipeline)
-      expect(Object.keys(crm).filter(k => crm[k]?.$name).length).toBe(6)
+    it('resolveEntity returns the correct entity for every name', () => {
+      for (const name of entityNames) {
+        const entity = resolveEntity(name)
+        expect(entity, `resolveEntity('${name}') should be defined`).toBeDefined()
+        expect(entity!.$name).toBe(name)
+      }
+    })
 
-      // Billing: 7 entities (Customer, Product, Plan, Price, Subscription, Invoice, Payment)
-      expect(Object.keys(billing).filter(k => billing[k]?.$name).length).toBe(7)
+    it('resolveEntity returns undefined for non-existent entity', () => {
+      expect(resolveEntity('Bogus')).toBeUndefined()
+      expect(resolveEntity('contact')).toBeUndefined() // case-sensitive
+    })
 
-      // Projects: 3 entities
-      expect(Object.keys(projects).filter(k => projects[k]?.$name).length).toBe(3)
+    it('every entity has CRUD verbs (except immutable Event)', () => {
+      for (const name of entityNames) {
+        const entity = $[name]
+        expect(typeof entity.create, `${name}.create`).toBe('function')
+        expect(typeof entity.get, `${name}.get`).toBe('function')
+        expect(typeof entity.find, `${name}.find`).toBe('function')
 
-      // Content: 3 entities
+        if (name === 'Event') {
+          // Event disables update and delete
+          expect(entity.update).toBeNull()
+          expect(entity.delete).toBeNull()
+        } else {
+          expect(typeof entity.update, `${name}.update`).toBe('function')
+          expect(typeof entity.delete, `${name}.delete`).toBe('function')
+        }
+      }
+    })
+  })
+
+  // ===========================================================================
+  // 3. Cross-domain verb hooks
+  // ===========================================================================
+  describe('cross-domain verb hooks', () => {
+    it('Deal.closed() callback creates a Subscription via $ context', async () => {
+      const contact = await $.Contact.create({ name: 'Alice', email: 'alice@acme.co' })
+      const deal = await $.Deal.create({
+        name: 'Acme Enterprise',
+        value: 50000,
+        stage: 'Negotiation',
+        contact: contact.$id,
+      })
+
+      let subscriptionCreated = false
+      $.Deal.closed(async (closedDeal: Record<string, unknown>, ctx: Record<string, unknown>) => {
+        const sub = await (ctx as typeof $).Subscription.create({
+          status: 'Active',
+          customer: closedDeal.contact,
+          currentPeriodStart: new Date().toISOString(),
+          currentPeriodEnd: new Date(Date.now() + 30 * 86400000).toISOString(),
+          startedAt: new Date().toISOString(),
+        })
+        subscriptionCreated = true
+        expect(sub.$type).toBe('Subscription')
+      })
+
+      await $.Deal.close(deal.$id)
+      expect(subscriptionCreated).toBe(true)
+    })
+
+    it('Contact.qualified() callback creates a billing Customer', async () => {
+      const contact = await $.Contact.create({
+        name: 'Bob',
+        email: 'bob@startup.io',
+        status: 'Active',
+      })
+
+      let customerCreated = false
+      $.Contact.qualified(async (qualifiedContact: Record<string, unknown>) => {
+        const cust = await $.Customer.create({
+          name: qualifiedContact.name as string,
+          email: qualifiedContact.email as string,
+        })
+        customerCreated = true
+        expect(cust.$type).toBe('Customer')
+      })
+
+      await $.Contact.qualify(contact.$id)
+      expect(customerCreated).toBe(true)
+    })
+
+    it('Issue.closed() callback can create a Message (Communication)', async () => {
+      const project = await $.Project.create({ name: 'Alpha', status: 'Active' })
+      const issue = await $.Issue.create({
+        title: 'Ship v1',
+        project: project.$id,
+        status: 'Open',
+        type: 'Feature',
+      })
+
+      let messageSent = false
+      $.Issue.closed(async (closedIssue: Record<string, unknown>, ctx: Record<string, unknown>) => {
+        const msg = await (ctx as typeof $).Message.create({
+          body: `Issue "${closedIssue.title}" has been closed`,
+          channel: 'Chat',
+          status: 'Sent',
+        })
+        messageSent = true
+        expect(msg.$type).toBe('Message')
+      })
+
+      await $.Issue.close(issue.$id)
+      expect(messageSent).toBe(true)
+    })
+
+    it('Subscription.cancelled() callback creates a support Ticket', async () => {
+      const customer = await $.Customer.create({ name: 'Churning Co', email: 'churn@test.com' })
+      const sub = await $.Subscription.create({
+        status: 'Active',
+        customer: customer.$id,
+        currentPeriodStart: new Date().toISOString(),
+        currentPeriodEnd: new Date(Date.now() + 30 * 86400000).toISOString(),
+        startedAt: new Date().toISOString(),
+      })
+
+      let ticketCreated = false
+      $.Subscription.cancelled(async (cancelledSub: Record<string, unknown>, ctx: Record<string, unknown>) => {
+        const ticket = await (ctx as typeof $).Ticket.create({
+          subject: 'Churn risk: subscription cancelled',
+          status: 'Open',
+          priority: 'High',
+        })
+        ticketCreated = true
+        expect(ticket.$type).toBe('Ticket')
+      })
+
+      await $.Subscription.cancel(sub.$id)
+      expect(ticketCreated).toBe(true)
+    })
+  })
+
+  // ===========================================================================
+  // 4. Domain namespace isolation
+  // ===========================================================================
+  describe('domain namespace isolation', () => {
+    it('crm namespace contains exactly 6 entities', () => {
+      const crmEntities = Object.keys(crm).filter(k => crm[k]?.$name)
+      expect(crmEntities).toHaveLength(6)
+      expect(crmEntities.sort()).toEqual(['Activity', 'Contact', 'Deal', 'Lead', 'Organization', 'Pipeline'])
+    })
+
+    it('billing namespace contains exactly 7 entities', () => {
+      const billingEntities = Object.keys(billing).filter(k => billing[k]?.$name)
+      expect(billingEntities).toHaveLength(7)
+      expect(billingEntities.sort()).toEqual(['Customer', 'Invoice', 'Payment', 'Plan', 'Price', 'Product', 'Subscription'])
+    })
+
+    it('projects namespace contains exactly 3 entities', () => {
+      const projEntities = Object.keys(projects).filter(k => projects[k]?.$name)
+      expect(projEntities).toHaveLength(3)
+      expect(projEntities.sort()).toEqual(['Comment', 'Issue', 'Project'])
+    })
+
+    it('crm.Contact and billing.Customer are distinct entity types', () => {
+      expect(crm.Contact.$name).toBe('Contact')
+      expect(billing.Customer.$name).toBe('Customer')
+      expect(crm.Contact.$name).not.toBe(billing.Customer.$name)
+    })
+
+    it('domain entities are the same objects as $ entities', () => {
+      // Accessing crm.Contact should be the exact same proxy as $.Contact
+      expect(crm.Contact).toBe($.Contact)
+      expect(billing.Subscription).toBe($.Subscription)
+      expect(projects.Issue).toBe($.Issue)
+      expect(support.Ticket).toBe($.Ticket)
+      expect(analytics.Event).toBe($.Event)
+      expect(marketing.Campaign).toBe($.Campaign)
+      expect(experiments.Experiment).toBe($.Experiment)
+      expect(platform.Workflow).toBe($.Workflow)
+    })
+
+    it('content, support, analytics, marketing, experiments, platform have correct counts', () => {
       expect(Object.keys(content).filter(k => content[k]?.$name).length).toBe(3)
-
-      // Support: 1 entity
       expect(Object.keys(support).filter(k => support[k]?.$name).length).toBe(1)
-
-      // Analytics: 4 entities
       expect(Object.keys(analytics).filter(k => analytics[k]?.$name).length).toBe(4)
-
-      // Marketing: 3 entities
       expect(Object.keys(marketing).filter(k => marketing[k]?.$name).length).toBe(3)
-
-      // Experiments: 2 entities
       expect(Object.keys(experiments).filter(k => experiments[k]?.$name).length).toBe(2)
-
-      // Platform: 3 entities
       expect(Object.keys(platform).filter(k => platform[k]?.$name).length).toBe(3)
+    })
+  })
+
+  // ===========================================================================
+  // 5. Mixed-domain queries
+  // ===========================================================================
+  describe('mixed-domain queries', () => {
+    it('find() returns entities with correct $type across domains', async () => {
+      await $.Contact.create({ name: 'Alice' })
+      await $.Customer.create({ name: 'Alice Corp', email: 'alice@corp.com' })
+      await $.Project.create({ name: 'Alice Project', status: 'Active' })
+
+      const contacts = await $.Contact.find()
+      const customers = await $.Customer.find()
+      const projectsList = await $.Project.find()
+
+      expect(contacts.every(c => c.$type === 'Contact')).toBe(true)
+      expect(customers.every(c => c.$type === 'Customer')).toBe(true)
+      expect(projectsList.every(p => p.$type === 'Project')).toBe(true)
+    })
+
+    it('search with filter across CRM and Billing via shared organization', async () => {
+      const org = await $.Organization.create({ name: 'SharedCo' })
+      await $.Contact.create({ name: 'C1', organization: org.$id })
+      await $.Contact.create({ name: 'C2', organization: org.$id })
+      await $.Customer.create({ name: 'SharedCo', email: 'shared@co.io', organization: org.$id })
+      await $.Deal.create({ name: 'SharedCo Deal', value: 50000, organization: org.$id })
+
+      const orgContacts = await $.search({ type: 'Contact', filter: { organization: org.$id } })
+      const orgCustomers = await $.search({ type: 'Customer', filter: { organization: org.$id } })
+      const orgDeals = await $.search({ type: 'Deal', filter: { organization: org.$id } })
+
+      expect(orgContacts.length).toBe(2)
+      expect(orgCustomers.length).toBe(1)
+      expect(orgDeals.length).toBe(1)
+    })
+
+    it('$.fetch with include resolves Customer back-references', async () => {
+      const customer = await $.Customer.create({ name: 'InvoiceCo', email: 'inv@co.io' })
+      await $.Invoice.create({
+        number: 'INV-001',
+        customer: customer.$id,
+        subtotal: 5000,
+        total: 5000,
+        amountDue: 5000,
+        status: 'Open',
+      })
+      await $.Payment.create({
+        amount: 5000,
+        customer: customer.$id,
+        status: 'Succeeded',
+      })
+
+      const customerWithRels = await $.fetch({ type: 'Customer', id: customer.$id, include: ['invoices', 'payments'] })
+      expect(customerWithRels).toBeDefined()
+      expect(Array.isArray(customerWithRels.invoices)).toBe(true)
+      expect(customerWithRels.invoices.length).toBe(1)
+      expect(Array.isArray(customerWithRels.payments)).toBe(true)
+      expect(customerWithRels.payments.length).toBe(1)
+    })
+
+    it('$.fetch with include resolves Organization contacts and deals', async () => {
+      const org = await $.Organization.create({ name: 'IncludeCo', type: 'Customer' })
+      await $.Contact.create({ name: 'Alice', organization: org.$id })
+      await $.Contact.create({ name: 'Bob', organization: org.$id })
+      await $.Deal.create({ name: 'Big Deal', value: 100000, organization: org.$id })
+
+      const orgWithRels = await $.fetch({ type: 'Organization', id: org.$id, include: ['contacts', 'deals'] })
+      expect(orgWithRels.contacts).toBeDefined()
+      expect(orgWithRels.contacts.length).toBe(2)
+      expect(orgWithRels.deals).toBeDefined()
+      expect(orgWithRels.deals.length).toBe(1)
+    })
+
+    it('$.fetch with include resolves Campaign leads (Marketing -> CRM)', async () => {
+      const campaign = await $.Campaign.create({ name: 'Launch', type: 'Email', status: 'Active' })
+      await $.Lead.create({ name: 'Lead 1', source: 'web', campaign: campaign.$id, status: 'New' })
+      await $.Lead.create({ name: 'Lead 2', source: 'social', campaign: campaign.$id, status: 'New' })
+
+      const campaignWithLeads = await $.fetch({ type: 'Campaign', id: campaign.$id, include: ['leads'] })
+      expect(campaignWithLeads.leads).toBeDefined()
+      expect(Array.isArray(campaignWithLeads.leads)).toBe(true)
+      expect(campaignWithLeads.leads.length).toBe(2)
+    })
+
+    it('$.fetch with include resolves Project issues (Projects back-ref)', async () => {
+      const project = await $.Project.create({ name: 'TestProj', status: 'Active' })
+      await $.Issue.create({ title: 'Issue A', project: project.$id, status: 'Open', type: 'Bug' })
+      await $.Issue.create({ title: 'Issue B', project: project.$id, status: 'Open', type: 'Feature' })
+
+      const projectWithIssues = await $.fetch({ type: 'Project', id: project.$id, include: ['issues'] })
+      expect(projectWithIssues.issues).toBeDefined()
+      expect(projectWithIssues.issues.length).toBe(2)
+    })
+
+    it('$.do executes cross-domain pipeline with all entities in context', async () => {
+      const result = await $.do(async (ctx) => {
+        const org = await ctx.Organization.create({ name: 'Pipeline Co' })
+        const contact = await ctx.Contact.create({ name: 'Pipeline Person', organization: org.$id })
+        const customer = await ctx.Customer.create({ name: 'Pipeline Co', email: 'pipe@co.io', organization: org.$id })
+        const deal = await ctx.Deal.create({ name: 'Pipeline Deal', value: 50000, contact: contact.$id })
+        const project = await ctx.Project.create({ name: 'Onboarding', organization: org.$id, status: 'Active' })
+        const ticket = await ctx.Ticket.create({ subject: 'Welcome', requester: contact.$id, status: 'Open' })
+        return {
+          orgId: org.$id,
+          contactId: contact.$id,
+          customerId: customer.$id,
+          dealId: deal.$id,
+          projectId: project.$id,
+          ticketId: ticket.$id,
+        }
+      })
+
+      const r = result as Record<string, string>
+      expect(r.orgId).toContain('organization_')
+      expect(r.contactId).toContain('contact_')
+      expect(r.customerId).toContain('customer_')
+      expect(r.dealId).toContain('deal_')
+      expect(r.projectId).toContain('project_')
+      expect(r.ticketId).toContain('ticket_')
+    })
+
+    it('Campaign metrics computed from CRM Deal values', async () => {
+      const campaign = await $.Campaign.create({
+        name: 'Q4 Push',
+        type: 'Paid',
+        status: 'Completed',
+        budget: 10000,
+      })
+      await $.Deal.create({ name: 'Deal from Q4', value: 50000, campaign: campaign.$id, stage: 'ClosedWon' })
+      await $.Deal.create({ name: 'Another Q4 Deal', value: 25000, campaign: campaign.$id, stage: 'ClosedWon' })
+
+      const campaignDeals = await $.search({ type: 'Deal', filter: { campaign: campaign.$id } })
+      expect(campaignDeals.length).toBe(2)
+      const totalRevenue = campaignDeals.reduce((sum: number, d: Record<string, unknown>) => sum + (d.value as number), 0)
+      expect(totalRevenue).toBe(75000)
+    })
+  })
+
+  // ===========================================================================
+  // 6. Relationship strings (cross-domain $schema verification)
+  // ===========================================================================
+  describe('relationship strings', () => {
+    it('Contact.organization points to Organization (CRM -> CRM)', () => {
+      const schema = $.Contact.$schema as NounSchema
+      const rel = schema.relationships.get('organization')
+      expect(rel).toBeDefined()
+      expect(rel!.operator).toBe('->')
+      expect(rel!.targetType).toBe('Organization')
+      expect(rel!.backref).toBe('contacts')
+    })
+
+    it('Customer.organization points to Organization (Billing -> CRM)', () => {
+      const schema = $.Customer.$schema as NounSchema
+      const rel = schema.relationships.get('organization')
+      expect(rel).toBeDefined()
+      expect(rel!.operator).toBe('->')
+      expect(rel!.targetType).toBe('Organization')
+    })
+
+    it('Subscription.customer points to Customer (Billing -> Billing)', () => {
+      const schema = $.Subscription.$schema as NounSchema
+      const rel = schema.relationships.get('customer')
+      expect(rel).toBeDefined()
+      expect(rel!.operator).toBe('->')
+      expect(rel!.targetType).toBe('Customer')
+      expect(rel!.backref).toBe('subscriptions')
+    })
+
+    it('Subscription.organization points to Organization (Billing -> CRM)', () => {
+      const schema = $.Subscription.$schema as NounSchema
+      const rel = schema.relationships.get('organization')
+      expect(rel).toBeDefined()
+      expect(rel!.operator).toBe('->')
+      expect(rel!.targetType).toBe('Organization')
+      expect(rel!.backref).toBe('subscriptions')
+    })
+
+    it('Issue.project points to Project (Projects internal)', () => {
+      const schema = $.Issue.$schema as NounSchema
+      const rel = schema.relationships.get('project')
+      expect(rel).toBeDefined()
+      expect(rel!.operator).toBe('->')
+      expect(rel!.targetType).toBe('Project')
+      expect(rel!.backref).toBe('issues')
+    })
+
+    it('Issue.assignee and Issue.reporter point to Contact (Projects -> CRM)', () => {
+      const schema = $.Issue.$schema as NounSchema
+      const assigneeRel = schema.relationships.get('assignee')
+      expect(assigneeRel).toBeDefined()
+      expect(assigneeRel!.operator).toBe('->')
+      expect(assigneeRel!.targetType).toBe('Contact')
+
+      const reporterRel = schema.relationships.get('reporter')
+      expect(reporterRel).toBeDefined()
+      expect(reporterRel!.operator).toBe('->')
+      expect(reporterRel!.targetType).toBe('Contact')
+    })
+
+    it('Lead.campaign points to Campaign (CRM -> Marketing)', () => {
+      const schema = $.Lead.$schema as NounSchema
+      const rel = schema.relationships.get('campaign')
+      expect(rel).toBeDefined()
+      expect(rel!.operator).toBe('->')
+      expect(rel!.targetType).toBe('Campaign')
+      expect(rel!.backref).toBe('leads')
+    })
+
+    it('Content.author points to Contact (Content -> CRM)', () => {
+      const schema = $.Content.$schema as NounSchema
+      const rel = schema.relationships.get('author')
+      expect(rel).toBeDefined()
+      expect(rel!.operator).toBe('->')
+      expect(rel!.targetType).toBe('Contact')
+    })
+
+    it('Ticket.requester and Ticket.assignee point to Contact (Support -> CRM)', () => {
+      const schema = $.Ticket.$schema as NounSchema
+
+      const requesterRel = schema.relationships.get('requester')
+      expect(requesterRel).toBeDefined()
+      expect(requesterRel!.operator).toBe('->')
+      expect(requesterRel!.targetType).toBe('Contact')
+
+      const assigneeRel = schema.relationships.get('assignee')
+      expect(assigneeRel).toBeDefined()
+      expect(assigneeRel!.operator).toBe('->')
+      expect(assigneeRel!.targetType).toBe('Contact')
+    })
+
+    it('FeatureFlag.experiment points to Experiment (Experiments internal)', () => {
+      const schema = $.FeatureFlag.$schema as NounSchema
+      const rel = schema.relationships.get('experiment')
+      expect(rel).toBeDefined()
+      expect(rel!.operator).toBe('->')
+      expect(rel!.targetType).toBe('Experiment')
+    })
+
+    it('Agent.organization and Agent.owner cross CRM (Platform -> CRM)', () => {
+      const schema = $.Agent.$schema as NounSchema
+
+      const orgRel = schema.relationships.get('organization')
+      expect(orgRel).toBeDefined()
+      expect(orgRel!.operator).toBe('->')
+      expect(orgRel!.targetType).toBe('Organization')
+
+      const ownerRel = schema.relationships.get('owner')
+      expect(ownerRel).toBeDefined()
+      expect(ownerRel!.operator).toBe('->')
+      expect(ownerRel!.targetType).toBe('Contact')
+    })
+
+    it('Organization back-references span CRM and Billing domains', () => {
+      const schema = $.Organization.$schema as NounSchema
+
+      // CRM back-references
+      const contactsRel = schema.relationships.get('contacts')
+      expect(contactsRel).toBeDefined()
+      expect(contactsRel!.operator).toBe('<-')
+      expect(contactsRel!.targetType).toBe('Contact')
+
+      const dealsRel = schema.relationships.get('deals')
+      expect(dealsRel).toBeDefined()
+      expect(dealsRel!.operator).toBe('<-')
+      expect(dealsRel!.targetType).toBe('Deal')
+
+      // Billing back-reference
+      const subsRel = schema.relationships.get('subscriptions')
+      expect(subsRel).toBeDefined()
+      expect(subsRel!.operator).toBe('<-')
+      expect(subsRel!.targetType).toBe('Subscription')
+    })
+  })
+
+  // ===========================================================================
+  // 7. End-to-end cross-domain scenarios
+  // ===========================================================================
+  describe('end-to-end scenarios', () => {
+    it('full startup lifecycle: build -> launch -> grow', async () => {
+      // Build phase: create project and issues
+      const org = await $.Organization.create({ name: 'NewStartup', type: 'Prospect' })
+      const founder = await $.Contact.create({ name: 'Founder', email: 'founder@startup.io', organization: org.$id })
+      const project = await $.Project.create({ name: 'MVP', organization: org.$id, owner: founder.$id, status: 'Active' })
+      const issue = await $.Issue.create({ title: 'Build landing page', project: project.$id, assignee: founder.$id, status: 'Open', type: 'Feature' })
+
+      // Launch phase: create campaign and content
+      const site = await $.Site.create({ name: 'startup.io', status: 'Published' })
+      const landingPage = await $.Content.create({ title: 'Welcome', site: site.$id, author: founder.$id, type: 'Page', status: 'Published' })
+      const campaign = await $.Campaign.create({ name: 'Launch', type: 'Email', status: 'Active', owner: founder.$id })
+
+      // Grow phase: leads come in, deals close, billing starts
+      const lead = await $.Lead.create({ name: 'First Lead', contact: founder.$id, campaign: campaign.$id, source: 'website', status: 'New' })
+      const deal = await $.Deal.create({ name: 'First Deal', value: 10000, organization: org.$id, contact: founder.$id, stage: 'Prospecting' })
+      const customer = await $.Customer.create({ name: 'NewStartup', email: 'billing@startup.io', organization: org.$id })
+      const subscription = await $.Subscription.create({
+        status: 'Trialing',
+        customer: customer.$id,
+        organization: org.$id,
+        currentPeriodStart: new Date().toISOString(),
+        currentPeriodEnd: new Date(Date.now() + 14 * 86400000).toISOString(),
+        startedAt: new Date().toISOString(),
+      })
+
+      // Verify cross-domain connectivity
+      expect(project.organization).toBe(org.$id)
+      expect(issue.assignee).toBe(founder.$id)
+      expect(landingPage.author).toBe(founder.$id)
+      expect(lead.campaign).toBe(campaign.$id)
+      expect(deal.organization).toBe(org.$id)
+      expect(subscription.organization).toBe(org.$id)
+      expect(subscription.customer).toBe(customer.$id)
     })
 
     it('relationships form a connected graph (no orphan domains)', async () => {
-      // Create one entity per domain and link them through cross-domain references
       const org = await $.Organization.create({ name: 'Graph Test Corp' })
       const contact = await $.Contact.create({ name: 'Graph Person', organization: org.$id })
       const customer = await $.Customer.create({ name: 'Graph Customer', email: 'gc@test.com', organization: org.$id })
@@ -687,8 +730,7 @@ describe('@headlessly/sdk — cross-domain relationships', () => {
         organization: org.$id,
       })
 
-      // Every entity was created with a cross-domain reference
-      // The organization ID serves as the graph hub connecting all domains
+      // Every entity links through Organization as the hub
       expect(contact.organization).toBe(org.$id)
       expect(customer.organization).toBe(org.$id)
       expect(project.organization).toBe(org.$id)

@@ -4,12 +4,12 @@ export const Workflow = Noun('Workflow', {
   name: 'string!',
   description: 'string',
   organization: '-> Organization',
-  trigger: 'string!',
+  triggerEvent: 'string!',
   steps: 'string',
   retryPolicy: 'string',
   errorHandling: 'Stop | Continue | Fallback',
   timeout: 'number',
-  status: 'Draft | Active | Paused | Archived',
+  status: 'Draft | Active | Paused | Triggered | Archived',
   version: 'number',
   lastRunAt: 'datetime',
   runCount: 'number',
@@ -17,6 +17,7 @@ export const Workflow = Noun('Workflow', {
   failureCount: 'number',
   activate: 'Activated',
   pause: 'Paused',
+  trigger: 'Triggered',
   archive: 'Archived',
 })
 
@@ -37,6 +38,7 @@ export const Integration = Noun('Integration', {
   webhookSupport: 'string',
   connect: 'Connected',
   disconnect: 'Disconnected',
+  sync: 'Synced',
 })
 
 export const Agent = Noun('Agent', {
@@ -69,7 +71,17 @@ export const Agent = Noun('Agent', {
   version: 'number',
   publishedAt: 'datetime',
   tags: 'string',
+  do: 'Done',
+  ask: 'Asked',
+  decide: 'Decided',
+  approve: 'Approved',
+  notify: 'Notified',
+  delegate: 'Delegated',
+  escalate: 'Escalated',
+  learn: 'Learned',
+  reflect: 'Reflected',
   deploy: 'Deployed',
   pause: 'Paused',
+  stop: 'Stopped',
   retire: 'Retired',
 })

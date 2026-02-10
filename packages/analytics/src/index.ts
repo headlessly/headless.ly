@@ -26,6 +26,8 @@ export const Metric = Noun('Metric', {
   dimensions: 'string',
   organization: '-> Organization',
   timestamp: 'datetime',
+  record: 'Recorded',
+  reset: 'Reset',
 })
 
 export const Funnel = Noun('Funnel', {
@@ -34,6 +36,7 @@ export const Funnel = Noun('Funnel', {
   steps: 'string',
   organization: '-> Organization',
   conversionRate: 'number',
+  analyze: 'Analyzed',
 })
 
 export const Goal = Noun('Goal', {
@@ -43,7 +46,10 @@ export const Goal = Noun('Goal', {
   current: 'number',
   unit: 'string',
   period: 'Daily | Weekly | Monthly | Quarterly | Yearly',
-  status: 'OnTrack | AtRisk | Behind | Achieved',
+  status: 'OnTrack | AtRisk | Behind | Achieved | Completed | Missed',
   organization: '-> Organization',
   achieve: 'Achieved',
+  complete: 'Completed',
+  miss: 'Missed',
+  reset: 'Reset',
 })

@@ -15,43 +15,10 @@
 import type { NounProvider, NounInstance } from 'digital-objects'
 import type { EventEmitter, NounEvent } from './event-bridge.js'
 import { generateEntityId, generateEventId } from './id.js'
+import { conjugateVerb } from './conjugation.js'
 
 // Conditionally import EventLog type — avoid hard coupling
 import type { EventLog, NounEventInput } from '@headlessly/events'
-
-// =============================================================================
-// Verb Conjugation
-// =============================================================================
-
-/**
- * Derive verb conjugation forms from a verb string.
- */
-function conjugateVerb(verb: string): { action: string; activity: string; event: string } {
-  const known: Record<string, { action: string; activity: string; event: string }> = {
-    create: { action: 'create', activity: 'creating', event: 'created' },
-    update: { action: 'update', activity: 'updating', event: 'updated' },
-    delete: { action: 'delete', activity: 'deleting', event: 'deleted' },
-  }
-
-  if (known[verb]) return known[verb]
-
-  const action = verb
-  let activity: string
-  let event: string
-
-  if (verb.endsWith('e')) {
-    activity = verb.slice(0, -1) + 'ing'
-    event = verb + 'd'
-  } else if (verb.endsWith('y')) {
-    activity = verb + 'ing'
-    event = verb.slice(0, -1) + 'ied'
-  } else {
-    activity = verb + 'ing'
-    event = verb + 'ed'
-  }
-
-  return { action, activity, event }
-}
 
 // =============================================================================
 // Options

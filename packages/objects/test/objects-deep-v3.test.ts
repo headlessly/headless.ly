@@ -682,7 +682,7 @@ describe('@headlessly/objects -- deep-v3 provider tests', () => {
       expect(qualifyEvent!.conjugation.event).toBe('qualified')
     })
 
-    it('verb ending in consonant gets basic conjugation without doubling (ship -> shiping -> shiped)', async () => {
+    it('verb ending in consonant gets correct doubling (ship -> shipping -> shipped)', async () => {
       Noun('Order', {
         status: 'string!',
         ship: 'Shipped',
@@ -698,10 +698,10 @@ describe('@headlessly/objects -- deep-v3 provider tests', () => {
       )
 
       const types = events.map((e) => e.$type)
-      // The conjugateVerb function does not double consonants, so 'ship' becomes 'shiping' / 'shiped'
-      expect(types).toContain('Order.shiping')
+      // Canonical conjugation doubles the final consonant: ship -> shipping / shipped
+      expect(types).toContain('Order.shipping')
       expect(types).toContain('Order.ship')
-      expect(types).toContain('Order.shiped')
+      expect(types).toContain('Order.shipped')
     })
 
     it('CRUD verb "create" has known conjugation: creating -> create -> created', async () => {
