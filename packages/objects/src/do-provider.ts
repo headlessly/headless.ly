@@ -237,6 +237,18 @@ export class DONounProvider implements NounProvider {
     return result !== false
   }
 
+  async findOne(type: string, where?: Record<string, unknown>): Promise<NounInstance | null> {
+    const results = await this.find(type, where)
+    return results[0] ?? null
+  }
+
+  async rollback(type: string, id: string, toVersion: number): Promise<NounInstance> {
+    const collection = toCollectionName(type)
+    const ns = this.rpc[collection] as Record<string, (...args: unknown[]) => Promise<unknown>>
+    const result = await ns.rollback(id, toVersion)
+    return toNounInstance(result)
+  }
+
   async perform(type: string, verb: string, id: string, data?: Record<string, unknown>): Promise<NounInstance> {
     // Verbs go through the entity's verb method: $.contacts.qualify('contact_abc', {...})
     const collection = toCollectionName(type)

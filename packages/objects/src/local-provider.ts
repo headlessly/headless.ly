@@ -210,6 +210,12 @@ export class LocalNounProvider implements NounProvider {
     return null
   }
 
+  async rollback(type: string, id: string, toVersion: number): Promise<NounInstance> {
+    // LocalNounProvider doesn't maintain event history, so rollback is not supported
+    // in lightweight mode. If an EventLog is attached, delegate to it.
+    throw new Error(`rollback not supported in LocalNounProvider without event history. Entity: ${type}/${id}, target version: ${toVersion}`)
+  }
+
   /**
    * Clear all data (for testing)
    */

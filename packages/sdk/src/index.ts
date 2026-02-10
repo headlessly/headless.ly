@@ -6,6 +6,82 @@ import type { RPCProxy, RPCOptions } from 'rpc.do'
 import { LocalNounProvider, DONounProvider } from '@headlessly/objects'
 import type { DONounProviderOptions } from '@headlessly/objects'
 
+// =============================================================================
+// Entity Event Types
+// =============================================================================
+
+/**
+ * Entity event emitted for every mutation through the $ context
+ */
+export interface EntityEvent {
+  type: string
+  action: string
+  entityId: string
+  data: Record<string, unknown>
+  timestamp: string
+  version: number
+}
+
+/**
+ * System status returned by $.status()
+ */
+export interface SystemStatus {
+  provider: string
+  initialized: boolean
+  entities: Record<string, number>
+  alerts: Array<{ level: 'info' | 'warn' | 'error'; message: string }>
+}
+
+// =============================================================================
+// EventBus — in-memory pub/sub for entity events
+// =============================================================================
+
+type EventCallback = (event: EntityEvent) => void
+type EventFilter = { type?: string; action?: string }
+
+interface EventSubscription {
+  callback: EventCallback
+  filter?: EventFilter
+}
+
+const _eventSubscriptions: EventSubscription[] = []
+
+function _emitEvent(event: EntityEvent): void {
+  for (const sub of _eventSubscriptions) {
+    if (sub.filter) {
+      if (sub.filter.type && sub.filter.type !== event.type) continue
+      if (sub.filter.action && sub.filter.action !== event.action) continue
+    }
+    try {
+      sub.callback(event)
+    } catch {
+      // Subscriber errors are silently ignored
+    }
+  }
+}
+
+function _subscribe(callbackOrOptions: EventCallback | EventFilter, maybeCallback?: EventCallback): () => void {
+  let sub: EventSubscription
+  if (typeof callbackOrOptions === 'function') {
+    sub = { callback: callbackOrOptions }
+  } else {
+    if (!maybeCallback) throw new Error('subscribe() requires a callback')
+    sub = { callback: maybeCallback, filter: callbackOrOptions }
+  }
+  _eventSubscriptions.push(sub)
+  return () => {
+    const idx = _eventSubscriptions.indexOf(sub)
+    if (idx >= 0) _eventSubscriptions.splice(idx, 1)
+  }
+}
+
+const _eventsNamespace = {
+  subscribe: _subscribe as {
+    (callback: (event: EntityEvent) => void): () => void
+    (options: { type?: string; action?: string }, callback: (event: EntityEvent) => void): () => void
+  },
+}
+
 // Import all domain packages (side effect: registers nouns)
 import * as crm from '@headlessly/crm'
 import * as billing from '@headlessly/billing'
@@ -95,6 +171,51 @@ export function resolveEntity(type: string): NounEntity | undefined {
   return allEntities[type]
 }
 
+// =============================================================================
+// $.status() implementation
+// =============================================================================
+
+async function _statusFn(): Promise<SystemStatus> {
+  const alerts: SystemStatus['alerts'] = []
+
+  if (!_initialized) {
+    alerts.push({ level: 'warn', message: 'SDK not initialized — call headlessly() or access $ to auto-init' })
+  }
+
+  let providerType = 'unknown'
+  try {
+    const p = getProvider()
+    if ('type' in p && typeof (p as Record<string, unknown>).type === 'string') {
+      providerType = (p as Record<string, unknown>).type as string
+    } else if (p instanceof MemoryNounProvider) {
+      providerType = 'memory'
+    }
+  } catch {
+    providerType = 'unknown'
+  }
+
+  if (providerType === 'memory') {
+    alerts.push({ level: 'info', message: 'Using in-memory provider — data is ephemeral' })
+  }
+
+  const entities: Record<string, number> = {}
+  for (const [name, entity] of Object.entries(allEntities)) {
+    try {
+      const items = await entity.find({})
+      entities[name] = items.length
+    } catch {
+      entities[name] = 0
+    }
+  }
+
+  return {
+    provider: providerType,
+    initialized: _initialized,
+    entities,
+    alerts,
+  }
+}
+
 /**
  * All 35 entity names, for typed iteration and validation
  */
@@ -161,6 +282,17 @@ export class RemoteNounProvider implements NounProvider {
     } catch {
       return false
     }
+  }
+
+  async findOne(type: string, where?: Record<string, unknown>) {
+    const results = await this.find(type, where)
+    return results[0] ?? null
+  }
+
+  async rollback(type: string, id: string, toVersion: number) {
+    const ns = this.collection(type)
+    const result = await ns.rollback(id, toVersion)
+    return result as NounInstance
   }
 
   async perform(type: string, verb: string, id: string, data?: Record<string, unknown>) {
@@ -467,6 +599,21 @@ export interface HeadlessContext {
   /** Execute arbitrary code with full entity access */
   do(fn: (ctx: Record<EntityName | string, NounEntity>) => Promise<unknown>): Promise<unknown>
 
+  // --- Events ---
+
+  /** Subscribe to entity mutation events */
+  events: {
+    subscribe: {
+      (callback: (event: EntityEvent) => void): () => void
+      (options: { type?: string; action?: string }, callback: (event: EntityEvent) => void): () => void
+    }
+  }
+
+  // --- Status ---
+
+  /** Get system status including provider info, entity counts, and alerts */
+  status: () => Promise<SystemStatus>
+
   // --- Identity ---
   User: NounEntity
   ApiKey: NounEntity
@@ -526,7 +673,7 @@ export interface HeadlessContext {
 
   /** Access any entity by name (fallback index) */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  [key: string]: NounEntity | ((...args: any[]) => any)
+  [key: string]: NounEntity | ((...args: any[]) => any) | HeadlessContext['events'] | HeadlessContext['status']
 }
 
 /**
@@ -550,8 +697,18 @@ export const $: HeadlessContext = new Proxy({} as HeadlessContext, {
     if (typeof prop === 'symbol') return undefined
 
     // Lazy auto-init: if $ is accessed before headlessly() was called, auto-init
-    if (!_initialized && (prop in allEntities || prop === 'search' || prop === 'fetch' || prop === 'do')) {
+    if (!_initialized && (prop in allEntities || prop === 'search' || prop === 'fetch' || prop === 'do' || prop === 'events' || prop === 'status')) {
       _autoInit()
+    }
+
+    // Events namespace
+    if (prop === 'events') {
+      return _eventsNamespace
+    }
+
+    // Status function
+    if (prop === 'status') {
+      return _statusFn
     }
 
     // MCP-like operations
