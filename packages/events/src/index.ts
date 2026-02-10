@@ -1,8 +1,9 @@
 /**
  * @headlessly/events — Event system with time travel for Digital Objects
  *
- * Three primitives:
- * - EventLog: Immutable append-only event log
+ * Five primitives:
+ * - EventLog: Immutable append-only event log (storage + sequencing)
+ * - EventBus: Ergonomic pub/sub wrapper (emit, on, once, off, replay)
  * - TimeTraveler: State reconstruction via event replay
  * - SubscriptionManager: Three-mode event subscriptions (code, websocket, webhook)
  * - CDCStream: Change Data Capture for external consumers
@@ -11,11 +12,16 @@
  */
 
 // Types
-export type { NounEventBase, NounEvent, NounEventInput, EventHandler, SubscriptionMode, Subscription, TimeQuery, CDCOptions } from './types.js'
+export type { NounEventBase, NounEvent, NounEventInput, EventHandler, SubscriptionMode, Subscription, TimeQuery, CDCOptions, CrudVerb, CrudEvent } from './types.js'
+export { EventPatterns, crudEvent, verbEvent } from './types.js'
 
 // Event log
 export { EventLog, matchesPattern } from './event-log.js'
 export type { EventLogOptions } from './event-log.js'
+
+// Event bus
+export { EventBus } from './event-bus.js'
+export type { EventBusHandler } from './event-bus.js'
 
 // Time travel
 export { TimeTraveler } from './time-travel.js'

@@ -117,8 +117,7 @@ describe('@headlessly/events — deep coverage (RED)', () => {
 
     it('deactivate() pauses a subscription without removing it', () => {
       const id = manager.registerCode('Contact.*', vi.fn())
-      // @ts-expect-error — method does not exist yet
-      manager.deactivate(id)
+        manager.deactivate(id)
       const sub = manager.get(id)
       expect(sub).toBeDefined()
       expect(sub!.active).toBe(false)
@@ -127,10 +126,8 @@ describe('@headlessly/events — deep coverage (RED)', () => {
     it('activate() resumes a deactivated subscription', () => {
       const handler = vi.fn()
       const id = manager.registerCode('Contact.*', handler)
-      // @ts-expect-error — method does not exist yet
-      manager.deactivate(id)
-      // @ts-expect-error — method does not exist yet
-      manager.activate(id)
+        manager.deactivate(id)
+        manager.activate(id)
       const sub = manager.get(id)
       expect(sub!.active).toBe(true)
     })
@@ -140,7 +137,6 @@ describe('@headlessly/events — deep coverage (RED)', () => {
       manager.registerCode('*', vi.fn())
       manager.registerCode('Deal.*', vi.fn())
 
-      // @ts-expect-error — dispatch currently returns void, should return DispatchResult
       const result: { delivered: number; failed: number } = await manager.dispatch(makeNounEvent())
       expect(result).toBeDefined()
       expect(result.delivered).toBe(2)
@@ -150,7 +146,6 @@ describe('@headlessly/events — deep coverage (RED)', () => {
     it('count property returns total number of subscriptions', () => {
       manager.registerCode('Contact.*', vi.fn())
       manager.registerWebhook('Deal.*', 'https://hook.example.com')
-      // @ts-expect-error — property does not exist yet
       expect(manager.count).toBe(2)
     })
 
@@ -158,8 +153,7 @@ describe('@headlessly/events — deep coverage (RED)', () => {
       manager.registerCode('Contact.*', vi.fn())
       manager.registerWebhook('Deal.*', 'https://hook.example.com')
       manager.registerWebSocket('*', 'wss://example.com')
-      // @ts-expect-error — method does not exist yet
-      manager.clear()
+        manager.clear()
       expect(manager.list().length).toBe(0)
     })
   })
@@ -219,11 +213,9 @@ describe('@headlessly/events — deep coverage (RED)', () => {
       await log.append(eventInput('Contact', 'c2', 'create'))
 
       const batch = await cdc.poll({ batchSize: 1 })
-      // @ts-expect-error — method does not exist yet
-      await cdc.checkpoint('consumer-1', batch.cursor)
+        await cdc.checkpoint('consumer-1', batch.cursor)
 
-      // @ts-expect-error — method does not exist yet
-      const savedCursor = await cdc.getCursor('consumer-1')
+        const savedCursor = await cdc.getCursor('consumer-1')
       expect(savedCursor).toBe(batch.cursor)
     })
 
@@ -231,11 +223,9 @@ describe('@headlessly/events — deep coverage (RED)', () => {
       const e1 = await log.append(eventInput('Contact', 'c1', 'create'))
       const e2 = await log.append(eventInput('Contact', 'c2', 'create'))
 
-      // @ts-expect-error — method does not exist yet
-      await cdc.acknowledge('consumer-1', [e1.$id])
+        await cdc.acknowledge('consumer-1', [e1.$id])
 
-      // @ts-expect-error — method does not exist yet
-      const pending = await cdc.pending('consumer-1')
+        const pending = await cdc.pending('consumer-1')
       expect(pending.events.length).toBe(1)
       expect(pending.events[0].$id).toBe(e2.$id)
     })
@@ -244,8 +234,7 @@ describe('@headlessly/events — deep coverage (RED)', () => {
       await log.append(eventInput('Contact', 'c1', 'create'))
       await log.append(eventInput('Contact', 'c2', 'create'))
 
-      // @ts-expect-error — method does not exist yet
-      const consumer = cdc.createConsumer('worker-1')
+        const consumer = cdc.createConsumer('worker-1')
       expect(consumer).toBeDefined()
       expect(typeof consumer.poll).toBe('function')
       expect(typeof consumer.checkpoint).toBe('function')
@@ -263,8 +252,7 @@ describe('@headlessly/events — deep coverage (RED)', () => {
     it('lag() returns the number of unconsumed events for a consumer', async () => {
       for (let i = 0; i < 5; i++) await log.append(eventInput('Contact', `c${i}`, 'create'))
 
-      // @ts-expect-error — method does not exist yet
-      const lag = await cdc.lag('consumer-1')
+        const lag = await cdc.lag('consumer-1')
       expect(lag).toBe(5)
     })
   })
@@ -333,8 +321,7 @@ describe('@headlessly/events — deep coverage (RED)', () => {
       await log.append(eventInput('Contact', 'c1', 'update', { stage: 'Qualified' }))
       await log.append(eventInput('Deal', 'd1', 'create', { title: 'Big Deal', value: 50000 }))
 
-      // @ts-expect-error — method does not exist yet
-      const snapshot = await log.snapshot()
+        const snapshot = await log.snapshot()
       expect(snapshot).toBeDefined()
       expect(snapshot['Contact:c1']).toBeDefined()
       expect(snapshot['Contact:c1'].stage).toBe('Qualified')
@@ -348,8 +335,7 @@ describe('@headlessly/events — deep coverage (RED)', () => {
       }
       expect(log.size).toBe(20)
 
-      // @ts-expect-error — method does not exist yet
-      const compacted = await log.compact('Contact', 'c1')
+        const compacted = await log.compact('Contact', 'c1')
       expect(compacted.originalCount).toBe(20)
       expect(compacted.snapshotEvent).toBeDefined()
     })
@@ -359,8 +345,7 @@ describe('@headlessly/events — deep coverage (RED)', () => {
       const e2 = await log.append(eventInput('Deal', 'd1', 'create'))
       await log.append(eventInput('Contact', 'c2', 'create'))
 
-      // @ts-expect-error — method does not exist yet
-      const batch = await log.getBatch([e1.$id, e2.$id])
+        const batch = await log.getBatch([e1.$id, e2.$id])
       expect(batch.length).toBe(2)
       expect(batch[0].$id).toBe(e1.$id)
       expect(batch[1].$id).toBe(e2.$id)
@@ -384,8 +369,7 @@ describe('@headlessly/events — deep coverage (RED)', () => {
       await log.append(eventInput('Deal', 'd1', 'create'))
       expect(log.size).toBe(2)
 
-      // @ts-expect-error — method does not exist yet
-      await log.clear()
+        await log.clear()
       expect(log.size).toBe(0)
 
       // Sequences should reset
@@ -397,8 +381,7 @@ describe('@headlessly/events — deep coverage (RED)', () => {
       await log.append(eventInput('Contact', 'c1', 'create'))
       await log.append(eventInput('Contact', 'c2', 'create'))
 
-      // @ts-expect-error — method does not exist yet
-      const iterable = log.stream({ entityType: 'Contact' })
+        const iterable = log.stream({ entityType: 'Contact' })
       const events: NounEvent[] = []
       for await (const event of iterable) {
         events.push(event)
@@ -409,8 +392,7 @@ describe('@headlessly/events — deep coverage (RED)', () => {
     it('count() returns total without loading events', async () => {
       for (let i = 0; i < 10; i++) await log.append(eventInput('Contact', `c${i}`, 'create'))
 
-      // @ts-expect-error — method does not exist yet
-      const total = await log.count({ entityType: 'Contact' })
+        const total = await log.count({ entityType: 'Contact' })
       expect(total).toBe(10)
     })
 
@@ -420,8 +402,7 @@ describe('@headlessly/events — deep coverage (RED)', () => {
       await log.append(eventInput('Contact', 'c2', 'create'))
       await log.append(eventInput('Deal', 'd1', 'create'))
 
-      // @ts-expect-error — method does not exist yet
-      const entities = await log.uniqueEntities()
+        const entities = await log.uniqueEntities()
       expect(entities.length).toBe(3)
       expect(entities).toContainEqual({ entityType: 'Contact', entityId: 'c1' })
       expect(entities).toContainEqual({ entityType: 'Contact', entityId: 'c2' })
@@ -487,8 +468,7 @@ describe('@headlessly/events — deep coverage (RED)', () => {
       await log.append(eventInput('Contact', 'c1', 'update', { stage: 'Qualified' }))
       await log.append(eventInput('Contact', 'c1', 'update', { stage: 'Customer' }))
 
-      // @ts-expect-error — method does not exist yet
-      const timeline = await traveler.timeline('Contact', 'c1')
+        const timeline = await traveler.timeline('Contact', 'c1')
       expect(timeline).toBeDefined()
       expect(timeline.length).toBe(3)
       expect(timeline[0].state.stage).toBe('Lead')
@@ -503,8 +483,7 @@ describe('@headlessly/events — deep coverage (RED)', () => {
       await log.append(eventInput('Contact', 'c1', 'create', { name: 'Alice', stage: 'Lead', email: 'alice@example.com' }))
       await log.append(eventInput('Contact', 'c1', 'update', { stage: 'Qualified', score: 85 }))
 
-      // @ts-expect-error — method does not exist yet
-      const projection = await traveler.projection('Contact', 'c1', ['name', 'stage'])
+        const projection = await traveler.projection('Contact', 'c1', ['name', 'stage'])
       expect(projection).toBeDefined()
       expect(projection.name).toBe('Alice')
       expect(projection.stage).toBe('Qualified')
@@ -519,8 +498,7 @@ describe('@headlessly/events — deep coverage (RED)', () => {
       await log.append(eventInput('Deal', 'd1', 'create', { title: 'Deal 1' }))
       await log.append(eventInput('Contact', 'c1', 'update', { name: 'Alice Smith' }))
 
-      // @ts-expect-error — method does not exist yet
-      const allStates = await traveler.snapshotAll()
+        const allStates = await traveler.snapshotAll()
       expect(allStates.length).toBe(3)
       const alice = allStates.find((s: any) => s.$id === 'c1')
       expect(alice.name).toBe('Alice Smith')
@@ -530,8 +508,7 @@ describe('@headlessly/events — deep coverage (RED)', () => {
       await log.append(eventInput('Contact', 'c1', 'create', { name: 'Alice', stage: 'Lead' }))
       const qualifyEvent = await log.append(eventInput('Contact', 'c1', 'qualify', { stage: 'Qualified' }))
 
-      // @ts-expect-error — method does not exist yet
-      const cause = await traveler.causedBy('Contact', 'c1', 'stage', 'Qualified')
+        const cause = await traveler.causedBy('Contact', 'c1', 'stage', 'Qualified')
       expect(cause).toBeDefined()
       expect(cause.$id).toBe(qualifyEvent.$id)
     })
@@ -591,7 +568,6 @@ describe('@headlessly/events — deep coverage (RED)', () => {
     // --- These should FAIL (RED) — extended pattern features ---
 
     it('supports comma-separated multi-pattern: Contact.*,Deal.*', () => {
-      // @ts-expect-error — or just test the function, it exists
       expect(matchesPattern('Contact.*,Deal.*', 'Contact.created')).toBe(true)
       expect(matchesPattern('Contact.*,Deal.*', 'Deal.closed')).toBe(true)
       expect(matchesPattern('Contact.*,Deal.*', 'Subscription.created')).toBe(false)
@@ -618,8 +594,7 @@ describe('@headlessly/events — deep coverage (RED)', () => {
       const log = new EventLog()
       const manager = new SubscriptionManager()
 
-      // @ts-expect-error — method does not exist yet
-      manager.attach(log)
+        manager.attach(log)
 
       const handler = vi.fn()
       manager.registerCode('Contact.*', handler)
@@ -633,14 +608,12 @@ describe('@headlessly/events — deep coverage (RED)', () => {
       const log = new EventLog()
       const manager = new SubscriptionManager()
 
-      // @ts-expect-error — method does not exist yet
-      manager.attach(log)
+        manager.attach(log)
 
       const handler = vi.fn()
       manager.registerCode('Contact.*', handler)
 
-      // @ts-expect-error — method does not exist yet
-      manager.detach()
+        manager.detach()
 
       await log.append(eventInput('Contact', 'c1', 'create', { name: 'Alice' }))
       expect(handler).not.toHaveBeenCalled()
@@ -662,8 +635,7 @@ describe('@headlessly/events — deep coverage (RED)', () => {
       await log.append(eventInput('Contact', 'c1', 'create', { name: 'Alice' }))
       await log.append(eventInput('Deal', 'd1', 'create', { title: 'Deal' }))
 
-      // @ts-expect-error — method does not exist yet
-      const json = log.toJSON()
+        const json = log.toJSON()
       expect(typeof json).toBe('string')
       const parsed = JSON.parse(json)
       expect(parsed.length).toBe(2)
@@ -673,12 +645,10 @@ describe('@headlessly/events — deep coverage (RED)', () => {
     it('fromJSON() reconstructs an EventLog from serialized data', async () => {
       await log.append(eventInput('Contact', 'c1', 'create', { name: 'Alice' }))
 
-      // @ts-expect-error — method does not exist yet
-      const json = log.toJSON()
+        const json = log.toJSON()
 
       const newLog = new EventLog()
-      // @ts-expect-error — method does not exist yet
-      newLog.fromJSON(json)
+        newLog.fromJSON(json)
       expect(newLog.size).toBe(1)
       const history = await newLog.getEntityHistory('Contact', 'c1')
       expect(history.length).toBe(1)

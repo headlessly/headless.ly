@@ -27,11 +27,7 @@ function levenshtein(a: string, b: string): number {
       if (b[i - 1] === a[j - 1]) {
         matrix[i]![j] = matrix[i - 1]![j - 1]!
       } else {
-        matrix[i]![j] = Math.min(
-          matrix[i - 1]![j - 1]! + 1,
-          matrix[i]![j - 1]! + 1,
-          matrix[i - 1]![j]! + 1,
-        )
+        matrix[i]![j] = Math.min(matrix[i - 1]![j - 1]! + 1, matrix[i]![j - 1]! + 1, matrix[i - 1]![j]! + 1)
       }
     }
   }
@@ -78,7 +74,7 @@ export async function run(args: string[]): Promise<void> {
     case '--help':
     case '-h':
     case undefined:
-      return helpCommand()
+      return helpCommand(rest)
     case '--version':
     case '-v':
       return versionCommand()

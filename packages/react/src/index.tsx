@@ -30,10 +30,10 @@
  * ```
  */
 
-import React, { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode, Component, type ErrorInfo } from 'react'
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef, useMemo, type ReactNode, Component, type ErrorInfo } from 'react'
 import headless, { type HeadlessConfig, type FlagValue, type User, type Breadcrumb } from '@headlessly/js'
-import { $, resolveEntity } from '@headlessly/sdk'
-import type { NounEntity } from '@headlessly/sdk'
+import { $, resolveEntity, Headlessly, crm, billing, projects, content, support, analytics, marketing, experiments, platform } from '@headlessly/sdk'
+import type { NounEntity, HeadlesslyOrgOptions } from '@headlessly/sdk'
 
 // Re-export everything from @headlessly/js
 export * from '@headlessly/js'
@@ -264,6 +264,7 @@ interface UseEntityResult<T = unknown> {
   loading: boolean
   error: Error | null
   refetch: () => void
+  mutate: (data: Record<string, unknown>) => Promise<unknown>
 }
 
 export function useEntity(type: string, id: string, options?: UseEntityOptions): UseEntityResult {
@@ -318,7 +319,20 @@ export function useEntity(type: string, id: string, options?: UseEntityOptions):
     }
   }, [type, id, fetchKey, JSON.stringify(options?.include)])
 
-  return { data, loading, error, refetch }
+  const mutate = useCallback(
+    async (updateData: Record<string, unknown>) => {
+      const entity = resolveEntity(type)
+      if (!entity) {
+        throw new Error(`Unknown entity type: ${type}`)
+      }
+      const result = await entity.update(id, updateData)
+      setData(result)
+      return result
+    },
+    [type, id],
+  )
+
+  return { data, loading, error, refetch, mutate }
 }
 
 // =============================================================================
@@ -844,4 +858,393 @@ interface EntityDetailProps {
 export function EntityDetail({ type, id, children }: EntityDetailProps) {
   const result = useEntity(type, id)
   return <>{children(result)}</>
+}
+
+// =============================================================================
+// Tenant-Scoped Provider (HeadlesslyProvider)
+// =============================================================================
+
+interface HeadlesslyContextValue {
+  tenant: string
+  initialized: boolean
+  org: ReturnType<typeof Headlessly> | null
+}
+
+export const HeadlesslyContext = createContext<HeadlesslyContextValue | null>(null)
+
+interface HeadlesslyProviderProps {
+  tenant: string
+  apiKey?: string
+  endpoint?: string
+  mode?: 'local' | 'remote' | 'memory'
+  children: ReactNode
+}
+
+/**
+ * HeadlesslyProvider — Tenant-scoped provider that initializes the SDK
+ * and provides context to child components.
+ *
+ * @example
+ * ```tsx
+ * import { HeadlesslyProvider, useEntity, useSearch } from '@headlessly/react'
+ *
+ * function App() {
+ *   return (
+ *     <HeadlesslyProvider tenant="acme" apiKey="hly_sk_xxx">
+ *       <Dashboard />
+ *     </HeadlesslyProvider>
+ *   )
+ * }
+ * ```
+ */
+export function HeadlesslyProvider({ tenant, apiKey, endpoint, mode, children }: HeadlesslyProviderProps) {
+  const [initialized, setInitialized] = useState(false)
+  const orgRef = useRef<ReturnType<typeof Headlessly> | null>(null)
+
+  useEffect(() => {
+    const orgOptions: HeadlesslyOrgOptions = { tenant }
+    if (apiKey) orgOptions.apiKey = apiKey
+    if (endpoint) orgOptions.endpoint = endpoint
+    if (mode) orgOptions.mode = mode
+    orgRef.current = Headlessly(orgOptions)
+    setInitialized(true)
+  }, [tenant, apiKey, endpoint, mode])
+
+  const value = useMemo<HeadlesslyContextValue>(
+    () => ({ tenant, initialized, org: orgRef.current }),
+    [tenant, initialized],
+  )
+
+  return <HeadlesslyContext.Provider value={value}>{children}</HeadlesslyContext.Provider>
+}
+
+/**
+ * useHeadlessly — Access the tenant-scoped Headlessly context.
+ *
+ * Returns the org object, tenant, and initialization state.
+ * Must be used within a HeadlesslyProvider.
+ */
+export function useHeadlessly() {
+  const ctx = useContext(HeadlesslyContext)
+  if (!ctx) throw new Error('useHeadlessly must be used within HeadlesslyProvider')
+  return ctx
+}
+
+// =============================================================================
+// Focused CRUD Hooks
+// =============================================================================
+
+interface UseCreateResult<T = unknown> {
+  create: (data: Record<string, unknown>) => Promise<T>
+  loading: boolean
+  error: Error | null
+  data: T | null
+}
+
+/**
+ * useCreate(type) — Returns a create function for the given entity type.
+ *
+ * @example
+ * ```tsx
+ * const { create, loading, error, data } = useCreate('Contact')
+ * await create({ name: 'Alice', stage: 'Lead' })
+ * ```
+ */
+export function useCreate<T = unknown>(type: string): UseCreateResult<T> {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<Error | null>(null)
+  const [data, setData] = useState<T | null>(null)
+
+  const create = useCallback(
+    async (createData: Record<string, unknown>): Promise<T> => {
+      setLoading(true)
+      setError(null)
+      try {
+        const entity = resolveEntity(type)
+        if (!entity) {
+          throw new Error(`Unknown entity type: ${type}`)
+        }
+        const result = await entity.create(createData)
+        setData(result as T)
+        return result as T
+      } catch (err) {
+        const e = err instanceof Error ? err : new Error(String(err))
+        setError(e)
+        throw e
+      } finally {
+        setLoading(false)
+      }
+    },
+    [type],
+  )
+
+  return { create, loading, error, data }
+}
+
+interface UseUpdateResult<T = unknown> {
+  update: (id: string, data: Record<string, unknown>) => Promise<T>
+  loading: boolean
+  error: Error | null
+  data: T | null
+}
+
+/**
+ * useUpdate(type) — Returns an update function for the given entity type.
+ *
+ * @example
+ * ```tsx
+ * const { update, loading, error, data } = useUpdate('Contact')
+ * await update('contact_abc', { name: 'Updated Name' })
+ * ```
+ */
+export function useUpdate<T = unknown>(type: string): UseUpdateResult<T> {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<Error | null>(null)
+  const [data, setData] = useState<T | null>(null)
+
+  const update = useCallback(
+    async (id: string, updateData: Record<string, unknown>): Promise<T> => {
+      setLoading(true)
+      setError(null)
+      try {
+        const entity = resolveEntity(type)
+        if (!entity) {
+          throw new Error(`Unknown entity type: ${type}`)
+        }
+        const result = await entity.update(id, updateData)
+        setData(result as T)
+        return result as T
+      } catch (err) {
+        const e = err instanceof Error ? err : new Error(String(err))
+        setError(e)
+        throw e
+      } finally {
+        setLoading(false)
+      }
+    },
+    [type],
+  )
+
+  return { update, loading, error, data }
+}
+
+interface UseDeleteResult {
+  remove: (id: string) => Promise<void>
+  loading: boolean
+  error: Error | null
+}
+
+/**
+ * useDelete(type) — Returns a delete function for the given entity type.
+ *
+ * @example
+ * ```tsx
+ * const { remove, loading, error } = useDelete('Contact')
+ * await remove('contact_abc')
+ * ```
+ */
+export function useDelete(type: string): UseDeleteResult {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<Error | null>(null)
+
+  const remove = useCallback(
+    async (id: string): Promise<void> => {
+      setLoading(true)
+      setError(null)
+      try {
+        const entity = resolveEntity(type)
+        if (!entity) {
+          throw new Error(`Unknown entity type: ${type}`)
+        }
+        await entity.delete(id)
+      } catch (err) {
+        const e = err instanceof Error ? err : new Error(String(err))
+        setError(e)
+        throw e
+      } finally {
+        setLoading(false)
+      }
+    },
+    [type],
+  )
+
+  return { remove, loading, error }
+}
+
+// =============================================================================
+// Verb Hook
+// =============================================================================
+
+interface UseVerbResult {
+  execute: (id: string, data?: Record<string, unknown>) => Promise<unknown>
+  loading: boolean
+  error: Error | null
+}
+
+/**
+ * useVerb(type, verb) — Execute a custom verb on an entity type.
+ *
+ * @example
+ * ```tsx
+ * const { execute, loading, error } = useVerb('Contact', 'qualify')
+ * await execute('contact_abc')
+ * ```
+ */
+export function useVerb(type: string, verb: string): UseVerbResult {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<Error | null>(null)
+
+  const execute = useCallback(
+    async (id: string, data?: Record<string, unknown>): Promise<unknown> => {
+      setLoading(true)
+      setError(null)
+      try {
+        const entity = resolveEntity(type)
+        if (!entity) {
+          throw new Error(`Unknown entity type: ${type}`)
+        }
+        const verbFn = (entity as unknown as Record<string, unknown>)[verb]
+        if (typeof verbFn !== 'function') {
+          throw new Error(`Unknown verb "${verb}" on entity type: ${type}`)
+        }
+        const result = await (verbFn as (id: string, data?: Record<string, unknown>) => Promise<unknown>)(id, data)
+        return result
+      } catch (err) {
+        const e = err instanceof Error ? err : new Error(String(err))
+        setError(e)
+        throw e
+      } finally {
+        setLoading(false)
+      }
+    },
+    [type, verb],
+  )
+
+  return { execute, loading, error }
+}
+
+// =============================================================================
+// Subscription Hook
+// =============================================================================
+
+type SubscriptionHandler<T = unknown> = (entity: T) => void
+
+interface UseSubscriptionResult {
+  connected: boolean
+  error: Error | null
+  unsubscribe: () => void
+}
+
+/**
+ * useSubscription(type, filter?, handler) — Subscribe to real-time entity changes.
+ *
+ * Polls for changes and calls the handler when entities matching the filter
+ * are created or updated. Automatically cleans up on unmount.
+ *
+ * @example
+ * ```tsx
+ * useSubscription('Contact', { stage: 'Lead' }, (contacts) => {
+ *   console.log('Updated contacts:', contacts)
+ * })
+ * ```
+ */
+export function useSubscription<T = unknown>(
+  type: string,
+  filterOrHandler?: Record<string, unknown> | SubscriptionHandler<T[]>,
+  handler?: SubscriptionHandler<T[]>,
+): UseSubscriptionResult {
+  const [connected, setConnected] = useState(false)
+  const [error, setError] = useState<Error | null>(null)
+  const unsubscribedRef = useRef(false)
+
+  // Normalize arguments: useSubscription(type, handler) or useSubscription(type, filter, handler)
+  const filter = typeof filterOrHandler === 'function' ? undefined : filterOrHandler
+  const callback = typeof filterOrHandler === 'function' ? filterOrHandler : handler
+
+  const unsubscribe = useCallback(() => {
+    unsubscribedRef.current = true
+    setConnected(false)
+  }, [])
+
+  useEffect(() => {
+    unsubscribedRef.current = false
+    setConnected(false)
+    setError(null)
+
+    const entity = resolveEntity(type)
+    if (!entity) {
+      setError(new Error(`Unknown entity type: ${type}`))
+      return
+    }
+
+    const poll = async () => {
+      if (unsubscribedRef.current) return
+      try {
+        const results = (await entity.find(filter)) as T[]
+        if (!unsubscribedRef.current) {
+          setConnected(true)
+          callback?.(results)
+        }
+      } catch (err) {
+        if (!unsubscribedRef.current) {
+          setError(err instanceof Error ? err : new Error(String(err)))
+          setConnected(false)
+        }
+      }
+    }
+
+    // Initial poll
+    poll()
+
+    // Poll at 5-second intervals (will be replaced with WebSocket in production)
+    const interval = setInterval(poll, 5000)
+
+    return () => {
+      unsubscribedRef.current = true
+      setConnected(false)
+      clearInterval(interval)
+    }
+  }, [type, JSON.stringify(filter)])
+
+  return { connected, error, unsubscribe }
+}
+
+// =============================================================================
+// Domain Hook
+// =============================================================================
+
+/** Map of domain names to their namespace modules */
+const domainModules: Record<string, Record<string, NounEntity>> = {
+  crm: crm as unknown as Record<string, NounEntity>,
+  billing: billing as unknown as Record<string, NounEntity>,
+  projects: projects as unknown as Record<string, NounEntity>,
+  content: content as unknown as Record<string, NounEntity>,
+  support: support as unknown as Record<string, NounEntity>,
+  analytics: analytics as unknown as Record<string, NounEntity>,
+  marketing: marketing as unknown as Record<string, NounEntity>,
+  experiments: experiments as unknown as Record<string, NounEntity>,
+  platform: platform as unknown as Record<string, NounEntity>,
+}
+
+/**
+ * useDomain(domain) — Access a domain namespace (crm, billing, etc.)
+ *
+ * Returns the domain module containing all entities for that domain.
+ *
+ * @example
+ * ```tsx
+ * const { Contact, Deal, Pipeline } = useDomain('crm')
+ * const contacts = await Contact.find({ stage: 'Lead' })
+ * ```
+ */
+export function useDomain(domain: string): Record<string, NounEntity> {
+  return useMemo(() => {
+    const mod = domainModules[domain]
+    if (!mod) {
+      throw new Error(
+        `Unknown domain: "${domain}". Available domains: ${Object.keys(domainModules).join(', ')}`,
+      )
+    }
+    return mod
+  }, [domain])
 }

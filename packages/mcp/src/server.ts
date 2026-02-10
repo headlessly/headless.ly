@@ -1,4 +1,4 @@
-import type { MCPToolCall, MCPToolResult, MCPContext } from './types.js'
+import type { MCPTool, MCPToolCall, MCPToolResult, MCPContext, MCPSchemaProperty } from './types.js'
 import type { NounProvider } from 'digital-objects'
 import { getTools } from './tools.js'
 import { createHandlers } from './handlers.js'
@@ -9,13 +9,60 @@ export interface MCPServerOptions {
   evaluate?: (code: string, context: Record<string, unknown>) => Promise<unknown>
 }
 
+/** Schema definition for a custom tool parameter */
+export interface ToolSchema {
+  type: 'object'
+  properties: Record<string, MCPSchemaProperty>
+  required?: string[]
+}
+
+/** Handler function for a custom tool */
+export type ToolHandler = (args: Record<string, unknown>) => Promise<MCPToolResult>
+
+/** Registered custom tool */
+interface RegisteredTool {
+  name: string
+  description: string
+  inputSchema: ToolSchema
+  handler: ToolHandler
+}
+
 export class MCPServer {
   private handlers: ReturnType<typeof createHandlers>
   private context?: MCPContext
+  private customTools: Map<string, RegisteredTool> = new Map()
 
   constructor(options: MCPServerOptions) {
     this.handlers = createHandlers(options)
     this.context = options.context
+  }
+
+  /**
+   * Register a custom tool on this MCP server.
+   *
+   * ```typescript
+   * server.tool('summarize', {
+   *   type: 'object',
+   *   properties: { text: { type: 'string', description: 'Text to summarize' } },
+   *   required: ['text'],
+   * }, async (args) => {
+   *   return { content: [{ type: 'text', text: `Summary of: ${args.text}` }] }
+   * })
+   * ```
+   */
+  tool(name: string, schema: ToolSchema, handler: ToolHandler): this {
+    this.customTools.set(name, {
+      name,
+      description: schema.properties ? `Custom tool: ${name}` : `Custom tool: ${name}`,
+      inputSchema: schema,
+      handler,
+    })
+    return this
+  }
+
+  /** Alias for handleRequest -- process an incoming MCP JSON-RPC request */
+  async handle(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.handleRequest(body)
   }
 
   /** Handle an MCP JSON-RPC request */
@@ -42,10 +89,17 @@ export class MCPServer {
         })
       }
 
-      case 'tools/list':
+      case 'tools/list': {
+        const builtinTools = getTools(this.context)
+        const customToolDefs: MCPTool[] = [...this.customTools.values()].map((t) => ({
+          name: t.name,
+          description: t.description,
+          inputSchema: t.inputSchema,
+        }))
         return this.jsonrpc(id, {
-          tools: getTools(this.context),
+          tools: [...builtinTools, ...customToolDefs],
         })
+      }
 
       case 'tools/call': {
         const { name, arguments: args } = (params ?? {}) as MCPToolCall
@@ -115,7 +169,25 @@ export class MCPServer {
     })
   }
 
+  /**
+   * Return a fetch-compatible handler for Cloudflare Workers.
+   *
+   * ```typescript
+   * const server = new MCPServer({ provider })
+   * export default { fetch: server.toFetchHandler() }
+   * ```
+   */
+  toFetchHandler(): (request: Request) => Promise<Response> {
+    return (request: Request) => this.handleHTTP(request)
+  }
+
   private async executeTool(name: string, args: Record<string, unknown>): Promise<MCPToolResult> {
+    // Check custom tools first
+    const customTool = this.customTools.get(name)
+    if (customTool) {
+      return customTool.handler(args)
+    }
+
     switch (name) {
       case 'search':
         return this.handlers.search(args as unknown as Parameters<typeof this.handlers.search>[0])

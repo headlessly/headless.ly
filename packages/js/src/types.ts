@@ -37,7 +37,48 @@ export interface HeadlessConfig {
   respectDoNotTrack?: boolean
   /** TTL for cached feature flags in ms */
   flagsTTL?: number
+
+  // ===========================================================================
+  // Auto-capture (opt-in)
+  // ===========================================================================
+
+  /** Auto-capture configuration (all disabled by default) */
+  autoCapture?: {
+    /** Auto-capture page views on route change (default: false) */
+    pageViews?: boolean
+    /** Auto-capture click events (default: false) */
+    clicks?: boolean
+    /** Auto-capture form submissions (default: false) */
+    formSubmissions?: boolean
+    /** CSS selector to filter click capture */
+    clickSelector?: string
+    /** Element attributes to capture */
+    captureAttributes?: string[]
+  }
+
+  // ===========================================================================
+  // Event Forwarding
+  // ===========================================================================
+
+  /** Event forwarding to external services */
+  forwarders?: ForwarderConfig[]
+
+  // ===========================================================================
+  // Real-time Subscriptions
+  // ===========================================================================
+
+  /** WebSocket endpoint for real-time subscriptions */
+  wsEndpoint?: string
 }
+
+// =============================================================================
+// Forwarder Config
+// =============================================================================
+
+export type ForwarderConfig =
+  | { type: 'google-analytics'; measurementId: string }
+  | { type: 'segment'; writeKey: string }
+  | { type: 'posthog'; apiKey: string; host?: string }
 
 // =============================================================================
 // Analytics Types

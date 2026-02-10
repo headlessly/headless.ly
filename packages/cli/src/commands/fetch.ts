@@ -1,10 +1,11 @@
 /**
- * headlessly fetch <type> <id>
+ * headlessly fetch <type> <id> [--include field1,field2]
  * headlessly fetch schema [noun]
  * headlessly fetch events [--type Type] [--since timestamp]
  *
  * Examples:
  *   headlessly fetch Contact contact_abc123
+ *   headlessly fetch Contact contact_abc123 --include deals,activities
  *   headlessly fetch schema Contact
  *   headlessly fetch schema
  *   headlessly fetch events --type Contact --since 2024-01-01
@@ -27,7 +28,8 @@ export async function fetchCommand(args: string[]): Promise<void> {
     console.log('       headlessly fetch events [--type Type]')
     console.log('')
     console.log('Options:')
-    console.log('  --json    Output as JSON')
+    console.log('  --include field1,field2   Include related entities (comma-separated)')
+    console.log('  --json                    Output as JSON')
     return
   }
 
@@ -99,9 +101,10 @@ export async function fetchCommand(args: string[]): Promise<void> {
     return
   }
 
-  // Entity fetch: headlessly fetch <type> <id>
+  // Entity fetch: headlessly fetch <type> <id> [--include field1,field2]
   const type = first
   const id = positional[1]
+  const includeRaw = flags['include'] as string | undefined
 
   if (!id) {
     if (json) {
@@ -113,6 +116,14 @@ export async function fetchCommand(args: string[]): Promise<void> {
     process.exit(1)
     return
   }
+
+  // Parse --include as comma-separated list
+  const include = includeRaw
+    ? includeRaw
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : undefined
 
   try {
     const provider = await getProvider()
@@ -128,7 +139,36 @@ export async function fetchCommand(args: string[]): Promise<void> {
       return
     }
 
-    printJSON(entity)
+    // If --include is specified, resolve related entities
+    if (include && include.length > 0) {
+      const result = { ...entity } as Record<string, unknown>
+
+      for (const field of include) {
+        try {
+          // Attempt to find related entities by looking up the field as a type
+          // Convention: include field name is plural lowercase of the target type
+          // e.g. "deals" -> find Deal entities where contact matches this entity's $id
+          const singularGuess = field.endsWith('s') ? field.slice(0, -1) : field
+          const typeName = singularGuess.charAt(0).toUpperCase() + singularGuess.slice(1)
+
+          // Try to find entities of that type that reference this entity
+          const related = await provider.find(typeName)
+          if (related.length > 0) {
+            // Filter to those referencing this entity by any field matching our $id
+            const matching = related.filter((r) => Object.values(r).some((v) => v === entity.$id))
+            result[field] = matching
+          } else {
+            result[field] = []
+          }
+        } catch {
+          result[field] = []
+        }
+      }
+
+      printJSON(result)
+    } else {
+      printJSON(entity)
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     if (json) {

@@ -9,7 +9,12 @@
  * - Storing in Iceberg datalake
  */
 
-import type { HeadlessConfig, AnalyticsEvent, ErrorEvent, WebVitals, Breadcrumb, User, FlagValue, FeatureFlag, Severity } from './types.js'
+import type { HeadlessConfig, AnalyticsEvent, ErrorEvent, WebVitals, Breadcrumb, User, FlagValue, FeatureFlag, Severity, ForwarderConfig } from './types.js'
+import { ForwardingManager, GoogleAnalyticsForwarder, SegmentForwarder, PostHogForwarder } from './forwarding.js'
+import type { EventForwarder } from './forwarding.js'
+import { RealtimeManager } from './realtime.js'
+import type { SubscriptionHandler, SubscriptionMessage, RealtimeState } from './realtime.js'
+import { AutoCaptureManager } from './autocapture.js'
 
 const DEFAULT_ENDPOINT = 'https://headless.ly/e'
 
@@ -59,6 +64,11 @@ export class HeadlessClient {
   private optedOut = false
   private initialized = false
   private _preflushed = false
+
+  // Forwarding, realtime, and auto-capture
+  private forwarding = new ForwardingManager()
+  private realtime: RealtimeManager | null = null
+  private autoCapture: AutoCaptureManager | null = null
 
   // ===========================================================================
   // Initialization
@@ -150,8 +160,38 @@ export class HeadlessClient {
     // Load feature flags
     this.loadFeatureFlags()
 
+    // Set up event forwarders
+    if (this.config.forwarders) {
+      this.setupForwarders(this.config.forwarders)
+    }
+
+    // Set up auto-capture
+    if (this.config.autoCapture) {
+      this.autoCapture = new AutoCaptureManager(this.config.autoCapture, {
+        track: (event, properties) => this.track(event, properties),
+        page: (name, properties) => this.page(name, properties),
+      })
+      this.autoCapture.start()
+    }
+
     this.initialized = true
     this.debug('Initialized')
+  }
+
+  private setupForwarders(configs: ForwarderConfig[]): void {
+    for (const config of configs) {
+      switch (config.type) {
+        case 'google-analytics':
+          this.forwarding.add(new GoogleAnalyticsForwarder({ measurementId: config.measurementId }))
+          break
+        case 'segment':
+          this.forwarding.add(new SegmentForwarder({ writeKey: config.writeKey }))
+          break
+        case 'posthog':
+          this.forwarding.add(new PostHogForwarder({ apiKey: config.apiKey, host: config.host }))
+          break
+      }
+    }
   }
 
   private getStorage(): Storage | null {
@@ -573,6 +613,12 @@ export class HeadlessClient {
     if (this.retryTimer) clearTimeout(this.retryTimer)
     this.flushTimer = undefined
     this.retryTimer = undefined
+    // Clean up forwarding, auto-capture, and realtime
+    this.autoCapture?.stop()
+    this.autoCapture = null
+    this.forwarding.clear()
+    this.realtime?.shutdown()
+    this.realtime = null
     try {
       const storage = this.getStorage()
       if (storage) storage.removeItem('hl_anon')
@@ -594,6 +640,8 @@ export class HeadlessClient {
 
   private enqueue(event: AnalyticsEvent | ErrorEvent): void {
     this.queue.push(event)
+    // Forward to external services in real-time
+    this.forwarding.forward(event)
     if (this.queue.length >= (this.config?.batchSize ?? 10)) this.flush()
   }
 
@@ -670,9 +718,79 @@ export class HeadlessClient {
     if (this.retryQueue.length) this.scheduleRetry()
   }
 
+  // ===========================================================================
+  // Event Forwarding
+  // ===========================================================================
+
+  addForwarder(forwarder: EventForwarder): void {
+    this.forwarding.add(forwarder)
+  }
+
+  removeForwarder(name: string): void {
+    this.forwarding.remove(name)
+  }
+
+  getForwarders(): EventForwarder[] {
+    return this.forwarding.getForwarders()
+  }
+
+  // ===========================================================================
+  // Real-time Subscriptions
+  // ===========================================================================
+
+  subscribe(entityType: string, handler: SubscriptionHandler): () => void {
+    if (!this.realtime) {
+      this.realtime = new RealtimeManager({
+        endpoint: this.config?.wsEndpoint,
+        apiKey: this.config?.apiKey,
+      })
+    }
+    return this.realtime.subscribe(entityType, handler)
+  }
+
+  connectRealtime(): void {
+    if (!this.realtime) {
+      this.realtime = new RealtimeManager({
+        endpoint: this.config?.wsEndpoint,
+        apiKey: this.config?.apiKey,
+      })
+    }
+    this.realtime.connect()
+  }
+
+  disconnectRealtime(): void {
+    if (this.realtime) {
+      this.realtime.disconnect()
+    }
+  }
+
+  get realtimeState(): RealtimeState {
+    return this.realtime?.state ?? 'disconnected'
+  }
+
+  onRealtimeStateChange(listener: (state: RealtimeState) => void): () => void {
+    if (!this.realtime) {
+      this.realtime = new RealtimeManager({
+        endpoint: this.config?.wsEndpoint,
+        apiKey: this.config?.apiKey,
+      })
+    }
+    return this.realtime.onStateChange(listener)
+  }
+
+  // ===========================================================================
+  // Shutdown
+  // ===========================================================================
+
   async shutdown(): Promise<void> {
     if (this.flushTimer) clearInterval(this.flushTimer)
     if (this.retryTimer) clearTimeout(this.retryTimer)
+    this.autoCapture?.stop()
+    this.autoCapture = null
+    this.forwarding.flush()
+    this.forwarding.shutdown()
+    this.realtime?.shutdown()
+    this.realtime = null
     await this.flush()
     this.initialized = false
   }

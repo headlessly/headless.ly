@@ -92,3 +92,97 @@ export interface CDCOptions {
   /** Maximum events per batch */
   batchSize?: number
 }
+
+// =============================================================================
+// Typed Event Categories
+// =============================================================================
+
+/** Standard CRUD event verbs */
+export type CrudVerb = 'create' | 'update' | 'delete'
+
+/** Standard CRUD event conjugation forms (past tense used in $type) */
+export type CrudEvent = 'created' | 'updated' | 'deleted'
+
+/** Well-known event category patterns */
+export const EventPatterns = {
+  /** All events */
+  ALL: '*',
+  /** All create events across entity types */
+  ALL_CREATED: '*.created',
+  /** All update events across entity types */
+  ALL_UPDATED: '*.updated',
+  /** All delete events across entity types */
+  ALL_DELETED: '*.deleted',
+  /** Build a pattern for all events on an entity type */
+  entity: (entityType: string) => `${entityType}.*` as const,
+  /** Build an exact pattern for a specific entity type + verb event */
+  exact: (entityType: string, verbEvent: string) => `${entityType}.${verbEvent}` as const,
+  /** Build a pattern for any entity type with a specific verb event */
+  verb: (verbEvent: string) => `*.${verbEvent}` as const,
+} as const
+
+/**
+ * Helper to build a NounEventInput for standard CRUD verbs.
+ */
+export function crudEvent(
+  verb: CrudVerb,
+  entityType: string,
+  entityId: string,
+  options?: {
+    after?: Record<string, unknown>
+    before?: Record<string, unknown>
+    data?: Record<string, unknown>
+    actor?: string
+    context?: string
+  },
+): NounEventInput {
+  const eventForm = `${verb}d` as CrudEvent
+  // For activity: drop trailing 'e' before adding 'ing' (create -> creating, update -> updating, delete -> deleting)
+  const stem = verb.endsWith('e') ? verb.slice(0, -1) : verb
+  return {
+    $type: `${entityType}.${eventForm}`,
+    entityType,
+    entityId,
+    verb,
+    conjugation: {
+      action: verb,
+      activity: `${stem}ing`,
+      event: eventForm,
+    },
+    after: options?.after,
+    before: options?.before,
+    data: options?.data,
+    actor: options?.actor,
+    context: options?.context,
+  }
+}
+
+/**
+ * Helper to build a NounEventInput for a custom verb (e.g., qualify, close, ship).
+ */
+export function verbEvent(
+  verb: string,
+  entityType: string,
+  entityId: string,
+  conjugation: { action: string; activity: string; event: string },
+  options?: {
+    after?: Record<string, unknown>
+    before?: Record<string, unknown>
+    data?: Record<string, unknown>
+    actor?: string
+    context?: string
+  },
+): NounEventInput {
+  return {
+    $type: `${entityType}.${conjugation.event}`,
+    entityType,
+    entityId,
+    verb,
+    conjugation,
+    after: options?.after,
+    before: options?.before,
+    data: options?.data,
+    actor: options?.actor,
+    context: options?.context,
+  }
+}

@@ -513,4 +513,20 @@ export function honoMiddleware(client: HeadlessNodeClient) {
   }
 }
 
+// =============================================================================
+// Node-specific SDK features
+// =============================================================================
+
+export { headlessly } from './headlessly.js'
+export type { HeadlesslyNodeOptions, HeadlesslyNodeResult } from './headlessly.js'
+
+export { NDJSONEventPersistence } from './ndjson-events.js'
+export type { PersistedEvent, NDJSONEventPersistenceOptions } from './ndjson-events.js'
+
+export { createServer } from './server.js'
+export type { CreateServerOptions, ServerEntity } from './server.js'
+
+export { sync } from './sync.js'
+export type { SyncOptions, SyncResult, SyncProvider } from './sync.js'
+
 export default { createClient, HeadlessNodeClient, Headlessly, expressMiddleware, honoMiddleware }
