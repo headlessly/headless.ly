@@ -420,7 +420,7 @@ describe('Subscription CRUD', () => {
       body: JSON.stringify({
         name: 'E2E Subscription',
         plan: 'plan_e2e_test',
-        status: 'active',
+        status: 'Active',
         customer: testCustomerId,
         currentPeriodStart: now,
         currentPeriodEnd: periodEnd,
@@ -433,7 +433,7 @@ describe('Subscription CRUD', () => {
     const body = (await res.json()) as { success: boolean; data: Record<string, unknown> }
     expect(body.data.$id).toBeDefined()
     expect(body.data.$type).toBe('Subscription')
-    expect(body.data.status).toBe('active')
+    expect(body.data.status).toBe('Active')
     expect(body.data.customer).toBe(testCustomerId)
 
     cleanup.push({ resource: 'subscriptions', id: body.data.$id as string })
@@ -449,7 +449,7 @@ describe('Subscription CRUD', () => {
       body: JSON.stringify({
         name: 'E2E Trialing Sub',
         plan: 'plan_e2e_test',
-        status: 'trialing',
+        status: 'Trialing',
         customer: testCustomerId,
         currentPeriodStart: now,
         currentPeriodEnd: periodEnd,
@@ -467,7 +467,7 @@ describe('Subscription CRUD', () => {
     const fetched = ((await getRes.json()) as { data: Record<string, unknown> }).data
     expect(fetched.$id).toBe(created.$id)
     expect(fetched.$type).toBe('Subscription')
-    expect(fetched.status).toBe('trialing')
+    expect(fetched.status).toBe('Trialing')
   }, TIMEOUT)
 
   it('updates a subscription status', async () => {
@@ -480,7 +480,7 @@ describe('Subscription CRUD', () => {
       body: JSON.stringify({
         name: 'E2E Update Sub',
         plan: 'plan_e2e_test',
-        status: 'active',
+        status: 'Active',
         customer: testCustomerId,
         currentPeriodStart: now,
         currentPeriodEnd: periodEnd,
@@ -494,12 +494,12 @@ describe('Subscription CRUD', () => {
     const putRes = await fetch(`${BILLING_URL}/api/subscriptions/${created.$id}`, {
       method: 'PUT',
       headers: writeHeaders(),
-      body: JSON.stringify({ status: 'past_due', quantity: 5 }),
+      body: JSON.stringify({ status: 'PastDue', quantity: 5 }),
     })
 
     expect(putRes.status).toBe(200)
     const updated = ((await putRes.json()) as { data: Record<string, unknown> }).data
-    expect(updated.status).toBe('past_due')
+    expect(updated.status).toBe('PastDue')
     expect(updated.quantity).toBe(5)
   }, TIMEOUT)
 
@@ -513,7 +513,7 @@ describe('Subscription CRUD', () => {
       body: JSON.stringify({
         name: 'E2E List Sub',
         plan: 'plan_e2e_test',
-        status: 'active',
+        status: 'Active',
         customer: testCustomerId,
         currentPeriodStart: now,
         currentPeriodEnd: periodEnd,
@@ -544,7 +544,7 @@ describe('Subscription CRUD', () => {
       body: JSON.stringify({
         name: 'E2E Delete Sub',
         plan: 'plan_e2e_test',
-        status: 'active',
+        status: 'Active',
         customer: testCustomerId,
         currentPeriodStart: now,
         currentPeriodEnd: periodEnd,
@@ -576,7 +576,7 @@ describe('Subscription CRUD', () => {
       {
         name: 'E2E Lifecycle Sub',
         plan: 'plan_e2e_test',
-        status: 'active',
+        status: 'Active',
         customer: testCustomerId,
         currentPeriodStart: now,
         currentPeriodEnd: periodEnd,
@@ -604,7 +604,7 @@ describe('Subscription CRUD', () => {
       body: JSON.stringify({
         name: 'E2E Meta Sub',
         plan: 'plan_e2e_test',
-        status: 'active',
+        status: 'Active',
         customer: testCustomerId,
         currentPeriodStart: now,
         currentPeriodEnd: periodEnd,
@@ -650,7 +650,7 @@ describe('Invoice CRUD', () => {
         total: 9900,
         amountDue: 9900,
         currency: 'USD',
-        status: 'open',
+        status: 'Open',
       }),
     })
 
@@ -660,7 +660,7 @@ describe('Invoice CRUD', () => {
     expect(body.data.$type).toBe('Invoice')
     expect(body.data.number).toBe(number)
     expect(body.data.total).toBe(9900)
-    expect(body.data.status).toBe('open')
+    expect(body.data.status).toBe('Open')
 
     cleanup.push({ resource: 'invoices', id: body.data.$id as string })
   }, TIMEOUT)
@@ -676,7 +676,7 @@ describe('Invoice CRUD', () => {
         subtotal: 4900,
         total: 4900,
         amountDue: 4900,
-        status: 'draft',
+        status: 'Draft',
       }),
     })
     const created = ((await createRes.json()) as { data: Record<string, unknown> }).data
@@ -703,7 +703,7 @@ describe('Invoice CRUD', () => {
         subtotal: 4900,
         total: 4900,
         amountDue: 4900,
-        status: 'open',
+        status: 'Open',
       }),
     })
     const created = ((await createRes.json()) as { data: Record<string, unknown> }).data
@@ -712,12 +712,12 @@ describe('Invoice CRUD', () => {
     const putRes = await fetch(`${BILLING_URL}/api/invoices/${created.$id}`, {
       method: 'PUT',
       headers: writeHeaders(),
-      body: JSON.stringify({ status: 'paid', amountDue: 0, paidAt: new Date().toISOString() }),
+      body: JSON.stringify({ status: 'Paid', amountDue: 0, paidAt: new Date().toISOString() }),
     })
 
     expect(putRes.status).toBe(200)
     const updated = ((await putRes.json()) as { data: Record<string, unknown> }).data
-    expect(updated.status).toBe('paid')
+    expect(updated.status).toBe('Paid')
     expect(updated.amountDue).toBe(0)
   }, TIMEOUT)
 
@@ -731,7 +731,7 @@ describe('Invoice CRUD', () => {
         subtotal: 1000,
         total: 1000,
         amountDue: 1000,
-        status: 'draft',
+        status: 'Draft',
       }),
     })
     const created = ((await createRes.json()) as { data: Record<string, unknown> }).data
@@ -758,7 +758,7 @@ describe('Invoice CRUD', () => {
         subtotal: 500,
         total: 500,
         amountDue: 500,
-        status: 'draft',
+        status: 'Draft',
       }),
     })
     const created = ((await createRes.json()) as { data: Record<string, unknown> }).data
@@ -787,15 +787,15 @@ describe('Invoice CRUD', () => {
         total: 7500,
         amountDue: 7500,
         currency: 'USD',
-        status: 'open',
+        status: 'Open',
       },
-      { status: 'void', amountDue: 0 },
+      { status: 'Void', amountDue: 0 },
     )
 
     expect(result.created.$id).toBeDefined()
     expect(result.created.$type).toBe('Invoice')
     expect(result.fetched.$id).toBe(result.created.$id)
-    expect(result.updated.status).toBe('void')
+    expect(result.updated.status).toBe('Void')
     expect(result.updated.amountDue).toBe(0)
     expect(result.listed.length).toBeGreaterThanOrEqual(1)
     expect(result.deleted).toBe(true)
@@ -811,7 +811,7 @@ describe('Invoice CRUD', () => {
         subtotal: 2000,
         total: 2000,
         amountDue: 2000,
-        status: 'draft',
+        status: 'Draft',
       }),
     })
     const created = ((await createRes.json()) as { data: Record<string, unknown> }).data
@@ -832,7 +832,7 @@ describe('Invoice CRUD', () => {
         subtotal: 3000,
         total: 3000,
         amountDue: 3000,
-        status: 'open',
+        status: 'Open',
       }),
     })
     const created = ((await createRes.json()) as { data: Record<string, unknown> }).data
@@ -1220,7 +1220,7 @@ describe('Cross-entity references', () => {
       body: JSON.stringify({
         name: 'E2E Refs Sub',
         plan: planId,
-        status: 'active',
+        status: 'Active',
         customer: customerId,
         currentPeriodStart: now,
         currentPeriodEnd: periodEnd,
@@ -1241,7 +1241,7 @@ describe('Cross-entity references', () => {
         subtotal: 9900,
         total: 9900,
         amountDue: 9900,
-        status: 'open',
+        status: 'Open',
       }),
     })
     invoiceId = ((await invRes.json()) as { data: Record<string, unknown> }).data.$id as string
@@ -1416,7 +1416,7 @@ describe('Meta-field consistency across billing entities', () => {
       body: JSON.stringify({
         name: 'E2E Meta Sub Prefix',
         plan: 'plan_e2e_test',
-        status: 'active',
+        status: 'Active',
         customer: custId,
         currentPeriodStart: now,
         currentPeriodEnd: periodEnd,
@@ -1449,7 +1449,7 @@ describe('Meta-field consistency across billing entities', () => {
         subtotal: 1000,
         total: 1000,
         amountDue: 1000,
-        status: 'draft',
+        status: 'Draft',
       }),
     })
     const created = ((await res.json()) as { data: Record<string, unknown> }).data
@@ -1469,7 +1469,7 @@ describe('Meta-field consistency across billing entities', () => {
     const created = ((await custRes.json()) as { data: Record<string, unknown> }).data
     cleanup.push({ resource: 'customers', id: created.$id as string })
 
-    const v1 = created.$version as number
+    const v1 = created.version as number
 
     const putRes = await fetch(`${BILLING_URL}/api/customers/${created.$id}`, {
       method: 'PUT',
@@ -1477,7 +1477,7 @@ describe('Meta-field consistency across billing entities', () => {
       body: JSON.stringify({ name: `Updated ${generateTestId()}` }),
     })
     const updated = ((await putRes.json()) as { data: Record<string, unknown> }).data
-    const v2 = updated.$version as number
+    const v2 = updated.version as number
 
     expect(v2).toBeGreaterThan(v1)
   }, TIMEOUT)

@@ -489,9 +489,9 @@ describe('crm — Lead entity', () => {
     expect(typeof Lead).toBe('object')
   })
 
-  it('leads API endpoint is not yet available (returns 404)', async () => {
+  it('leads API endpoint is available', async () => {
     const exists = await endpointExists(CRM_URL, 'leads')
-    expect(exists).toBe(false)
+    expect(exists).toBe(true)
   })
 })
 
