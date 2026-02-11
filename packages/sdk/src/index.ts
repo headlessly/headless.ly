@@ -202,20 +202,35 @@ async function _statusFn(): Promise<SystemStatus> {
     alerts.push({ level: 'info', message: 'Using in-memory provider — data is ephemeral' })
   }
 
-  const entities: Record<string, number> = {}
-  const entries = Object.entries(allEntities)
-  const counts = await Promise.all(
-    entries.map(async ([, entity]) => {
-      try {
-        const items = await entity.find({})
-        return items.length
-      } catch {
-        return 0
-      }
-    }),
-  )
-  for (let i = 0; i < entries.length; i++) {
-    entities[entries[i][0]] = counts[i]
+  // Use single RPC /rpc/status call for remote providers (one round-trip, no data transfer).
+  // Falls back to find({}).length for memory providers.
+  let entities: Record<string, number> = {}
+  let provider: NounProvider | undefined
+  try {
+    provider = getProvider()
+  } catch {
+    // provider not set
+  }
+
+  if (provider instanceof RemoteNounProvider) {
+    // Single round-trip — server returns all counts
+    entities = await provider.counts()
+  } else {
+    // Memory provider — count in-process
+    const entries = Object.entries(allEntities)
+    const counts = await Promise.all(
+      entries.map(async ([, entity]) => {
+        try {
+          const items = await entity.find({})
+          return items.length
+        } catch {
+          return 0
+        }
+      }),
+    )
+    for (let i = 0; i < entries.length; i++) {
+      entities[entries[i][0]] = counts[i]
+    }
   }
 
   return {
@@ -309,6 +324,20 @@ export class RemoteNounProvider implements NounProvider {
     const ns = this.collection(type)
     const result = await ns[verb](id, data ?? {})
     return result as NounInstance
+  }
+
+  /**
+   * Get all entity counts in a single RPC call.
+   * One round-trip via capnweb, no entity data transferred — just counts.
+   */
+  async counts(): Promise<Record<string, number>> {
+    try {
+      const result = (await this.rpc.status()) as Record<string, unknown>
+      const data = (result?.data ?? result) as Record<string, number>
+      return typeof data === 'object' && data !== null ? data : {}
+    } catch {
+      return {}
+    }
   }
 }
 
