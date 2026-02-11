@@ -141,8 +141,8 @@ for (const lead of leads) {
 
 ```typescript
 // WRONG — headless.ly is not a valid npm package name (use @headlessly/sdk)
-import Headlessly from 'headless.ly'
-import { Contact } from 'headless.ly'
+import Headlessly from '@headlessly/sdk'
+import { Contact } from '@headlessly/sdk'
 
 // WRONG — MCP tools are not function calls
 search({ type: 'Contact', filter: { stage: 'Lead' } })

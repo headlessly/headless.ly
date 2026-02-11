@@ -146,15 +146,15 @@ These patterns are deprecated and must never appear in docs:
 
 ```typescript
 // WRONG — old default export
-import Headlessly from 'headless.ly'
+import Headlessly from '@headlessly/sdk'
 const org = Headlessly({ tenant: 'my-startup' })
 org.Contact.create(...)
 
 // WRONG — npm install the old package
-npm install headless.ly
+npm install @headlessly/sdk
 
 // WRONG — CLI global install of old package
-npm install -g headless.ly
+npm install -g @headlessly/cli
 
 // WRONG — MCP as function calls
 search({ type: 'Contact', filter: { stage: 'Lead' } })
