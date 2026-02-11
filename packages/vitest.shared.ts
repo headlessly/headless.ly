@@ -44,10 +44,10 @@ export default defineConfig({
       '@headlessly/cli': resolve(packages, 'cli/src/index.ts'),
       '@headlessly/code': resolve(packages, 'code/src/index.ts'),
       // External npm dependencies resolved through the monorepo
-      'rpc.do/errors': resolve(root, 'packages/sdk/node_modules/rpc.do/dist/errors.js'),
-      'rpc.do/transports': resolve(root, 'packages/sdk/node_modules/rpc.do/dist/transports.js'),
-      'rpc.do/auth': resolve(root, 'packages/sdk/node_modules/rpc.do/dist/auth.js'),
-      'rpc.do': resolve(root, 'packages/sdk/node_modules/rpc.do/dist/index.js'),
+      'rpc.do/errors': resolve(root, 'public/packages/sdk/node_modules/rpc.do/dist/errors.js'),
+      'rpc.do/transports': resolve(root, 'public/packages/sdk/node_modules/rpc.do/dist/transports.js'),
+      'rpc.do/auth': resolve(root, 'public/packages/sdk/node_modules/rpc.do/dist/auth.js'),
+      'rpc.do': resolve(root, 'public/packages/sdk/node_modules/rpc.do/dist/index.js'),
     },
   },
 })
