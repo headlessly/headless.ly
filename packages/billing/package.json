@@ -27,6 +27,7 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "test": "vitest run",
+    "test:e2e": "vitest run --config ../vitest.e2e.config.ts",
     "test:watch": "vitest",
     "clean": "rm -rf dist",
     "prepublishOnly": "pnpm build",

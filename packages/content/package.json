@@ -30,6 +30,7 @@
     "prepublishOnly": "pnpm build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:e2e": "vitest run --config ../vitest.e2e.config.ts",
     "test:watch": "vitest"
   },
   "dependencies": {
