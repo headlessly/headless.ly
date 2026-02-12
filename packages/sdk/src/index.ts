@@ -99,7 +99,7 @@ import * as platform from '@headlessly/platform'
 
 // Identity entities (not in a domain package)
 // Organization is defined in @headlessly/crm (matches HeadlesslySchema)
-const User = Noun('User', {
+export const User = Noun('User', {
   name: 'string!',
   email: 'string!##',
   avatar: 'string',
@@ -110,7 +110,7 @@ const User = Noun('User', {
   activate: 'Activated',
 })
 
-const ApiKey = Noun('ApiKey', {
+export const ApiKey = Noun('ApiKey', {
   name: 'string!',
   keyPrefix: 'string!##',
   scopes: 'string',
@@ -119,7 +119,7 @@ const ApiKey = Noun('ApiKey', {
 })
 
 // Communication entity
-const Message = Noun('Message', {
+export const Message = Noun('Message', {
   body: 'string!',
   channel: 'Email | SMS | Chat | Push',
   status: 'Draft | Sent | Delivered | Read | Failed',
@@ -332,7 +332,7 @@ export class RemoteNounProvider implements NounProvider {
    */
   async counts(): Promise<Record<string, number>> {
     try {
-      const result = (await this.rpc.status()) as Record<string, unknown>
+      const result = (await (this.rpc as { status: () => Promise<unknown> }).status()) as Record<string, unknown>
       const data = (result?.data ?? result) as Record<string, number>
       return typeof data === 'object' && data !== null ? data : {}
     } catch {
