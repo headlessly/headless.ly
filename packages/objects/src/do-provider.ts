@@ -93,135 +93,47 @@ function toNounInstance(raw: unknown): NounInstance {
  * - $.contacts.update('contact_abc', { ... })
  */
 export class DONounProvider implements NounProvider {
-  private rpc: RPCProxy<Record<string, unknown>>
   private context: string
+  private rpcUrl: string
+  private rpcOptions: RPCOptions
   public readonly endpoint: string
 
   constructor(options: DONounProviderOptions) {
     this.context = options.context ?? 'https://headless.ly'
     this.endpoint = options.endpoint
 
-    if (options.doFetch) {
-      // Legacy compatibility: wrap doFetch as a custom transport
-      // This path exists for backward compat but should be migrated
-      const doFetch = options.doFetch
-      const basePath = options.basePath ?? ''
-      const apiKey = options.apiKey
-
-      const buildHeaders = (extra?: Record<string, string>): Record<string, string> => {
-        const headers: Record<string, string> = { 'X-Context': this.context, ...extra }
-        if (apiKey) {
-          headers['Authorization'] = `Bearer ${apiKey}`
-        }
-        return headers
-      }
-
-      this.rpc = new Proxy({} as RPCProxy<Record<string, unknown>>, {
-        get: (_, prop: string) => {
-          return {
-            find: async (where?: Record<string, unknown>) => {
-              const collection = prop
-              let path = `${basePath}/${collection}`
-              if (where && Object.keys(where).length > 0) {
-                const params = new URLSearchParams()
-                for (const [key, value] of Object.entries(where)) {
-                  if (typeof value === 'object' && value !== null) {
-                    for (const [op, opValue] of Object.entries(value as Record<string, unknown>)) {
-                      params.set(`${key}[${op}]`, Array.isArray(opValue) ? opValue.join(',') : String(opValue))
-                    }
-                  } else {
-                    params.set(key, String(value))
-                  }
-                }
-                path += `?${params.toString()}`
-              }
-              const response = await doFetch(path, { method: 'GET', headers: buildHeaders() })
-              if (!response.ok) throw new DOProviderError(`find failed`, response.status)
-              const body = (await response.json()) as Record<string, unknown>
-              const data = (body?.data ?? body?.items ?? body) as unknown[]
-              return Array.isArray(data) ? data : []
-            },
-            get: async (id: string) => {
-              const collection = prop
-              const response = await doFetch(`${basePath}/${collection}/${encodeURIComponent(id)}`, {
-                method: 'GET',
-                headers: buildHeaders(),
-              })
-              if (response.status === 404) return null
-              if (!response.ok) throw new DOProviderError(`get failed`, response.status)
-              const body = (await response.json()) as Record<string, unknown>
-              return body?.data ?? body
-            },
-            update: async (id: string, data: Record<string, unknown>) => {
-              const collection = prop
-              const response = await doFetch(`${basePath}/${collection}/${encodeURIComponent(id)}`, {
-                method: 'PUT',
-                headers: buildHeaders({ 'Content-Type': 'application/json' }),
-                body: JSON.stringify(data),
-              })
-              if (!response.ok) throw new DOProviderError(`update failed`, response.status)
-              const body = (await response.json()) as Record<string, unknown>
-              return body?.data ?? body
-            },
-            create: async (data: Record<string, unknown>) => {
-              const collection = prop
-              const response = await doFetch(`${basePath}/${collection}`, {
-                method: 'POST',
-                headers: buildHeaders({ 'Content-Type': 'application/json' }),
-                body: JSON.stringify(data),
-              })
-              if (!response.ok) throw new DOProviderError(`create failed`, response.status)
-              const body = (await response.json()) as Record<string, unknown>
-              return body?.data ?? body
-            },
-            delete: async (id: string) => {
-              const collection = prop
-              const response = await doFetch(`${basePath}/${collection}/${encodeURIComponent(id)}`, {
-                method: 'DELETE',
-                headers: buildHeaders(),
-              })
-              if (response.status === 404) return false
-              if (!response.ok) throw new DOProviderError(`delete failed`, response.status)
-              return true
-            },
-            rollback: async (id: string, toVersion: number) => {
-              const collection = prop
-              const response = await doFetch(`${basePath}/${collection}/${encodeURIComponent(id)}/rollback`, {
-                method: 'POST',
-                headers: buildHeaders({ 'Content-Type': 'application/json' }),
-                body: JSON.stringify({ toVersion }),
-              })
-              if (!response.ok) throw new DOProviderError(`rollback failed`, response.status)
-              const body = (await response.json()) as Record<string, unknown>
-              return body?.data ?? body
-            },
-          }
-        },
-      })
-    } else {
-      // Modern path: use rpc.do with capnweb
-      const rpcOptions: RPCOptions = {}
-      if (options.apiKey) {
-        rpcOptions.auth = options.apiKey
-      }
-
-      const isSecure = /^https:\/\//.test(options.endpoint)
-      const protocol = options.transport === 'ws' ? (isSecure ? 'wss' : 'ws') : isSecure ? 'https' : 'http'
-      const url = options.endpoint.replace(/^https?:\/\//, `${protocol}://`)
-      this.rpc = RPC(url, rpcOptions) as RPCProxy<Record<string, unknown>>
+    // Build capnweb URL and options
+    const rpcOptions: RPCOptions = {}
+    if (options.apiKey) {
+      rpcOptions.auth = options.apiKey
     }
+    this.rpcOptions = rpcOptions
+
+    const isSecure = /^https:\/\//.test(options.endpoint)
+    const protocol = options.transport === 'ws' ? (isSecure ? 'wss' : 'ws') : isSecure ? 'https' : 'http'
+    this.rpcUrl = options.endpoint.replace(/^https?:\/\//, `${protocol}://`)
+  }
+
+  /**
+   * Create a fresh RPC proxy for each operation.
+   * Capnweb HTTP batch sessions are one-shot — they send all collected
+   * promises in a single request on the next microtask tick, then the
+   * session ends. Sequential awaits need fresh sessions.
+   */
+  private rpc(): RPCProxy<Record<string, unknown>> {
+    return RPC(this.rpcUrl, this.rpcOptions) as RPCProxy<Record<string, unknown>>
   }
 
   async create(type: string, data: Record<string, unknown>): Promise<NounInstance> {
     const collection = toCollectionName(type)
-    const ns = this.rpc[collection] as Record<string, (...args: unknown[]) => Promise<unknown>>
+    const ns = this.rpc()[collection] as Record<string, (...args: unknown[]) => Promise<unknown>>
     const result = await ns.create(data)
     return toNounInstance(result)
   }
 
   async get(type: string, id: string): Promise<NounInstance | null> {
     const collection = toCollectionName(type)
-    const ns = this.rpc[collection] as Record<string, (...args: unknown[]) => Promise<unknown>>
+    const ns = this.rpc()[collection] as Record<string, (...args: unknown[]) => Promise<unknown>>
     const result = await ns.get(id)
     if (!result) return null
     return toNounInstance(result)
@@ -229,7 +141,7 @@ export class DONounProvider implements NounProvider {
 
   async find(type: string, where?: Record<string, unknown>): Promise<NounInstance[]> {
     const collection = toCollectionName(type)
-    const ns = this.rpc[collection] as Record<string, (...args: unknown[]) => Promise<unknown>>
+    const ns = this.rpc()[collection] as Record<string, (...args: unknown[]) => Promise<unknown>>
     const result = (await ns.find(where ?? {})) as unknown[]
     if (Array.isArray(result)) return result.map(toNounInstance)
     return []
@@ -237,14 +149,14 @@ export class DONounProvider implements NounProvider {
 
   async update(type: string, id: string, data: Record<string, unknown>): Promise<NounInstance> {
     const collection = toCollectionName(type)
-    const ns = this.rpc[collection] as Record<string, (...args: unknown[]) => Promise<unknown>>
+    const ns = this.rpc()[collection] as Record<string, (...args: unknown[]) => Promise<unknown>>
     const result = await ns.update(id, data)
     return toNounInstance(result)
   }
 
   async delete(type: string, id: string): Promise<boolean> {
     const collection = toCollectionName(type)
-    const ns = this.rpc[collection] as Record<string, (...args: unknown[]) => Promise<unknown>>
+    const ns = this.rpc()[collection] as Record<string, (...args: unknown[]) => Promise<unknown>>
     const result = await ns.delete(id)
     return result !== false
   }
@@ -256,7 +168,7 @@ export class DONounProvider implements NounProvider {
 
   async rollback(type: string, id: string, toVersion: number): Promise<NounInstance> {
     const collection = toCollectionName(type)
-    const ns = this.rpc[collection] as Record<string, (...args: unknown[]) => Promise<unknown>>
+    const ns = this.rpc()[collection] as Record<string, (...args: unknown[]) => Promise<unknown>>
     const result = await ns.rollback(id, toVersion)
     return toNounInstance(result)
   }
@@ -264,7 +176,7 @@ export class DONounProvider implements NounProvider {
   async perform(type: string, verb: string, id: string, data?: Record<string, unknown>): Promise<NounInstance> {
     // Verbs go through the entity's verb method: $.contacts.qualify('contact_abc', {...})
     const collection = toCollectionName(type)
-    const ns = this.rpc[collection] as Record<string, (...args: unknown[]) => Promise<unknown>>
+    const ns = this.rpc()[collection] as Record<string, (...args: unknown[]) => Promise<unknown>>
     const result = await ns[verb](id, data ?? {})
     return toNounInstance(result)
   }
