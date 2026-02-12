@@ -19,7 +19,7 @@ export const Project = Noun('Project', {
 export const Issue = Noun('Issue', {
   title: 'string!',
   description: 'string',
-  status: 'Open | InProgress | Review | Done | Closed',
+  status: 'Open | Assigned | InProgress | Review | Done | Closed | Reopened',
   priority: 'Low | Medium | High | Urgent',
   type: 'Bug | Feature | Task | Epic',
   project: '-> Project.issues',

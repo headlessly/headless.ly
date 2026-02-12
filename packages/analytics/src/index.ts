@@ -46,7 +46,7 @@ export const Goal = Noun('Goal', {
   current: 'number',
   unit: 'string',
   period: 'Daily | Weekly | Monthly | Quarterly | Yearly',
-  status: 'OnTrack | AtRisk | Behind | Achieved | Completed | Missed',
+  status: 'OnTrack | AtRisk | Behind | Achieved | Completed | Missed | Reset',
   organization: '-> Organization',
   achieve: 'Achieved',
   complete: 'Completed',

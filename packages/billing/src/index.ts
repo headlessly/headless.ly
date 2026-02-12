@@ -60,7 +60,7 @@ export const Price = Noun('Price', {
 })
 
 export const Subscription = Noun('Subscription', {
-  status: 'Active | PastDue | Cancelled | Trialing | Paused | Incomplete',
+  status: 'Active | PastDue | Cancelled | Trialing | Paused | Incomplete | Reactivated | Upgraded | Downgraded',
   organization: '-> Organization.subscriptions',
   customer: '-> Customer.subscriptions',
   plan: '-> Plan',
@@ -100,7 +100,7 @@ export const Invoice = Noun('Invoice', {
   amountPaid: 'number',
   amountDue: 'number!',
   currency: 'string',
-  status: 'Draft | Open | Paid | Void | Uncollectible',
+  status: 'Draft | Open | Paid | Voided | Uncollectible',
   periodStart: 'datetime',
   periodEnd: 'datetime',
   issuedAt: 'datetime',
