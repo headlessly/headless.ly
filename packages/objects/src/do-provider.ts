@@ -109,9 +109,15 @@ export class DONounProvider implements NounProvider {
     }
     this.rpcOptions = rpcOptions
 
-    const isSecure = /^https:\/\//.test(options.endpoint)
+    // Ensure endpoint has /rpc suffix for capnweb transport
+    let normalizedEndpoint = options.endpoint.replace(/\/+$/, '')
+    if (!normalizedEndpoint.endsWith('/rpc')) {
+      normalizedEndpoint += '/rpc'
+    }
+
+    const isSecure = /^https:\/\//.test(normalizedEndpoint)
     const protocol = options.transport === 'ws' ? (isSecure ? 'wss' : 'ws') : isSecure ? 'https' : 'http'
-    this.rpcUrl = options.endpoint.replace(/^https?:\/\//, `${protocol}://`)
+    this.rpcUrl = normalizedEndpoint.replace(/^https?:\/\//, `${protocol}://`)
   }
 
   /**
@@ -142,8 +148,13 @@ export class DONounProvider implements NounProvider {
   async find(type: string, where?: Record<string, unknown>): Promise<NounInstance[]> {
     const collection = toCollectionName(type)
     const ns = this.rpc()[collection] as Record<string, (...args: unknown[]) => Promise<unknown>>
-    const result = (await ns.find(where ?? {})) as unknown[]
-    if (Array.isArray(result)) return result.map(toNounInstance)
+    const result = await ns.find(where ?? {})
+    // Capnweb returns { data: [...], meta: {...} } — extract the data array
+    if (result && typeof result === 'object' && 'data' in (result as Record<string, unknown>)) {
+      const items = (result as Record<string, unknown>).data as unknown[]
+      return Array.isArray(items) ? items.map(toNounInstance) : []
+    }
+    if (Array.isArray(result)) return (result as unknown[]).map(toNounInstance)
     return []
   }
 
@@ -174,10 +185,14 @@ export class DONounProvider implements NounProvider {
   }
 
   async perform(type: string, verb: string, id: string, data?: Record<string, unknown>): Promise<NounInstance> {
-    // Verbs go through the entity's verb method: $.contacts.qualify('contact_abc', {...})
+    // Verbs route through the collection's perform() method on the capnweb target
     const collection = toCollectionName(type)
     const ns = this.rpc()[collection] as Record<string, (...args: unknown[]) => Promise<unknown>>
-    const result = await ns[verb](id, data ?? {})
+    // Try collection.perform(id, verb, data) first (capnweb CollectionTarget),
+    // fall back to collection[verb](id, data) for direct verb methods
+    const result = typeof ns.perform === 'function'
+      ? await ns.perform(id, verb, data ?? {})
+      : await ns[verb](id, data ?? {})
     return toNounInstance(result)
   }
 }
