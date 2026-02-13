@@ -1,259 +1,181 @@
+'use client'
+
 /**
- * EntityDetail — Single entity view with fields, relationships, verbs, and timeline.
+ * EntityDetail — Detail panel for a single entity.
  *
- * Fetches a single entity by $type and $id, then renders all fields
- * in a clean layout with relationship links, verb action buttons,
- * and an optional event timeline sidebar.
- *
- * @example
- * ```tsx
- * import { EntityDetail } from '@headlessly/ui'
- *
- * <EntityDetail
- *   noun='Contact'
- *   id='contact_1'
- *   onNavigate={(type, id) => navigate(`/${type}/${id}`)}
- * />
- * ```
+ * Shows all fields, relationships, available verbs, and meta information.
+ * Uses schema introspection for auto-generated layout.
  */
 
-import React, { useMemo } from 'react'
+import { useMemo, useCallback } from 'react'
 import { getNounSchema } from 'digital-objects'
-import { useEntity } from './hooks/use-entity.js'
-import { deriveColumns, deriveVerbs, formatCellValue, formatLabel } from './schema-utils.js'
-import { VerbButton } from './verb-button.js'
-import { EntityTimeline } from './entity-timeline.js'
-import { detailStyles, buttonStyles } from './styles.js'
-import type { NounInstance, StylableProps, NounSchema, VerbAction } from './types.js'
+import { useEntity, useVerb } from '@headlessly/react'
+import { deriveVerbs, deriveRelationships, formatLabel, formatCellValue } from './schema-utils.js'
 
-export interface EntityDetailProps extends StylableProps {
-  /** The noun name (e.g. 'Contact', 'Deal') */
+export interface EntityDetailProps {
+  /** Entity type name (e.g. 'Contact') */
   noun: string
-  /** Pass schema directly instead of registry lookup */
-  schema?: NounSchema
-  /** The entity $id to fetch and display */
+  /** Entity ID */
   id: string
-  /** Pre-loaded entity (skips fetch if provided) */
-  entity?: NounInstance
-  /** Called when a relationship link is clicked */
-  onNavigate?: (type: string, id: string) => void
-  /** Called when edit is clicked */
-  onEdit?: (entity: NounInstance) => void
-  /** Called when delete is clicked */
-  onDelete?: (entity: NounInstance) => void
-  /** Called after a verb is successfully executed */
-  onVerbSuccess?: (verb: string, entity: NounInstance) => void
-  /** Whether to show the event timeline (default: true) */
-  showTimeline?: boolean
-  /** Whether to show verb action buttons (default: true) */
-  showVerbs?: boolean
-  /** Fields to exclude from the display */
-  excludeFields?: string[]
+  /** Callback when a relationship link is clicked */
+  onNavigate?: (targetNoun: string, targetId: string) => void
+  /** Callback when edit is requested */
+  onEdit?: (noun: string, id: string) => void
+  /** Optional className */
+  className?: string
 }
 
-export function EntityDetail({
-  noun,
-  schema: schemaProp,
-  id,
-  entity: entityProp,
-  onNavigate,
-  onEdit,
-  onDelete,
-  onVerbSuccess,
-  showTimeline = true,
-  showVerbs = true,
-  excludeFields,
-  className,
-  style,
-}: EntityDetailProps) {
-  const schema = schemaProp ?? getNounSchema(noun)
-  const { entity: fetchedEntity, loading, error, refetch } = useEntity(noun, id, { skip: !!entityProp })
-  const entity = entityProp ?? fetchedEntity
+export function EntityDetail({ noun, id, onNavigate, onEdit, className }: EntityDetailProps) {
+  const schema = getNounSchema(noun)
+  const { data: entity, loading, error, refetch } = useEntity(noun, id)
 
-  const columns = useMemo(() => {
-    if (!schema) return []
-    const cols = deriveColumns(schema)
-    return excludeFields ? cols.filter((c) => !excludeFields.includes(c.key)) : cols
-  }, [schema, excludeFields])
-
-  const verbs = useMemo<VerbAction[]>(() => {
-    if (!schema) return []
-    return deriveVerbs(schema)
-  }, [schema])
+  const verbs = useMemo(() => (schema ? deriveVerbs(schema) : []), [schema])
+  const relationships = useMemo(() => (schema ? deriveRelationships(schema) : []), [schema])
 
   if (!schema) {
-    return (
-      <div style={{ ...detailStyles.wrapper, ...(style ?? {}) }} className={className}>
-        <p style={{ color: 'var(--hly-text-muted, #6b7280)' }}>Unknown noun: {noun}. Register it with Noun() first.</p>
-      </div>
-    )
+    return <div className={className}>Unknown entity: {noun}</div>
   }
 
-  if (loading && !entity) {
-    return (
-      <div style={{ ...detailStyles.wrapper, ...(style ?? {}) }} className={className}>
-        <p style={{ color: 'var(--hly-text-muted, #6b7280)' }}>Loading...</p>
-      </div>
-    )
+  if (loading) {
+    return <div className={className}>Loading...</div>
   }
 
   if (error) {
-    return (
-      <div style={{ ...detailStyles.wrapper, ...(style ?? {}) }} className={className}>
-        <p style={{ color: 'var(--hly-danger, #dc2626)' }}>Error: {error.message}</p>
-        <button style={{ ...buttonStyles.base, ...buttonStyles.secondary }} onClick={() => refetch()}>
-          Retry
-        </button>
-      </div>
-    )
+    return <div className={className}>Error: {error.message}</div>
   }
 
   if (!entity) {
-    return (
-      <div style={{ ...detailStyles.wrapper, ...(style ?? {}) }} className={className}>
-        <p style={{ color: 'var(--hly-text-muted, #6b7280)' }}>
-          {noun} not found: {id}
-        </p>
-      </div>
-    )
+    return <div className={className}>{schema.name} not found</div>
   }
 
-  // Separate fields, relationships, and meta
-  const dataFields = columns.filter((c) => c.kind === 'field')
-  const relationshipFields = columns.filter((c) => c.kind === 'relationship')
-  const metaFields = columns.filter((c) => c.kind === 'meta')
+  const entityData = entity as Record<string, unknown>
 
   return (
-    <div style={{ ...detailStyles.wrapper, ...(style ?? {}) }} className={className} data-testid='entity-detail'>
+    <div className={`space-y-6 ${className ?? ''}`}>
       {/* Header */}
-      <div style={detailStyles.header}>
+      <div className="flex items-center justify-between">
         <div>
-          <h2 style={detailStyles.title} data-testid='entity-detail-title'>
-            {String(entity.name ?? entity.title ?? entity.$id)}
-          </h2>
-          <span style={{ fontSize: '13px', color: 'var(--hly-text-muted, #6b7280)' }}>
-            {entity.$type} &middot; {entity.$id}
-          </span>
+          <h2 className="text-lg font-semibold">{schema.name}</h2>
+          <p className="text-sm text-muted-foreground">{String(entityData.$id)}</p>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div className="flex gap-2">
           {onEdit && (
-            <button style={{ ...buttonStyles.base, ...buttonStyles.secondary }} onClick={() => onEdit(entity)}>
+            <button onClick={() => onEdit(noun, id)} className="rounded-md border px-3 py-1.5 text-sm">
               Edit
             </button>
           )}
-          {onDelete && (
-            <button style={{ ...buttonStyles.base, ...buttonStyles.danger }} onClick={() => onDelete(entity)}>
-              Delete
-            </button>
-          )}
+          <button onClick={refetch} className="rounded-md border px-3 py-1.5 text-sm">
+            Refresh
+          </button>
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '32px' }}>
-        {/* Main content */}
-        <div style={{ flex: 1 }}>
-          {/* Data fields */}
-          {dataFields.length > 0 && (
-            <div style={detailStyles.section}>
-              <h3 style={detailStyles.sectionTitle}>Fields</h3>
-              <div style={detailStyles.fieldGrid}>
-                {dataFields.map((col) => (
-                  <div key={col.key}>
-                    <div style={detailStyles.fieldLabel}>{col.label}</div>
-                    <div style={detailStyles.fieldValue}>
-                      {col.enumValues && entity[col.key] ? (
-                        <span style={detailStyles.badge}>{String(entity[col.key])}</span>
-                      ) : (
-                        formatCellValue(entity[col.key], col.type)
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+      {/* Fields */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Fields</h3>
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
+          {Array.from(schema.fields).map(([key, prop]) => (
+            <div key={key}>
+              <dt className="text-sm text-muted-foreground">{formatLabel(key)}</dt>
+              <dd className="text-sm font-medium">{formatCellValue(entityData[key], prop.type)}</dd>
             </div>
-          )}
+          ))}
+        </dl>
+      </div>
 
-          {/* Relationships */}
-          {relationshipFields.length > 0 && (
-            <div style={detailStyles.section}>
-              <h3 style={detailStyles.sectionTitle}>Relationships</h3>
-              <div style={detailStyles.fieldGrid}>
-                {relationshipFields.map((col) => {
-                  const val = entity[col.key]
-                  const ids = Array.isArray(val) ? val : val ? [val] : []
-                  return (
-                    <div key={col.key}>
-                      <div style={detailStyles.fieldLabel}>{col.label}</div>
-                      <div style={detailStyles.fieldValue}>
-                        {ids.length === 0
-                          ? '\u2014'
-                          : ids.map((relId: unknown, i: number) => (
-                              <span key={i}>
-                                {i > 0 && ', '}
-                                <span
-                                  style={onNavigate ? detailStyles.link : {}}
-                                  onClick={() => onNavigate?.(col.type ?? noun, String(relId))}
-                                  role={onNavigate ? 'link' : undefined}
-                                >
-                                  {String(relId)}
-                                </span>
-                              </span>
-                            ))}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Custom verbs */}
-          {showVerbs && verbs.length > 0 && (
-            <div style={detailStyles.section}>
-              <h3 style={detailStyles.sectionTitle}>Actions</h3>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {verbs.map((verb) => (
-                  <VerbButton
-                    key={verb.name}
-                    noun={noun}
-                    entityId={entity.$id}
-                    verb={verb.name}
-                    label={verb.label}
-                    onSuccess={(result) => {
-                      refetch()
-                      onVerbSuccess?.(verb.name, result)
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Meta */}
-          <div style={detailStyles.section}>
-            <h3 style={detailStyles.sectionTitle}>Metadata</h3>
-            <div style={detailStyles.fieldGrid}>
-              {metaFields.map((col) => (
-                <div key={col.key}>
-                  <div style={detailStyles.fieldLabel}>{col.label}</div>
-                  <div style={detailStyles.fieldValue}>{formatCellValue(entity[col.key], col.type)}</div>
+      {/* Relationships */}
+      {relationships.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Relationships</h3>
+          <div className="space-y-2">
+            {relationships.map((rel) => {
+              const value = entityData[rel.key]
+              return (
+                <div key={rel.key} className="flex items-center justify-between py-1">
+                  <span className="text-sm text-muted-foreground">{formatLabel(rel.key)}</span>
+                  <span className="text-sm">
+                    {value ? (
+                      <button
+                        onClick={() => onNavigate?.(rel.targetType, String(value))}
+                        className="text-primary underline-offset-2 hover:underline"
+                      >
+                        {String(value)}
+                      </button>
+                    ) : (
+                      <span className="text-muted-foreground">{'\u2014'}</span>
+                    )}
+                  </span>
                 </div>
-              ))}
-              <div>
-                <div style={detailStyles.fieldLabel}>Version</div>
-                <div style={detailStyles.fieldValue}>{entity.$version ?? '\u2014'}</div>
-              </div>
-            </div>
+              )
+            })}
           </div>
         </div>
+      )}
 
-        {/* Timeline sidebar */}
-        {showTimeline && (
-          <div style={{ width: '320px', flexShrink: 0 }}>
-            <EntityTimeline entityId={entity.$id} />
+      {/* Verbs */}
+      {verbs.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Actions</h3>
+          <div className="flex flex-wrap gap-2">
+            {verbs.map((verb) => (
+              <VerbActionButton key={verb.name} noun={noun} id={id} verb={verb.name} label={verb.label} onComplete={refetch} />
+            ))}
           </div>
-        )}
+        </div>
+      )}
+
+      {/* Meta */}
+      <div className="space-y-3 border-t pt-4">
+        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Meta</h3>
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+          <div>
+            <dt className="text-muted-foreground">Type</dt>
+            <dd className="font-mono">{String(entityData.$type ?? noun)}</dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">Version</dt>
+            <dd>{String(entityData.$version ?? 1)}</dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">Created</dt>
+            <dd>{formatCellValue(entityData.$createdAt, 'datetime')}</dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">Updated</dt>
+            <dd>{formatCellValue(entityData.$updatedAt, 'datetime')}</dd>
+          </div>
+        </dl>
       </div>
     </div>
+  )
+}
+
+/**
+ * Internal verb action button with loading state.
+ */
+function VerbActionButton({
+  noun,
+  id,
+  verb,
+  label,
+  onComplete,
+}: {
+  noun: string
+  id: string
+  verb: string
+  label: string
+  onComplete?: () => void
+}) {
+  const { execute, loading } = useVerb(noun, verb)
+
+  const handleClick = useCallback(async () => {
+    await execute(id)
+    onComplete?.()
+  }, [execute, id, onComplete])
+
+  return (
+    <button onClick={handleClick} disabled={loading} className="rounded-md border px-3 py-1.5 text-sm disabled:opacity-50">
+      {loading ? `${label}...` : label}
+    </button>
   )
 }

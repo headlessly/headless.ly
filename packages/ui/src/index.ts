@@ -1,50 +1,29 @@
 /**
  * @headlessly/ui — Schema-driven React CRUD components for headless.ly entities.
  *
- * Components read from NounSchema to auto-generate tables, forms, detail views,
- * timelines, dashboards, search bars, verb buttons, and relationship graphs.
+ * Thin wiring layer: @mdxui/admin for rendering + @headlessly/react for data + digital-objects for schema.
  *
  * @example
  * ```tsx
- * import { HeadlessUIProvider, EntityTable, EntityForm, Dashboard } from '@headlessly/ui'
- * import { Noun } from 'digital-objects'
+ * import { HeadlesslyProvider } from '@headlessly/react'
+ * import { HeadlessAdmin } from '@headlessly/ui'
  *
- * const Contact = Noun('Contact', {
- *   name: 'string!',
- *   email: 'string?#',
- *   stage: 'Lead | Qualified | Customer',
- * })
- *
- * function App() {
- *   return (
- *     <HeadlessUIProvider config={{ baseUrl: 'https://db.headless.ly' }}>
- *       <EntityTable noun='Contact' />
- *     </HeadlessUIProvider>
- *   )
- * }
+ * <HeadlesslyProvider tenant="acme" apiKey="hly_sk_xxx">
+ *   <HeadlessAdmin />
+ * </HeadlesslyProvider>
  * ```
  */
 
-// Provider
-export { HeadlessUIProvider, useHeadlessUI, type HeadlessUIProviderProps, type HeadlessUIContextValue } from './provider.js'
-
-// Components
-export { EntityTable, type EntityTableProps } from './entity-table.js'
+// Core components
+export { HeadlessAdmin, type HeadlessAdminProps } from './headless-admin.js'
+export { EntityGrid, type EntityGridProps } from './entity-grid.js'
 export { EntityForm, type EntityFormProps } from './entity-form.js'
 export { EntityDetail, type EntityDetailProps } from './entity-detail.js'
-export { EntityTimeline, type EntityTimelineProps } from './entity-timeline.js'
-export { Dashboard, type DashboardProps } from './dashboard.js'
-export { SearchBar, type SearchBarProps } from './search-bar.js'
-export { VerbButton, type VerbButtonProps } from './verb-button.js'
-export { RelationshipGraph, type RelationshipGraphProps } from './relationship-graph.js'
 
-// Hooks
-export { useEntity, type UseEntityOptions, type UseEntityResult } from './hooks/use-entity.js'
-export { useEntities, type UseEntitiesOptions, type UseEntitiesResult } from './hooks/use-entities.js'
-export { useSearch, type UseSearchOptions, type UseSearchResult, type SearchResult } from './hooks/use-search.js'
-export { useRealtime, type UseRealtimeOptions, type UseRealtimeResult } from './hooks/use-realtime.js'
+// Schema bridge (NounSchema → DatabaseColumnDef[])
+export { nounToColumns, nounToSchemas, domainForEntity, getColumnsForNoun, domains } from './schema-bridge.js'
 
-// Schema utilities
+// Schema utilities (kept from original)
 export {
   deriveColumns,
   deriveFormFields,
@@ -64,25 +43,41 @@ export {
   isRequired,
   formatLabel,
   formatCellValue,
+  type ColumnDef,
+  type VerbAction,
 } from './schema-utils.js'
 
-// Types
-export type {
-  HeadlessUIConfig,
-  PaginatedResult,
-  SortDirection,
-  SortState,
-  FieldFilter,
-  EntityQuery,
-  EntityEvent,
-  DashboardCard,
-  DashboardLayout,
-  ColumnDef,
-  StylableProps,
-  VerbAction,
-  GraphNode,
-  GraphEdge,
-} from './types.js'
+// Re-export @mdxui/admin components for direct use
+export {
+  DatabaseGrid,
+  DatabaseSidebar,
+  TableEditorToolbar,
+  type DatabaseGridProps,
+  type DatabaseColumnDef,
+  type ColumnDataType,
+  type DatabaseSidebarProps,
+  type DatabaseSchema,
+  type DatabaseTable,
+  type TableEditorToolbarProps,
+  type FilterCondition,
+  type RowHeightPreset,
+} from '@mdxui/admin'
 
-// Re-export NounSchema types for convenience
-export type { NounSchema, ParsedProperty, VerbConjugation, NounInstance, FieldModifiers } from './types.js'
+// Re-export @headlessly/react hooks (so users don't need both packages)
+export {
+  HeadlesslyProvider,
+  useEntity,
+  useEntities,
+  useMutation,
+  useVerb,
+  useSearch,
+  useCreate,
+  useUpdate,
+  useDelete,
+  useRealtime,
+  useEvents,
+} from '@headlessly/react'
+
+// Re-export digital-objects types for convenience
+export type { NounSchema, NounInstance, ParsedProperty, VerbConjugation, FieldModifiers } from 'digital-objects'
+export { getNounSchema, getAllNouns } from 'digital-objects'

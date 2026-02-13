@@ -43,6 +43,8 @@ export default defineConfig({
       // Specialized
       '@headlessly/cli': resolve(packages, 'cli/src/index.ts'),
       '@headlessly/code': resolve(packages, 'code/src/index.ts'),
+      // UI framework
+      '@mdxui/admin': resolve(root, '.studio/ui/packages/admin/src/index.ts'),
       // External npm dependencies resolved through the monorepo
       'rpc.do/errors': resolve(root, 'public/packages/sdk/node_modules/rpc.do/dist/errors.js'),
       'rpc.do/transports': resolve(root, 'public/packages/sdk/node_modules/rpc.do/dist/transports.js'),

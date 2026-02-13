@@ -5,7 +5,32 @@
  * and the column/field definitions the UI components need.
  */
 
-import type { NounSchema, ParsedProperty, VerbConjugation, ColumnDef, VerbAction } from './types.js'
+import type { NounSchema, ParsedProperty, VerbConjugation, FieldModifiers } from 'digital-objects'
+
+/**
+ * Column definition derived from schema fields.
+ * Used by EntityTable and other list components.
+ */
+export interface ColumnDef {
+  key: string
+  label: string
+  kind: 'field' | 'relationship' | 'meta'
+  type?: string
+  sortable: boolean
+  filterable: boolean
+  enumValues?: string[]
+  modifiers?: FieldModifiers
+}
+
+/**
+ * Verb action that can be performed on an entity.
+ */
+export interface VerbAction {
+  name: string
+  label: string
+  conjugation: VerbConjugation
+  disabled?: boolean
+}
 
 /**
  * Meta-field keys that exist on every entity.

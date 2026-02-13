@@ -1,280 +1,171 @@
+'use client'
+
 /**
- * EntityForm — Create/edit form auto-generated from NounSchema.
+ * EntityForm — Schema-driven create/edit form for a single entity.
  *
- * Reads schema fields to produce the correct input types:
- * string -> text input, enum -> select, boolean -> checkbox, datetime -> date picker.
- * Required fields marked with *, relationship fields use a text input for entity ID.
- *
- * @example
- * ```tsx
- * import { EntityForm } from '@headlessly/ui'
- *
- * // Create mode
- * <EntityForm noun='Contact' onSubmit={(data) => console.log(data)} />
- *
- * // Edit mode
- * <EntityForm noun='Contact' entity={existingContact} onSubmit={(data) => console.log(data)} />
- * ```
+ * Uses digital-objects schema introspection to auto-generate form fields
+ * and @headlessly/react hooks for data operations.
  */
 
-import React, { useState, useCallback, useMemo } from 'react'
-import { getNounSchema } from 'digital-objects'
-import { useHeadlessUI } from './provider.js'
-import { deriveFormFields, fieldInputType, isRequired, formatLabel } from './schema-utils.js'
-import { formStyles, buttonStyles } from './styles.js'
-import type { NounInstance, ParsedProperty, StylableProps, NounSchema } from './types.js'
+import { useState, useMemo, useCallback, type FormEvent } from 'react'
+import { getNounSchema, type NounInstance } from 'digital-objects'
+import { useEntity, useCreate, useUpdate } from '@headlessly/react'
+import { deriveFormFields, deriveDefaultValues, validateFormData, fieldInputType, formatLabel, isRequired } from './schema-utils.js'
 
-export interface EntityFormProps extends StylableProps {
-  /** The noun name (e.g. 'Contact', 'Deal') */
+export interface EntityFormProps {
+  /** Entity type name (e.g. 'Contact') */
   noun: string
-  /** Pass schema directly instead of registry lookup */
-  schema?: NounSchema
-  /** Existing entity for edit mode. If omitted, renders in create mode */
-  entity?: NounInstance | null
-  /** Called on successful submit with the form data */
-  onSubmit?: (data: Record<string, unknown>) => void | Promise<void>
-  /** Called after a successful create/update operation with the resulting entity */
-  onSuccess?: (entity: NounInstance) => void
-  /** Called on error */
-  onError?: (error: Error) => void
-  /** Called when cancel is clicked */
+  /** Entity ID for edit mode. If omitted, renders in create mode. */
+  id?: string
+  /** Callback after successful submit */
+  onSubmit?: (entity: NounInstance) => void
+  /** Callback when cancel is clicked */
   onCancel?: () => void
-  /** Fields to exclude from the form */
-  excludeFields?: string[]
-  /** Fields to include (if set, only these fields are shown) */
-  includeFields?: string[]
-  /** Custom field renderer */
-  renderField?: (field: ParsedProperty, value: unknown, onChange: (value: unknown) => void) => React.ReactNode
-  /** Whether to auto-submit to the API (default: true) */
-  autoSubmit?: boolean
-  /** Submit button label (default: 'Create' or 'Update') */
-  submitLabel?: string
+  /** Optional className */
+  className?: string
 }
 
-export function EntityForm({
-  noun,
-  schema: schemaProp,
-  entity,
-  onSubmit,
-  onSuccess,
-  onError,
-  onCancel,
-  excludeFields,
-  includeFields,
-  renderField,
-  autoSubmit = true,
-  submitLabel,
-  className,
-  style,
-}: EntityFormProps) {
-  const schema = schemaProp ?? getNounSchema(noun)
-  const { createEntity, updateEntity } = useHeadlessUI()
-  const isEdit = !!entity
+export function EntityForm({ noun, id, onSubmit, onCancel, className }: EntityFormProps) {
+  const schema = getNounSchema(noun)
+  const fields = useMemo(() => (schema ? deriveFormFields(schema) : []), [schema])
+  const defaults = useMemo(() => (schema ? deriveDefaultValues(schema) : {}), [schema])
 
-  // Initialize form values from entity or empty
-  const initialValues = useMemo(() => {
-    const values: Record<string, unknown> = {}
-    if (!schema) return values
-    for (const field of deriveFormFields(schema)) {
-      values[field.name] = entity?.[field.name] ?? ''
-    }
-    return values
-  }, [schema, entity])
+  // Load existing entity in edit mode
+  const { data: existing, loading: loadingEntity } = useEntity(noun, id ?? '', { include: [] })
+  const { create, loading: creating } = useCreate(noun)
+  const { update, loading: updating } = useUpdate(noun)
 
-  const [values, setValues] = useState<Record<string, unknown>>(initialValues)
+  const isEdit = !!id
+  const initialValues = isEdit && existing ? (existing as Record<string, unknown>) : defaults
+  const [formData, setFormData] = useState<Record<string, unknown>>(initialValues)
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [submitting, setSubmitting] = useState(false)
-  const [submitError, setSubmitError] = useState<string | null>(null)
 
-  // Derive displayable fields
-  const fields = useMemo(() => {
-    if (!schema) return []
-    let f = deriveFormFields(schema)
-    if (includeFields) {
-      f = f.filter((p) => includeFields.includes(p.name))
+  // Sync form data when existing entity loads
+  useMemo(() => {
+    if (isEdit && existing) {
+      setFormData(existing as Record<string, unknown>)
     }
-    if (excludeFields) {
-      f = f.filter((p) => !excludeFields.includes(p.name))
-    }
-    return f
-  }, [schema, includeFields, excludeFields])
+  }, [isEdit, existing])
 
-  const handleChange = useCallback((name: string, value: unknown) => {
-    setValues((prev) => ({ ...prev, [name]: value }))
+  const handleChange = useCallback((key: string, value: unknown) => {
+    setFormData((prev) => ({ ...prev, [key]: value }))
     setErrors((prev) => {
       const next = { ...prev }
-      delete next[name]
+      delete next[key]
       return next
     })
   }, [])
 
-  const validate = useCallback((): boolean => {
-    const errs: Record<string, string> = {}
-    for (const field of fields) {
-      if (isRequired(field)) {
-        const val = values[field.name]
-        if (val === '' || val === null || val === undefined) {
-          errs[field.name] = `${formatLabel(field.name)} is required`
-        }
-      }
-    }
-    setErrors(errs)
-    return Object.keys(errs).length === 0
-  }, [fields, values])
-
   const handleSubmit = useCallback(
-    async (e: React.FormEvent) => {
+    async (e: FormEvent) => {
       e.preventDefault()
-      if (!validate()) return
+      if (!schema) return
 
-      // Clean up empty strings to undefined
-      const data: Record<string, unknown> = {}
-      for (const [key, val] of Object.entries(values)) {
-        if (val !== '' && val !== undefined) {
-          data[key] = val
+      const validationErrors = validateFormData(schema, formData)
+      if (Object.keys(validationErrors).length > 0) {
+        setErrors(validationErrors)
+        return
+      }
+
+      // Strip meta-fields from form data for submission
+      const submitData: Record<string, unknown> = {}
+      for (const [key, value] of Object.entries(formData)) {
+        if (!key.startsWith('$')) {
+          submitData[key] = value
         }
       }
 
-      // Call custom onSubmit
-      if (onSubmit) {
-        try {
-          await onSubmit(data)
-        } catch (err) {
-          const error = err instanceof Error ? err : new Error(String(err))
-          onError?.(error)
-          setSubmitError(error.message)
-          return
-        }
-      }
-
-      // Auto-submit to API
-      if (autoSubmit) {
-        setSubmitting(true)
-        setSubmitError(null)
-        try {
-          const result = isEdit ? await updateEntity(noun, entity!.$id, data) : await createEntity(noun, data)
-          onSuccess?.(result)
-        } catch (err) {
-          const error = err instanceof Error ? err : new Error(String(err))
-          onError?.(error)
-          setSubmitError(error.message)
-        } finally {
-          setSubmitting(false)
-        }
+      if (isEdit && id) {
+        const result = await update(id, submitData)
+        if (result) onSubmit?.(result as NounInstance)
+      } else {
+        const result = await create(submitData)
+        if (result) onSubmit?.(result as NounInstance)
       }
     },
-    [values, validate, onSubmit, autoSubmit, isEdit, noun, entity, createEntity, updateEntity, onSuccess, onError],
+    [schema, formData, isEdit, id, create, update, onSubmit],
   )
 
   if (!schema) {
-    return (
-      <div style={{ ...formStyles.form, ...(style ?? {}) }} className={className}>
-        <p style={{ color: 'var(--hly-text-muted, #6b7280)' }}>Unknown noun: {noun}. Register it with Noun() first.</p>
-      </div>
-    )
+    return <div className={className}>Unknown entity: {noun}</div>
   }
 
+  if (isEdit && loadingEntity) {
+    return <div className={className}>Loading...</div>
+  }
+
+  const isSubmitting = creating || updating
+
   return (
-    <form style={{ ...formStyles.form, ...(style ?? {}) }} className={className} onSubmit={handleSubmit} data-testid='entity-form'>
+    <form onSubmit={handleSubmit} className={`space-y-4 ${className ?? ''}`}>
+      <h2 className="text-lg font-semibold">
+        {isEdit ? `Edit ${schema.name}` : `Create ${schema.name}`}
+      </h2>
+
       {fields.map((field) => {
         const inputType = fieldInputType(field)
         const required = isRequired(field)
-        const value = values[field.name]
+        const value = formData[field.name] ?? ''
+        const error = errors[field.name]
 
-        // Custom renderer
-        if (renderField) {
-          const custom = renderField(field, value, (v) => handleChange(field.name, v))
-          if (custom !== undefined) return <React.Fragment key={field.name}>{custom}</React.Fragment>
-        }
+        return (
+          <div key={field.name} className="space-y-1">
+            <label className="block text-sm font-medium">
+              {formatLabel(field.name)}
+              {required && <span className="text-destructive ml-1">*</span>}
+            </label>
 
-        if (inputType === 'checkbox') {
-          return (
-            <div key={field.name} style={formStyles.fieldGroup}>
-              <div style={formStyles.checkboxGroup}>
-                <input
-                  type='checkbox'
-                  id={`field-${field.name}`}
-                  style={formStyles.checkbox}
-                  checked={!!value}
-                  onChange={(e) => handleChange(field.name, e.target.checked)}
-                  aria-label={formatLabel(field.name)}
-                />
-                <label htmlFor={`field-${field.name}`} style={formStyles.label}>
-                  {formatLabel(field.name)}
-                </label>
-              </div>
-              {errors[field.name] && <span style={formStyles.error}>{errors[field.name]}</span>}
-            </div>
-          )
-        }
-
-        if (inputType === 'select' && field.enumValues) {
-          return (
-            <div key={field.name} style={formStyles.fieldGroup}>
-              <label htmlFor={`field-${field.name}`} style={formStyles.label}>
-                {formatLabel(field.name)}
-                {required && <span style={formStyles.required}>*</span>}
-              </label>
+            {inputType === 'select' && field.enumValues ? (
               <select
-                id={`field-${field.name}`}
-                style={formStyles.select}
-                value={String(value ?? '')}
+                value={String(value)}
                 onChange={(e) => handleChange(field.name, e.target.value)}
-                required={required}
-                aria-label={formatLabel(field.name)}
+                className="w-full rounded-md border px-3 py-2 text-sm"
               >
-                <option value=''>Select {formatLabel(field.name)}...</option>
-                {field.enumValues.map((v: string) => (
+                {!required && <option value="">—</option>}
+                {field.enumValues.map((v) => (
                   <option key={v} value={v}>
                     {v}
                   </option>
                 ))}
               </select>
-              {errors[field.name] && <span style={formStyles.error}>{errors[field.name]}</span>}
-            </div>
-          )
-        }
+            ) : inputType === 'checkbox' ? (
+              <input
+                type="checkbox"
+                checked={!!value}
+                onChange={(e) => handleChange(field.name, e.target.checked)}
+                className="rounded border"
+              />
+            ) : inputType === 'textarea' ? (
+              <textarea
+                value={String(value)}
+                onChange={(e) => handleChange(field.name, e.target.value)}
+                className="w-full rounded-md border px-3 py-2 text-sm"
+                rows={4}
+              />
+            ) : (
+              <input
+                type={inputType}
+                value={String(value)}
+                onChange={(e) => handleChange(field.name, inputType === 'number' ? Number(e.target.value) : e.target.value)}
+                required={required}
+                className="w-full rounded-md border px-3 py-2 text-sm"
+              />
+            )}
 
-        return (
-          <div key={field.name} style={formStyles.fieldGroup}>
-            <label htmlFor={`field-${field.name}`} style={formStyles.label}>
-              {formatLabel(field.name)}
-              {required && <span style={formStyles.required}>*</span>}
-            </label>
-            <input
-              type={inputType}
-              id={`field-${field.name}`}
-              style={formStyles.input}
-              value={String(value ?? '')}
-              onChange={(e) => handleChange(field.name, inputType === 'number' ? Number(e.target.value) : e.target.value)}
-              required={required}
-              aria-label={formatLabel(field.name)}
-            />
-            {errors[field.name] && <span style={formStyles.error}>{errors[field.name]}</span>}
+            {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
         )
       })}
 
-      {submitError && (
-        <div style={formStyles.error} data-testid='form-error'>
-          {submitError}
-        </div>
-      )}
-
-      <div style={formStyles.actions}>
+      <div className="flex gap-2 pt-2">
+        <button type="submit" disabled={isSubmitting} className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50">
+          {isSubmitting ? 'Saving...' : isEdit ? 'Update' : 'Create'}
+        </button>
         {onCancel && (
-          <button type='button' style={{ ...buttonStyles.base, ...buttonStyles.secondary }} onClick={onCancel}>
+          <button type="button" onClick={onCancel} className="rounded-md border px-4 py-2 text-sm">
             Cancel
           </button>
         )}
-        <button
-          type='submit'
-          style={{ ...buttonStyles.base, ...buttonStyles.primary, ...(submitting ? buttonStyles.loading : {}) }}
-          disabled={submitting}
-          data-testid='form-submit'
-        >
-          {submitting ? 'Saving...' : (submitLabel ?? (isEdit ? 'Update' : 'Create'))}
-        </button>
       </div>
     </form>
   )

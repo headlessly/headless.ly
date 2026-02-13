@@ -322,46 +322,65 @@ describe('@headlessly/ui — component & schema tests (RED)', () => {
   })
 
   // ---------------------------------------------------------------------------
-  // 8. Component Exports — verify all exports
+  // 8. Component Exports — verify all exports (v2: @mdxui/admin + @headlessly/react)
   // ---------------------------------------------------------------------------
   describe('package exports', () => {
-    it('exports all 8 components from index', async () => {
+    it('exports core components from index', async () => {
       const mod = await import('../src/index')
-      expect(mod.EntityTable).toBeDefined()
+      expect(mod.HeadlessAdmin).toBeDefined()
+      expect(mod.EntityGrid).toBeDefined()
       expect(mod.EntityForm).toBeDefined()
       expect(mod.EntityDetail).toBeDefined()
-      expect(mod.EntityTimeline).toBeDefined()
-      expect(mod.Dashboard).toBeDefined()
-      expect(mod.SearchBar).toBeDefined()
-      expect(mod.VerbButton).toBeDefined()
-      expect(mod.RelationshipGraph).toBeDefined()
     })
 
-    it('exports all 4 hooks from index', async () => {
+    it('exports re-exported @headlessly/react hooks from index', async () => {
       const mod = await import('../src/index')
       expect(mod.useEntity).toBeDefined()
       expect(mod.useEntities).toBeDefined()
       expect(mod.useSearch).toBeDefined()
       expect(mod.useRealtime).toBeDefined()
+      expect(mod.useMutation).toBeDefined()
+      expect(mod.useVerb).toBeDefined()
+      expect(mod.useCreate).toBeDefined()
+      expect(mod.useUpdate).toBeDefined()
+      expect(mod.useDelete).toBeDefined()
+      expect(mod.useEvents).toBeDefined()
     })
 
-    it('exports HeadlessUIProvider from index', async () => {
+    it('exports HeadlesslyProvider from index', async () => {
       const mod = await import('../src/index')
-      expect(mod.HeadlessUIProvider).toBeDefined()
+      expect(mod.HeadlesslyProvider).toBeDefined()
     })
 
-    it('exports useHeadlessUI context hook from index', async () => {
+    it('exports schema bridge functions from index', async () => {
       const mod = await import('../src/index')
-      expect(mod.useHeadlessUI).toBeDefined()
+      expect(mod.nounToColumns).toBeDefined()
+      expect(mod.nounToSchemas).toBeDefined()
+      expect(mod.domainForEntity).toBeDefined()
+      expect(mod.getColumnsForNoun).toBeDefined()
+      expect(mod.domains).toBeDefined()
     })
 
-    it('exports NEW schema utils (deriveFilterableColumns, deriveSortableColumns, deriveEntityTitle, validateFormData, columnsByKind) from index (RED)', async () => {
+    it('exports schema utils functions from index', async () => {
       const mod = await import('../src/index')
       expect(mod.deriveFilterableColumns).toBeDefined()
       expect(mod.deriveSortableColumns).toBeDefined()
       expect(mod.deriveEntityTitle).toBeDefined()
       expect(mod.validateFormData).toBeDefined()
       expect(mod.columnsByKind).toBeDefined()
+    })
+
+    it('exports re-exported @mdxui/admin components from index', async () => {
+      const mod = await import('../src/index')
+      expect(mod.DatabaseGrid).toBeDefined()
+      expect(mod.DatabaseSidebar).toBeDefined()
+      expect(mod.TableEditorToolbar).toBeDefined()
+    })
+
+    it('exports digital-objects utilities from index', async () => {
+      const mod = await import('../src/index')
+      expect(mod.getNounSchema).toBeDefined()
+      expect(mod.getAllNouns).toBeDefined()
     })
   })
 

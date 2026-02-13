@@ -888,97 +888,39 @@ describe('@headlessly/ui — deep v2 tests', () => {
   })
 
   // =========================================================================
-  // SECTION P: Styles module exports
+  // SECTION P: Schema bridge exports (replaced old styles module)
   // =========================================================================
-  describe('styles module exports', () => {
-    it('exports tableStyles with expected keys', async () => {
-      const mod = await import('../src/styles')
-      expect(mod.tableStyles).toBeDefined()
-      expect(mod.tableStyles.wrapper).toBeDefined()
-      expect(mod.tableStyles.table).toBeDefined()
-      expect(mod.tableStyles.th).toBeDefined()
-      expect(mod.tableStyles.td).toBeDefined()
-      expect(mod.tableStyles.tr).toBeDefined()
-      expect(mod.tableStyles.pagination).toBeDefined()
+  describe('schema-bridge exports', () => {
+    it('exports nounToColumns from schema-bridge', async () => {
+      const mod = await import('../src/schema-bridge')
+      expect(mod.nounToColumns).toBeDefined()
+      expect(typeof mod.nounToColumns).toBe('function')
     })
 
-    it('exports formStyles with expected keys', async () => {
-      const mod = await import('../src/styles')
-      expect(mod.formStyles).toBeDefined()
-      expect(mod.formStyles.form).toBeDefined()
-      expect(mod.formStyles.fieldGroup).toBeDefined()
-      expect(mod.formStyles.label).toBeDefined()
-      expect(mod.formStyles.input).toBeDefined()
-      expect(mod.formStyles.select).toBeDefined()
-      expect(mod.formStyles.error).toBeDefined()
+    it('exports nounToSchemas from schema-bridge', async () => {
+      const mod = await import('../src/schema-bridge')
+      expect(mod.nounToSchemas).toBeDefined()
+      expect(typeof mod.nounToSchemas).toBe('function')
     })
 
-    it('exports buttonStyles with all variants', async () => {
-      const mod = await import('../src/styles')
-      expect(mod.buttonStyles).toBeDefined()
-      expect(mod.buttonStyles.base).toBeDefined()
-      expect(mod.buttonStyles.primary).toBeDefined()
-      expect(mod.buttonStyles.secondary).toBeDefined()
-      expect(mod.buttonStyles.danger).toBeDefined()
-      expect(mod.buttonStyles.disabled).toBeDefined()
-      expect(mod.buttonStyles.loading).toBeDefined()
+    it('exports domainForEntity from schema-bridge', async () => {
+      const mod = await import('../src/schema-bridge')
+      expect(mod.domainForEntity).toBeDefined()
+      expect(typeof mod.domainForEntity).toBe('function')
     })
 
-    it('exports detailStyles with expected keys', async () => {
-      const mod = await import('../src/styles')
-      expect(mod.detailStyles).toBeDefined()
-      expect(mod.detailStyles.wrapper).toBeDefined()
-      expect(mod.detailStyles.header).toBeDefined()
-      expect(mod.detailStyles.title).toBeDefined()
-      expect(mod.detailStyles.section).toBeDefined()
-      expect(mod.detailStyles.fieldGrid).toBeDefined()
-      expect(mod.detailStyles.badge).toBeDefined()
-      expect(mod.detailStyles.link).toBeDefined()
+    it('exports getColumnsForNoun from schema-bridge', async () => {
+      const mod = await import('../src/schema-bridge')
+      expect(mod.getColumnsForNoun).toBeDefined()
+      expect(typeof mod.getColumnsForNoun).toBe('function')
     })
 
-    it('exports timelineStyles with expected keys', async () => {
-      const mod = await import('../src/styles')
-      expect(mod.timelineStyles).toBeDefined()
-      expect(mod.timelineStyles.wrapper).toBeDefined()
-      expect(mod.timelineStyles.list).toBeDefined()
-      expect(mod.timelineStyles.item).toBeDefined()
-      expect(mod.timelineStyles.dot).toBeDefined()
-      expect(mod.timelineStyles.diff).toBeDefined()
-    })
-
-    it('exports dashboardStyles with expected keys', async () => {
-      const mod = await import('../src/styles')
-      expect(mod.dashboardStyles).toBeDefined()
-      expect(mod.dashboardStyles.grid).toBeDefined()
-      expect(mod.dashboardStyles.card).toBeDefined()
-      expect(mod.dashboardStyles.cardHeader).toBeDefined()
-      expect(mod.dashboardStyles.cardTitle).toBeDefined()
-    })
-
-    it('exports searchStyles with expected keys', async () => {
-      const mod = await import('../src/styles')
-      expect(mod.searchStyles).toBeDefined()
-      expect(mod.searchStyles.wrapper).toBeDefined()
-      expect(mod.searchStyles.input).toBeDefined()
-      expect(mod.searchStyles.dropdown).toBeDefined()
-      expect(mod.searchStyles.resultItem).toBeDefined()
-    })
-
-    it('exports graphStyles with expected keys', async () => {
-      const mod = await import('../src/styles')
-      expect(mod.graphStyles).toBeDefined()
-      expect(mod.graphStyles.wrapper).toBeDefined()
-      expect(mod.graphStyles.svg).toBeDefined()
-    })
-
-    it('exports CSS custom property vars', async () => {
-      const mod = await import('../src/styles')
-      expect(mod.vars).toBeDefined()
-      expect(mod.vars.bg).toBeDefined()
-      expect(mod.vars.primary).toBeDefined()
-      expect(mod.vars.danger).toBeDefined()
-      expect(mod.vars.text).toBeDefined()
-      expect(mod.vars.font).toBeDefined()
+    it('exports domains mapping', async () => {
+      const mod = await import('../src/schema-bridge')
+      expect(mod.domains).toBeDefined()
+      expect(mod.domains.crm).toBeDefined()
+      expect(mod.domains.billing).toBeDefined()
+      expect(mod.domains.projects).toBeDefined()
     })
   })
 
@@ -1050,7 +992,7 @@ describe('@headlessly/ui — deep v2 tests', () => {
   })
 
   // =========================================================================
-  // SECTION R: Type exports and module shape
+  // SECTION R: Type exports and module shape (v2: @mdxui/admin + @headlessly/react)
   // =========================================================================
   describe('type and module shape', () => {
     it('index exports all schema-utils functions', async () => {
@@ -1075,30 +1017,48 @@ describe('@headlessly/ui — deep v2 tests', () => {
       expect(typeof mod.formatCellValue).toBe('function')
     })
 
-    it('index exports all component functions', async () => {
+    it('index exports new core components', async () => {
       const mod = await import('../src/index')
-      expect(typeof mod.EntityTable).toBe('function')
+      expect(typeof mod.HeadlessAdmin).toBe('function')
+      expect(typeof mod.EntityGrid).toBe('function')
       expect(typeof mod.EntityForm).toBe('function')
       expect(typeof mod.EntityDetail).toBe('function')
-      expect(typeof mod.EntityTimeline).toBe('function')
-      expect(typeof mod.Dashboard).toBe('function')
-      expect(typeof mod.SearchBar).toBe('function')
-      expect(typeof mod.VerbButton).toBe('function')
-      expect(typeof mod.RelationshipGraph).toBe('function')
     })
 
-    it('index exports all hooks', async () => {
+    it('index exports schema bridge functions', async () => {
+      const mod = await import('../src/index')
+      expect(typeof mod.nounToColumns).toBe('function')
+      expect(typeof mod.nounToSchemas).toBe('function')
+      expect(typeof mod.domainForEntity).toBe('function')
+      expect(typeof mod.getColumnsForNoun).toBe('function')
+    })
+
+    it('index exports re-exported @headlessly/react hooks', async () => {
       const mod = await import('../src/index')
       expect(typeof mod.useEntity).toBe('function')
       expect(typeof mod.useEntities).toBe('function')
       expect(typeof mod.useSearch).toBe('function')
       expect(typeof mod.useRealtime).toBe('function')
+      expect(typeof mod.useMutation).toBe('function')
+      expect(typeof mod.useVerb).toBe('function')
+      expect(typeof mod.useCreate).toBe('function')
+      expect(typeof mod.useUpdate).toBe('function')
+      expect(typeof mod.useDelete).toBe('function')
+      expect(typeof mod.useEvents).toBe('function')
     })
 
-    it('index exports HeadlessUIProvider and useHeadlessUI', async () => {
+    it('index exports HeadlesslyProvider and digital-objects functions', async () => {
       const mod = await import('../src/index')
-      expect(typeof mod.HeadlessUIProvider).toBe('function')
-      expect(typeof mod.useHeadlessUI).toBe('function')
+      expect(typeof mod.HeadlesslyProvider).toBe('function')
+      expect(typeof mod.getNounSchema).toBe('function')
+      expect(typeof mod.getAllNouns).toBe('function')
+    })
+
+    it('index exports re-exported @mdxui/admin components', async () => {
+      const mod = await import('../src/index')
+      expect(typeof mod.DatabaseGrid).toBe('function')
+      expect(typeof mod.DatabaseSidebar).toBe('function')
+      expect(typeof mod.TableEditorToolbar).toBe('function')
     })
   })
 })
