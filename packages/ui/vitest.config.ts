@@ -37,14 +37,15 @@ export default mergeConfig(
     test: {
       environment: 'jsdom',
       setupFiles: ['./test/setup.ts'],
+      // Real @mdxui/admin + @mdxui/primitives barrel is large (90+ components).
+      // Increase timeout so module-shape tests don't fail while loading.
+      testTimeout: 30_000,
       // Inline all deps so the forceReact19 plugin catches react imports
       // from @headlessly/react and other transitive deps in node_modules.
       server: { deps: { inline: true } },
     },
     resolve: {
       alias: [
-        // Mock @mdxui/primitives to avoid emoji-mart JSON import chain.
-        { find: '@mdxui/primitives', replacement: resolve(mockDir, 'mdxui-primitives.tsx') },
         { find: '@mdxui/discovery', replacement: resolve(mockDir, 'mdxui-discovery.tsx') },
         // Mock transitive deps pulled in by @mdxui/admin barrel export
         { find: 'react-router-dom', replacement: resolve(mockDir, 'react-router-dom.tsx') },

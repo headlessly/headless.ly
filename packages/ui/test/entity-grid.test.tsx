@@ -45,8 +45,8 @@ describe('EntityGrid', () => {
     registerTestNoun()
     render(<EntityGrid noun="Contact" />)
 
-    // Real DatabaseGrid renders Skeleton components when loading
-    const skeletons = screen.queryAllByTestId('skeleton')
+    // Real Skeleton from @mdxui/primitives renders with data-slot="skeleton"
+    const skeletons = document.querySelectorAll('[data-slot="skeleton"]')
     expect(skeletons.length).toBeGreaterThan(0)
   })
 
