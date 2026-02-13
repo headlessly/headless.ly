@@ -3,7 +3,6 @@ import { resolve } from 'path'
 import type { Plugin } from 'vite'
 import sharedConfig from '../vitest.shared.ts'
 
-const mockDir = resolve(import.meta.dirname, 'test/__mocks__')
 const root = resolve(import.meta.dirname, '../../..')
 const react19 = resolve(root, 'node_modules/.pnpm/react@19.2.4/node_modules/react')
 const reactDom19 = resolve(root, 'node_modules/.pnpm/react-dom@19.2.4_react@19.2.4/node_modules/react-dom')
@@ -45,13 +44,11 @@ export default mergeConfig(
       server: { deps: { inline: true } },
     },
     resolve: {
-      alias: [
-        { find: '@mdxui/discovery', replacement: resolve(mockDir, 'mdxui-discovery.tsx') },
-        // Mock transitive deps pulled in by @mdxui/admin barrel export
-        { find: 'react-router-dom', replacement: resolve(mockDir, 'react-router-dom.tsx') },
-        { find: '@monaco-editor/react', replacement: resolve(mockDir, 'monaco-editor-react.tsx') },
-        { find: 'recharts', replacement: resolve(mockDir, 'recharts.tsx') },
-      ],
+      alias: {
+        // Resolve workspace packages to source (no dist/ built)
+        '@mdxui/discovery': resolve(root, '.studio/ui/packages/discovery/src/index.ts'),
+        '@mdxui/neo': resolve(root, '.studio/ui/packages/neo/src/index.ts'),
+      },
     },
   }),
 )
