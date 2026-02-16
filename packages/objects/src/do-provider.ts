@@ -51,6 +51,16 @@ export interface DONounProviderOptions {
   context?: string
   /** Base path prefix for routes (defaults to '') */
   basePath?: string
+  /**
+   * Enable timer-based batching for sequential-but-close calls.
+   * Wraps the transport with rpc.do's `withBatching` middleware, which
+   * collects calls within a time window and sends them as a single `__batch`
+   * request. Requires the server to implement a `__batch` handler.
+   *
+   * Without this, only concurrent calls (Promise.all) are batched automatically
+   * by capnweb's microtask-level session sharing.
+   */
+  batching?: { windowMs?: number; maxBatchSize?: number }
 }
 
 /**
@@ -96,6 +106,7 @@ export class DONounProvider implements NounProvider {
   private context: string
   private rpcUrl: string
   private rpcOptions: RPCOptions
+  private _rpc: RPCProxy<Record<string, unknown>>
   public readonly endpoint: string
 
   constructor(options: DONounProviderOptions) {
@@ -106,6 +117,11 @@ export class DONounProvider implements NounProvider {
     const rpcOptions: RPCOptions = {}
     if (options.apiKey) {
       rpcOptions.auth = options.apiKey
+    }
+    // WebSocket: enable reconnecting transport when we have an API key for
+    // first-message auth. Without an API key, use non-reconnecting transport.
+    if (options.transport === 'ws') {
+      rpcOptions.reconnect = !!options.apiKey
     }
     this.rpcOptions = rpcOptions
 
@@ -118,19 +134,70 @@ export class DONounProvider implements NounProvider {
     const isSecure = /^https:\/\//.test(normalizedEndpoint)
     const protocol = options.transport === 'ws' ? (isSecure ? 'wss' : 'ws') : isSecure ? 'https' : 'http'
     this.rpcUrl = normalizedEndpoint.replace(/^https?:\/\//, `${protocol}://`)
+
+    // Share a single RPC instance — the http() transport in rpc.do already
+    // manages session lifecycle correctly: it caches sessionPromise and resets
+    // it in `finally` after each batch completes. Concurrent callers share the
+    // session (enabling automatic batching); sequential callers get fresh
+    // sessions automatically. Creating separate RPC() instances per call
+    // defeated this batching entirely.
+    this._rpc = RPC(this.rpcUrl, this.rpcOptions) as RPCProxy<Record<string, unknown>>
+
+    // If timer-based batching is requested, upgrade the transport asynchronously.
+    // This wraps the transport with withBatching middleware to collect
+    // sequential-but-close calls within a time window into a single __batch request.
+    if (options.batching) {
+      const batchOpts = options.batching
+      this._rpcReady = this.initBatchedTransport(batchOpts)
+    }
   }
 
   /**
-   * Create a fresh RPC proxy for each operation.
-   * Capnweb HTTP batch sessions are one-shot — they send all collected
-   * promises in a single request on the next microtask tick, then the
-   * session ends. Sequential awaits need fresh sessions.
+   * Dynamically import rpc.do/middleware and rpc.do/transports to set up
+   * timer-based batching. These subpath exports may not be available in
+   * all published versions of rpc.do.
+   */
+  private async initBatchedTransport(batchOpts: { windowMs?: number; maxBatchSize?: number }): Promise<void> {
+    try {
+      const [{ http }, { withBatching }] = await Promise.all([
+        import('rpc.do/transports') as Promise<{ http: (url: string, opts?: { auth?: string }) => { call: (method: string, args: unknown[]) => Promise<unknown>; close?: () => void } }>,
+        import('rpc.do/middleware') as Promise<{ withBatching: (transport: { call: (method: string, args: unknown[]) => Promise<unknown>; close?: () => void }, opts?: { windowMs?: number; maxBatchSize?: number }) => { call: (method: string, args: unknown[]) => Promise<unknown>; close?: () => void } }>,
+      ])
+      const baseTransport = http(this.rpcUrl, this.rpcOptions.auth ? { auth: this.rpcOptions.auth as string } : undefined)
+      const batchedTransport = withBatching(baseTransport, {
+        windowMs: batchOpts.windowMs ?? 10,
+        maxBatchSize: batchOpts.maxBatchSize ?? 100,
+      })
+      this._rpc = RPC(batchedTransport, this.rpcOptions) as RPCProxy<Record<string, unknown>>
+    } catch {
+      // rpc.do/middleware not available — fall back to default session sharing
+    }
+  }
+
+  /** Promise that resolves when batched transport is initialized (if requested) */
+  private _rpcReady?: Promise<void>
+
+  /**
+   * Ensure the batched transport is initialized before making RPC calls.
+   * No-op when batching is not enabled.
+   */
+  private async ensureReady(): Promise<void> {
+    if (this._rpcReady) await this._rpcReady
+  }
+
+  /**
+   * Return the shared RPC proxy.
+   * The underlying http() transport handles session lifecycle — concurrent
+   * calls within the same microtask share a session (automatic batching),
+   * while sequential awaits get fresh sessions via the transport's
+   * sessionPromise reset in its `finally` block.
    */
   private rpc(): RPCProxy<Record<string, unknown>> {
-    return RPC(this.rpcUrl, this.rpcOptions) as RPCProxy<Record<string, unknown>>
+    return this._rpc
   }
 
   async create(type: string, data: Record<string, unknown>): Promise<NounInstance> {
+    await this.ensureReady()
     const collection = toCollectionName(type)
     const ns = this.rpc()[collection] as Record<string, (...args: unknown[]) => Promise<unknown>>
     const result = await ns.create(data)
@@ -138,6 +205,7 @@ export class DONounProvider implements NounProvider {
   }
 
   async get(type: string, id: string): Promise<NounInstance | null> {
+    await this.ensureReady()
     const collection = toCollectionName(type)
     const ns = this.rpc()[collection] as Record<string, (...args: unknown[]) => Promise<unknown>>
     const result = await ns.get(id)
@@ -146,6 +214,7 @@ export class DONounProvider implements NounProvider {
   }
 
   async find(type: string, where?: Record<string, unknown>): Promise<NounInstance[]> {
+    await this.ensureReady()
     const collection = toCollectionName(type)
     const ns = this.rpc()[collection] as Record<string, (...args: unknown[]) => Promise<unknown>>
     const result = await ns.find(where ?? {})
@@ -159,6 +228,7 @@ export class DONounProvider implements NounProvider {
   }
 
   async update(type: string, id: string, data: Record<string, unknown>): Promise<NounInstance> {
+    await this.ensureReady()
     const collection = toCollectionName(type)
     const ns = this.rpc()[collection] as Record<string, (...args: unknown[]) => Promise<unknown>>
     const result = await ns.update(id, data)
@@ -166,6 +236,7 @@ export class DONounProvider implements NounProvider {
   }
 
   async delete(type: string, id: string): Promise<boolean> {
+    await this.ensureReady()
     const collection = toCollectionName(type)
     const ns = this.rpc()[collection] as Record<string, (...args: unknown[]) => Promise<unknown>>
     const result = await ns.delete(id)
@@ -178,6 +249,7 @@ export class DONounProvider implements NounProvider {
   }
 
   async rollback(type: string, id: string, toVersion: number): Promise<NounInstance> {
+    await this.ensureReady()
     const collection = toCollectionName(type)
     const ns = this.rpc()[collection] as Record<string, (...args: unknown[]) => Promise<unknown>>
     const result = await ns.rollback(id, toVersion)
@@ -185,6 +257,7 @@ export class DONounProvider implements NounProvider {
   }
 
   async perform(type: string, verb: string, id: string, data?: Record<string, unknown>): Promise<NounInstance> {
+    await this.ensureReady()
     // Verbs route through the collection's perform() method on the capnweb target
     const collection = toCollectionName(type)
     const ns = this.rpc()[collection] as Record<string, (...args: unknown[]) => Promise<unknown>>
