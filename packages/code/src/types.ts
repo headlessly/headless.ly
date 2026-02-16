@@ -1,139 +1,73 @@
 /**
  * Type definitions for @headlessly/code
+ *
+ * Claude Code sandbox client SDK.
  */
 
 /**
- * Configuration for creating a code execution client
+ * Configuration for creating a Claude Code client
  */
 export interface CodeClientConfig {
   /** API key for authentication */
   apiKey?: string
   /** Base endpoint URL (default: https://code.headless.ly) */
   endpoint?: string
-  /** Request timeout in milliseconds (default: 30000) */
+  /** Request timeout in milliseconds (default: 300000 — 5 min for Claude Code tasks) */
   timeout?: number
 }
 
 /**
- * Options for creating a sandbox
+ * Options for running a Claude Code task
  */
-export interface CreateSandboxOptions {
-  /** Custom sandbox ID (generated if not provided) */
-  id?: string
-  /** Timeout in seconds before sandbox auto-destroys */
-  timeout?: number
-  /** Environment variables to set in the sandbox */
-  env?: Record<string, string>
+export interface RunOptions {
+  /** The task/prompt to send to Claude Code */
+  task: string
+  /** Optional system prompt to append */
+  systemPrompt?: string
+  /** Resume the most recent Claude Code conversation */
+  resume?: boolean
+  /** Resume a specific Claude Code session by ID */
+  sessionId?: string
+  /** Max agentic turns */
+  maxTurns?: number
+  /** Max spend in USD */
+  maxBudget?: number
 }
 
 /**
- * Sandbox metadata
+ * Result from a Claude Code task run
  */
-export interface SandboxInfo {
+export interface RunResult {
+  /** Combined stdout + stderr logs from Claude Code */
+  logs: string
+  /** Git diff of changes made */
+  diff: string
+  /** Duration in milliseconds */
+  duration: number
+  /** Sandbox identifier (org/repo/branch) */
+  sandbox: string
+  /** Claude Code session ID for resuming */
+  sessionId?: string
+}
+
+/**
+ * Sandbox status info
+ */
+export interface SandboxStatus {
   id: string
-  status: 'running' | 'stopped' | 'error'
+  org: string
+  repo: string
+  branch: string
+  status: string
   createdAt: string
-  timeout?: number
 }
 
 /**
- * Options for command execution
+ * A streaming event from Claude Code execution
  */
-export interface ExecOptions {
-  /** Working directory */
-  cwd?: string
-  /** Environment variables */
-  env?: Record<string, string>
-  /** Timeout in milliseconds */
-  timeout?: number
-  /** Standard input to pass to the command */
-  stdin?: string
-}
-
-/**
- * Result from executing a command
- */
-export interface ExecResult {
-  success: boolean
-  exitCode: number
-  stdout: string
-  stderr: string
-  command: string
-  duration: number
-  timestamp: string
-}
-
-/**
- * SSE event types from streaming execution
- */
-export type ExecEvent =
-  | { type: 'start'; command: string; timestamp: string }
-  | { type: 'stdout'; data: string }
-  | { type: 'stderr'; data: string }
-  | { type: 'complete'; exitCode: number; duration: number }
-  | { type: 'error'; message: string }
-
-/**
- * Options for writing a file
- */
-export interface WriteFileOptions {
-  /** File permissions (e.g., '0755') */
-  permissions?: string
-  /** Encoding (default: 'utf-8') */
-  encoding?: string
-}
-
-/**
- * Options for reading a file
- */
-export interface ReadFileOptions {
-  /** Encoding (default: 'utf-8') */
-  encoding?: string
-}
-
-/**
- * File information from listing
- */
-export interface FileInfo {
-  name: string
-  absolutePath: string
-  type: 'file' | 'directory' | 'symlink'
-  size: number
-  modifiedAt: string
-  permissions: string
-}
-
-/**
- * Options for running code
- */
-export interface RunCodeOptions {
-  /** Language (default: auto-detect or 'javascript') */
-  language?: string
-  /** Timeout in milliseconds */
-  timeout?: number
-  /** Environment variables */
-  env?: Record<string, string>
-}
-
-/**
- * Result from code execution (code interpreter)
- */
-export interface ExecutionResult {
-  code: string
-  language: string
-  logs: string[]
-  error?: string
-  results: ExecutionOutput[]
-  duration: number
-}
-
-/**
- * Individual output from code execution
- */
-export interface ExecutionOutput {
-  type: 'text' | 'image' | 'json' | 'html' | 'error'
-  data: string
-  mimeType?: string
+export interface StreamEvent {
+  type: string
+  [key: string]: unknown
 }
 
 /**

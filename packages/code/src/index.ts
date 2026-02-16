@@ -1,57 +1,40 @@
 /**
  * @headlessly/code
  *
- * Code execution client SDK for the headless.ly platform.
- * Provides sandboxed Linux environments for AI agent code execution.
+ * Claude Code client SDK for the headless.ly platform.
+ * Run Claude Code against any GitHub repo via sandboxed containers.
  *
  * @example
  * ```typescript
  * import { createCodeClient } from '@headlessly/code'
  *
  * const code = createCodeClient({ apiKey: 'xxx' })
+ * const session = code.repo('acme', 'app')
  *
- * // Create a sandbox
- * const sandbox = await code.createSandbox()
+ * // One-shot — run a task and get the diff
+ * const result = await session.run('Fix the login bug')
+ * console.log(result.diff)
  *
- * // Execute commands
- * const result = await code.exec(sandbox.id, 'echo hello world')
- * console.log(result.stdout) // "hello world\n"
- *
- * // Stream command output
- * for await (const event of await code.execStream(sandbox.id, 'npm install')) {
- *   if (event.type === 'stdout') process.stdout.write(event.data)
- *   if (event.type === 'stderr') process.stderr.write(event.data)
+ * // Streaming — observe Claude Code in real-time
+ * for await (const event of session.stream('Add comprehensive tests')) {
+ *   if (event.type === 'diff') console.log(event.diff)
  * }
  *
- * // File operations
- * await code.writeFile(sandbox.id, '/app/index.js', 'console.log("hi")')
- * const content = await code.readFile(sandbox.id, '/app/index.js')
+ * // Resume — continue the conversation
+ * const r2 = await session.run('Refactor the auth module', { resume: true })
  *
- * // Code interpreter
- * const output = await code.runCode(sandbox.id, 'print(1 + 1)', { language: 'python' })
+ * // Terminal — connect via xterm + SandboxAddon
+ * // import { SandboxAddon } from '@cloudflare/sandbox/xterm'
+ * const wsUrl = session.terminalWsUrl()
+ * // terminal.loadAddon(new SandboxAddon({ getWebSocketUrl: () => wsUrl }))
  *
- * // Clean up
- * await code.destroySandbox(sandbox.id)
+ * // Cleanup
+ * await session.destroy()
  * ```
  */
 
 export { createCodeClient } from './client.js'
-export { parseExecStream } from './stream.js'
 
-export type { CodeClient } from './client.js'
+export type { CodeClient, RepoSession } from './client.js'
 
-export type {
-  CodeClientConfig,
-  CreateSandboxOptions,
-  SandboxInfo,
-  ExecOptions,
-  ExecResult,
-  ExecEvent,
-  WriteFileOptions,
-  ReadFileOptions,
-  FileInfo,
-  RunCodeOptions,
-  ExecutionResult,
-  ExecutionOutput,
-  ApiResponse,
-} from './types.js'
+export type { CodeClientConfig, RunOptions, RunResult, SandboxStatus, StreamEvent, ApiResponse } from './types.js'

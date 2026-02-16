@@ -1,7 +1,7 @@
 {
   "name": "@headlessly/code",
   "version": "0.1.0",
-  "description": "Code execution client SDK for headless.ly platform - sandboxed environments for AI agents",
+  "description": "Claude Code client SDK for headless.ly — run Claude Code against any GitHub repo via sandboxed containers",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -14,10 +14,6 @@
     "./types": {
       "import": "./dist/types.js",
       "types": "./dist/types.d.ts"
-    },
-    "./stream": {
-      "import": "./dist/stream.js",
-      "types": "./dist/stream.d.ts"
     }
   },
   "publishConfig": {
@@ -30,10 +26,6 @@
       "./types": {
         "types": "./dist/types.d.ts",
         "import": "./dist/types.js"
-      },
-      "./stream": {
-        "types": "./dist/stream.d.ts",
-        "import": "./dist/stream.js"
       }
     }
   },
@@ -57,12 +49,13 @@
   },
   "keywords": [
     "headlessly",
-    "code",
+    "claude-code",
     "sandbox",
-    "execution",
     "ai-agents",
     "cloudflare",
-    "workers"
+    "workers",
+    "github",
+    "terminal"
   ],
   "author": "headless.ly",
   "license": "MIT",

@@ -1,69 +1,95 @@
 /**
- * Code execution client for headless.ly platform
+ * Claude Code client SDK for headless.ly
  *
- * Provides sandboxed code execution, file operations, and streaming
- * command execution via the code.headless.ly worker.
+ * Session-oriented API: code.repo('org', 'name') returns a session handle
+ * for running tasks, streaming output, inspecting diffs, and connecting terminals.
+ *
+ * Three interaction modes via the same session object:
+ *   - One-shot:       session.run('Fix the bug')
+ *   - Agent/streaming: session.stream('Add tests')
+ *   - Session/resume:  session.run('Refactor', { resume: true })
  */
 
-import type {
-  CodeClientConfig,
-  CreateSandboxOptions,
-  SandboxInfo,
-  ExecOptions,
-  ExecResult,
-  ExecEvent,
-  WriteFileOptions,
-  ReadFileOptions,
-  FileInfo,
-  RunCodeOptions,
-  ExecutionResult,
-  ApiResponse,
-} from './types.js'
-import { parseExecStream } from './stream.js'
+import type { CodeClientConfig, RunOptions, RunResult, SandboxStatus, StreamEvent, ApiResponse } from './types.js'
 
+/**
+ * A session handle for a specific GitHub repo sandbox.
+ *
+ * The sandbox persists between calls — same org/repo/branch always hits the
+ * same container. Claude Code's session files persist in the container.
+ */
+export interface RepoSession {
+  /** GitHub org */
+  readonly org: string
+  /** GitHub repo name */
+  readonly repo: string
+  /** Git branch */
+  readonly branch: string
+
+  /** Run a Claude Code task and wait for completion */
+  run(task: string, options?: Omit<RunOptions, 'task'>): Promise<RunResult>
+
+  /** Run a Claude Code task with streaming SSE output */
+  stream(task: string, options?: Omit<RunOptions, 'task'>): AsyncIterable<StreamEvent>
+
+  /** Get the current git diff from the sandbox */
+  diff(): Promise<string>
+
+  /** Get sandbox status */
+  status(): Promise<SandboxStatus>
+
+  /** Get the WebSocket URL for terminal connection (SandboxAddon-compatible) */
+  terminalWsUrl(): string
+
+  /** Destroy the sandbox and free resources */
+  destroy(): Promise<void>
+}
+
+/**
+ * Claude Code client
+ */
 export interface CodeClient {
-  /** Create a new sandbox environment */
-  createSandbox(options?: CreateSandboxOptions): Promise<SandboxInfo>
-  /** Get sandbox info by ID */
-  getSandbox(sandboxId: string): Promise<SandboxInfo | null>
-  /** Destroy a sandbox */
-  destroySandbox(sandboxId: string): Promise<void>
-  /** Execute a command in a sandbox */
-  exec(sandboxId: string, command: string, options?: ExecOptions): Promise<ExecResult>
-  /** Execute a command with streaming output */
-  execStream(sandboxId: string, command: string, options?: ExecOptions): Promise<AsyncIterable<ExecEvent>>
-  /** Write a file in a sandbox */
-  writeFile(sandboxId: string, path: string, content: string, options?: WriteFileOptions): Promise<void>
-  /** Read a file from a sandbox */
-  readFile(sandboxId: string, path: string, options?: ReadFileOptions): Promise<string>
-  /** List files in a sandbox directory */
-  listFiles(sandboxId: string, path: string): Promise<FileInfo[]>
-  /** Check if a file exists in a sandbox */
-  exists(sandboxId: string, path: string): Promise<boolean>
-  /** Delete a file from a sandbox */
-  deleteFile(sandboxId: string, path: string): Promise<void>
-  /** Run code in a sandbox (code interpreter) */
-  runCode(sandboxId: string, code: string, options?: RunCodeOptions): Promise<ExecutionResult>
+  /** Get a session handle for a GitHub repo (lazy — no API call) */
+  repo(org: string, name: string, branch?: string): RepoSession
   /** The configuration used to create this client */
   config: CodeClientConfig
 }
 
 /**
- * Create a code execution client
+ * Create a Claude Code client
  *
  * @example
  * ```typescript
+ * import { createCodeClient } from '@headlessly/code'
+ *
  * const code = createCodeClient({ apiKey: process.env.HEADLESSLY_API_KEY })
+ * const session = code.repo('acme', 'app')
  *
- * const sandbox = await code.createSandbox()
- * const result = await code.exec(sandbox.id, 'echo hello')
- * console.log(result.stdout) // "hello\n"
+ * // One-shot
+ * const result = await session.run('Fix the login bug')
+ * console.log(result.diff)
  *
- * await code.destroySandbox(sandbox.id)
+ * // Stream (agent-oriented)
+ * for await (const event of session.stream('Add comprehensive tests')) {
+ *   if (event.type === 'diff') console.log(event.diff)
+ * }
+ *
+ * // Resume conversation
+ * const r2 = await session.run('Now refactor the auth module', { resume: true })
+ *
+ * // Inspect workspace
+ * const currentDiff = await session.diff()
+ *
+ * // Terminal — connect with @cloudflare/sandbox/xterm SandboxAddon
+ * const wsUrl = session.terminalWsUrl()
+ *
+ * // Cleanup
+ * await session.destroy()
  * ```
  */
 export function createCodeClient(config: CodeClientConfig = {}): CodeClient {
-  const baseUrl = config.endpoint || 'https://code.headless.ly'
+  const baseUrl = (config.endpoint || 'https://code.headless.ly').replace(/\/$/, '')
+  const timeout = config.timeout ?? 300000
 
   const authHeaders = (): Record<string, string> => {
     const headers: Record<string, string> = {
@@ -80,7 +106,7 @@ export function createCodeClient(config: CodeClientConfig = {}): CodeClient {
       method,
       headers: authHeaders(),
       body: body ? JSON.stringify(body) : undefined,
-      signal: config.timeout ? AbortSignal.timeout(config.timeout) : undefined,
+      signal: timeout ? AbortSignal.timeout(timeout) : undefined,
     })
 
     if (!response.ok) {
@@ -96,75 +122,141 @@ export function createCodeClient(config: CodeClientConfig = {}): CodeClient {
   }
 
   return {
-    async createSandbox(options?: CreateSandboxOptions): Promise<SandboxInfo> {
-      return request<SandboxInfo>('POST', '/sandbox', options)
-    },
+    repo(org: string, name: string, branch = 'main'): RepoSession {
+      const repoPath = `/${org}/${name}/${branch}`
 
-    async getSandbox(sandboxId: string): Promise<SandboxInfo | null> {
-      try {
-        return await request<SandboxInfo>('GET', `/sandbox/${sandboxId}`)
-      } catch {
-        return null
+      return {
+        org,
+        repo: name,
+        branch,
+
+        async run(task: string, options?: Omit<RunOptions, 'task'>): Promise<RunResult> {
+          if (!task) throw new Error('task is required')
+          return request<RunResult>('POST', repoPath, { task, ...options })
+        },
+
+        stream(task: string, options?: Omit<RunOptions, 'task'>): AsyncIterable<StreamEvent> {
+          if (!task) throw new Error('task is required')
+
+          // Return an async iterable that streams SSE events
+          const url = `${baseUrl}${repoPath}`
+          const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+            'Accept': 'text/event-stream',
+          }
+          if (config.apiKey) {
+            headers['Authorization'] = `Bearer ${config.apiKey}`
+          }
+
+          return {
+            [Symbol.asyncIterator](): AsyncIterableIterator<StreamEvent> {
+              let reader: ReadableStreamDefaultReader<Uint8Array> | null = null
+              const decoder = new TextDecoder()
+              let buffer = ''
+              let done = false
+
+              const init = async () => {
+                const response = await fetch(url, {
+                  method: 'POST',
+                  headers,
+                  body: JSON.stringify({ task, ...options }),
+                  signal: timeout ? AbortSignal.timeout(timeout) : undefined,
+                })
+
+                if (!response.ok) {
+                  const text = await response.text()
+                  throw new Error(`POST ${repoPath} stream failed: ${response.status} ${text}`)
+                }
+
+                if (!response.body) {
+                  throw new Error('Response body is null')
+                }
+
+                reader = response.body.getReader()
+              }
+
+              return {
+                [Symbol.asyncIterator]() {
+                  return this
+                },
+
+                async next(): Promise<IteratorResult<StreamEvent>> {
+                  if (done) return { done: true, value: undefined }
+
+                  if (!reader) await init()
+
+                  while (true) {
+                    // Check buffer for complete SSE events
+                    const eventEnd = buffer.indexOf('\n\n')
+                    if (eventEnd !== -1) {
+                      const eventStr = buffer.slice(0, eventEnd)
+                      buffer = buffer.slice(eventEnd + 2)
+
+                      // Parse SSE data line
+                      for (const line of eventStr.split('\n')) {
+                        if (line.startsWith('data: ')) {
+                          const data = line.slice(6)
+                          try {
+                            const event = JSON.parse(data) as StreamEvent
+                            if (event.type === 'done') {
+                              done = true
+                              reader?.releaseLock()
+                              return { done: true, value: undefined }
+                            }
+                            return { done: false, value: event }
+                          } catch {
+                            return { done: false, value: { type: 'raw', data } }
+                          }
+                        }
+                      }
+                      continue
+                    }
+
+                    // Read more data
+                    const { done: streamDone, value } = await reader!.read()
+                    if (streamDone) {
+                      done = true
+                      reader?.releaseLock()
+                      return { done: true, value: undefined }
+                    }
+                    buffer += decoder.decode(value, { stream: true })
+                  }
+                },
+
+                async return(): Promise<IteratorResult<StreamEvent>> {
+                  done = true
+                  reader?.releaseLock()
+                  return { done: true, value: undefined }
+                },
+
+                async throw(): Promise<IteratorResult<StreamEvent>> {
+                  done = true
+                  reader?.releaseLock()
+                  return { done: true, value: undefined }
+                },
+              }
+            },
+          }
+        },
+
+        async diff(): Promise<string> {
+          const result = await request<{ diff: string }>('GET', `${repoPath}/diff`)
+          return result.diff
+        },
+
+        async status(): Promise<SandboxStatus> {
+          return request<SandboxStatus>('GET', repoPath)
+        },
+
+        terminalWsUrl(): string {
+          const wsBase = baseUrl.replace(/^http/, 'ws')
+          return `${wsBase}/ws/${org}/${name}/${branch}`
+        },
+
+        async destroy(): Promise<void> {
+          await request<{ id: string; destroyed: boolean }>('DELETE', repoPath)
+        },
       }
-    },
-
-    async destroySandbox(sandboxId: string): Promise<void> {
-      await request<void>('DELETE', `/sandbox/${sandboxId}`)
-    },
-
-    async exec(sandboxId: string, command: string, options?: ExecOptions): Promise<ExecResult> {
-      if (!command) throw new Error('command must not be empty')
-      return request<ExecResult>('POST', '/exec', { sandboxId, command, ...options })
-    },
-
-    async execStream(sandboxId: string, command: string, options?: ExecOptions): Promise<AsyncIterable<ExecEvent>> {
-      const response = await fetch(`${baseUrl}/exec/stream`, {
-        method: 'POST',
-        headers: authHeaders(),
-        body: JSON.stringify({ sandboxId, command, ...options }),
-        signal: config.timeout ? AbortSignal.timeout(config.timeout) : undefined,
-      })
-
-      if (!response.ok) {
-        const text = await response.text()
-        throw new Error(`POST /exec/stream failed: ${response.status} ${text}`)
-      }
-
-      return parseExecStream(response)
-    },
-
-    async writeFile(sandboxId: string, path: string, content: string, options?: WriteFileOptions): Promise<void> {
-      await request<void>('POST', '/files/write', { sandboxId, path, content, ...options })
-    },
-
-    async readFile(sandboxId: string, path: string, options?: ReadFileOptions): Promise<string> {
-      const result = await request<{ content: string }>('POST', '/files/read', { sandboxId, path, ...options })
-      return result.content
-    },
-
-    async listFiles(sandboxId: string, path: string): Promise<FileInfo[]> {
-      const result = await request<{ files: FileInfo[] } | FileInfo[]>('POST', '/files/list', { sandboxId, path })
-      // The sandbox SDK wraps the result in { files: [...] }
-      if (Array.isArray(result)) return result
-      return (result as { files: FileInfo[] }).files ?? []
-    },
-
-    async exists(sandboxId: string, path: string): Promise<boolean> {
-      try {
-        const result = await request<{ exists: boolean }>('POST', '/files/exists', { sandboxId, path })
-        return result.exists
-      } catch {
-        return false
-      }
-    },
-
-    async deleteFile(sandboxId: string, path: string): Promise<void> {
-      await request<void>('POST', '/files/delete', { sandboxId, path })
-    },
-
-    async runCode(sandboxId: string, code: string, options?: RunCodeOptions): Promise<ExecutionResult> {
-      if (!sandboxId) throw new Error('sandboxId must not be empty')
-      return request<ExecutionResult>('POST', '/code/run', { sandboxId, code, ...options })
     },
 
     config,
