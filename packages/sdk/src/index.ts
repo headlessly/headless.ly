@@ -191,6 +191,8 @@ async function _statusFn(): Promise<SystemStatus> {
     const p = getProvider()
     if ('type' in p && typeof (p as Record<string, unknown>).type === 'string') {
       providerType = (p as Record<string, unknown>).type as string
+    } else if (p instanceof LocalNounProvider) {
+      providerType = 'local'
     } else if (p instanceof MemoryNounProvider) {
       providerType = 'memory'
     }
@@ -198,7 +200,7 @@ async function _statusFn(): Promise<SystemStatus> {
     providerType = 'unknown'
   }
 
-  if (providerType === 'memory') {
+  if (providerType === 'memory' || providerType === 'local') {
     alerts.push({ level: 'info', message: 'Using in-memory provider — data is ephemeral' })
   }
 
@@ -432,7 +434,7 @@ export interface HeadlesslyOptions {
   /** API key for authentication (e.g. hly_sk_...) */
   apiKey?: string
   /**
-   * Enable lazy initialization: auto-init with MemoryNounProvider on first $ access.
+   * Enable lazy initialization: auto-init with LocalNounProvider on first $ access.
    * When true, headlessly() does not need to be called explicitly.
    * @default false
    */
@@ -499,19 +501,19 @@ function validateEndpoint(endpoint: string): void {
 }
 
 /**
- * Perform lazy auto-initialization with MemoryNounProvider.
+ * Perform lazy auto-initialization with LocalNounProvider.
  * Called on first $ property access when lazy mode is enabled or
  * when headlessly() has never been called.
  */
 function _autoInit(): void {
   if (_initialized) return
-  setProvider(new MemoryNounProvider())
+  setProvider(new LocalNounProvider())
   _initialized = true
 }
 
 /**
  * Enable lazy initialization so $ can be used without calling headlessly() first.
- * On first property access, auto-initializes with MemoryNounProvider.
+ * On first property access, auto-initializes with LocalNounProvider.
  */
 export function enableLazy(): void {
   _lazyEnabled = true
@@ -521,7 +523,7 @@ export function enableLazy(): void {
  * headlessly() — Initialize the SDK
  *
  * Configures the NounProvider based on options:
- * - No args or no endpoint/apiKey: MemoryNounProvider (local in-memory)
+ * - No args or no endpoint/apiKey: LocalNounProvider (local in-memory)
  * - With endpoint + apiKey: RemoteNounProvider (calls db.headless.ly)
  * - Reads HEADLESSLY_ENDPOINT and HEADLESSLY_API_KEY env vars as fallbacks
  * - In browsers on *.headless.ly, auto-detects endpoint
@@ -580,12 +582,12 @@ function _headlessly(options?: HeadlesslyOptions): HeadlessContext {
   } else if (endpoint && !apiKey) {
     // Endpoint without apiKey — warn the developer
     console.warn(
-      `[headlessly] Endpoint "${endpoint}" provided without an API key. Falling back to MemoryNounProvider. ` +
+      `[headlessly] Endpoint "${endpoint}" provided without an API key. Falling back to LocalNounProvider. ` +
         'Set apiKey in options or HEADLESSLY_API_KEY env var for remote access.',
     )
-    provider = new MemoryNounProvider()
+    provider = new LocalNounProvider()
   } else {
-    provider = new MemoryNounProvider()
+    provider = new LocalNounProvider()
   }
 
   // Set global provider (last-set wins for the global $ context)
@@ -881,7 +883,7 @@ function _createScopedContext(capturedProvider: NounProvider): HeadlessContext {
  *   $.fetch({ type: 'Contact', id: 'contact_abc123' })
  *   $.do(async ($) => { ... })
  *
- * Auto-initializes with MemoryNounProvider on first access if headlessly()
+ * Auto-initializes with LocalNounProvider on first access if headlessly()
  * has not been called. This means you can skip the init call entirely
  * for quick prototyping:
  *
@@ -1003,7 +1005,7 @@ function configureOrgProvider(options: HeadlesslyOrgOptions): NounProvider {
       try {
         provider = getProvider()
       } catch {
-        provider = new MemoryNounProvider()
+        provider = new LocalNounProvider()
         setProvider(provider)
       }
       return provider

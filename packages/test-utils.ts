@@ -2,21 +2,22 @@
  * Shared test utilities for all @headlessly/* packages
  */
 import { beforeEach, expect } from 'vitest'
-import { setProvider, MemoryNounProvider, clearRegistry } from 'digital-objects'
+import { setProvider, clearRegistry } from 'digital-objects'
 import type { NounInstance, NounEntity } from 'digital-objects'
+import { LocalNounProvider } from '@headlessly/objects'
 
 /**
- * Set up a fresh MemoryNounProvider before each test.
+ * Set up a fresh LocalNounProvider before each test.
  * Call this in a describe() block to get automatic cleanup.
  *
  * Returns the provider for direct access when needed.
  */
-export function setupTestProvider(): { provider: MemoryNounProvider } {
-  const state = { provider: new MemoryNounProvider() }
+export function setupTestProvider(): { provider: LocalNounProvider } {
+  const state = { provider: new LocalNounProvider() }
 
   beforeEach(() => {
     clearRegistry()
-    state.provider = new MemoryNounProvider()
+    state.provider = new LocalNounProvider()
     setProvider(state.provider)
   })
 

@@ -3,7 +3,7 @@
  *
  * Resolves the correct NounProvider based on config/environment:
  * - remote: DONounProvider targeting HEADLESSLY_ENDPOINT (when env vars set)
- * - memory: MemoryNounProvider (default, in-process)
+ * - local: LocalNounProvider (default, in-process)
  *
  * Environment variables:
  * - HEADLESSLY_ENDPOINT: Remote API URL (e.g. https://crm.headless.ly)
@@ -15,6 +15,7 @@
 
 import type { NounProvider } from 'digital-objects'
 import { getProvider as getGlobalProvider, setProvider } from 'digital-objects'
+import { LocalNounProvider } from '@headlessly/objects'
 
 let initialized = false
 
@@ -23,7 +24,7 @@ let initialized = false
  *
  * On first call, checks environment variables for remote configuration.
  * If HEADLESSLY_ENDPOINT is set, configures DONounProvider for remote mode.
- * Otherwise returns the default MemoryNounProvider from digital-objects.
+ * Otherwise sets LocalNounProvider as the default.
  */
 export async function getProvider(): Promise<NounProvider> {
   if (!initialized) {
@@ -33,17 +34,14 @@ export async function getProvider(): Promise<NounProvider> {
     const token = process.env.HEADLESSLY_TOKEN
 
     if (endpoint) {
-      try {
-        const { DONounProvider } = await import('@headlessly/objects')
-        const provider = new DONounProvider({
-          endpoint,
-          apiKey: token,
-        })
-        setProvider(provider)
-      } catch (err) {
-        // If @headlessly/objects is not available, fall back to memory
-        console.error(`Warning: could not initialize remote provider: ${err instanceof Error ? err.message : err}`)
-      }
+      const { DONounProvider } = await import('@headlessly/objects')
+      const provider = new DONounProvider({
+        endpoint,
+        apiKey: token,
+      })
+      setProvider(provider)
+    } else {
+      setProvider(new LocalNounProvider())
     }
   }
 

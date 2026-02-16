@@ -242,14 +242,15 @@ describe('enum field values from $schema', () => {
     expect(statusField!.enumValues).toEqual(['Active', 'Suspended', 'Invited'])
   })
 
-  it('Deal.stage enum has 6 values from Prospecting to ClosedLost', () => {
+  it('Deal.stage enum has 7 values from Prospecting to Lost', () => {
     const schema = getSchema($.Deal)
     const stageField = schema.fields.get('stage')
     expect(stageField).toBeDefined()
     expect(stageField!.enumValues).toContain('Prospecting')
-    expect(stageField!.enumValues).toContain('ClosedWon')
-    expect(stageField!.enumValues).toContain('ClosedLost')
-    expect(stageField!.enumValues!.length).toBe(6)
+    expect(stageField!.enumValues).toContain('Closed')
+    expect(stageField!.enumValues).toContain('Won')
+    expect(stageField!.enumValues).toContain('Lost')
+    expect(stageField!.enumValues!.length).toBe(7)
   })
 
   it('Issue.priority enum has Low, Medium, High, Urgent', () => {
@@ -266,7 +267,7 @@ describe('enum field values from $schema', () => {
     expect(sourceField!.enumValues).toEqual(['Browser', 'Node', 'API', 'Snippet'])
   })
 
-  it('Subscription.status enum has 6 billing states', () => {
+  it('Subscription.status enum has 9 billing states', () => {
     const schema = getSchema($.Subscription)
     const statusField = schema.fields.get('status')
     expect(statusField).toBeDefined()
@@ -276,7 +277,10 @@ describe('enum field values from $schema', () => {
     expect(statusField!.enumValues).toContain('Trialing')
     expect(statusField!.enumValues).toContain('Paused')
     expect(statusField!.enumValues).toContain('Incomplete')
-    expect(statusField!.enumValues!.length).toBe(6)
+    expect(statusField!.enumValues).toContain('Reactivated')
+    expect(statusField!.enumValues).toContain('Upgraded')
+    expect(statusField!.enumValues).toContain('Downgraded')
+    expect(statusField!.enumValues!.length).toBe(9)
   })
 
   it('Agent.memory enum has None, Session, Persistent', () => {

@@ -1,12 +1,13 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
 import { afterEach, beforeEach, vi } from 'vitest'
-import { clearRegistry, setProvider, MemoryNounProvider } from 'digital-objects'
+import { clearRegistry, setProvider } from 'digital-objects'
+import { LocalNounProvider } from '@headlessly/objects'
 
 // Fresh in-memory backend for every test
 beforeEach(() => {
   clearRegistry()
-  setProvider(new MemoryNounProvider())
+  setProvider(new LocalNounProvider())
 })
 
 afterEach(() => {

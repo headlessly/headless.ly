@@ -836,7 +836,7 @@ describe('@headlessly/crm — deep v2', () => {
       const raw = Contact.$schema.raw
       const expectedKeys = [
         'name', 'firstName', 'lastName', 'email', 'phone', 'mobile', 'avatar',
-        'title', 'department', 'organization', 'role', 'status', 'source',
+        'title', 'department', 'organization', 'role', 'stage', 'status', 'source',
         'leadScore', 'preferredChannel', 'timezone', 'language',
         'leads', 'activities', 'manager', 'reports',
         'linkedinUrl', 'twitterHandle', 'marketingConsent', 'lastEngagement',

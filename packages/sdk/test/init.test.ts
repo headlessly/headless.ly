@@ -7,11 +7,12 @@
  * All tests use real modules — no vi.mock() calls.
  */
 import { describe, it, expect, afterEach, vi } from 'vitest'
-import { setProvider, MemoryNounProvider, clearRegistry, getProvider } from 'digital-objects'
+import { setProvider, clearRegistry, getProvider } from 'digital-objects'
 import {
   headlessly,
   $,
   RemoteNounProvider,
+  LocalNounProvider,
   detectEnvironment,
   detectEndpoint,
   enableLazy,
@@ -38,7 +39,7 @@ describe('headlessly() initialization', () => {
     })
   })
 
-  describe('default (no args) — MemoryNounProvider', () => {
+  describe('default (no args) — LocalNounProvider', () => {
     it('returns a self-contained HeadlessContext when called with no arguments', () => {
       const ctx = headlessly()
       expect(ctx).toBeDefined()
@@ -48,10 +49,10 @@ describe('headlessly() initialization', () => {
       expect(ctx.Deal).toBeDefined()
     })
 
-    it('uses MemoryNounProvider when no options are provided', () => {
+    it('uses LocalNounProvider when no options are provided', () => {
       headlessly()
       const provider = getProvider()
-      expect(provider).toBeInstanceOf(MemoryNounProvider)
+      expect(provider).toBeInstanceOf(LocalNounProvider)
     })
 
     it('preserves existing behavior — entities are accessible on $', () => {
@@ -71,8 +72,8 @@ describe('headlessly() initialization', () => {
         apiKey: 'hly_sk_test123',
       })
       const provider = getProvider()
-      // Should NOT be MemoryNounProvider when remote config is given
-      expect(provider).not.toBeInstanceOf(MemoryNounProvider)
+      // Should NOT be LocalNounProvider when remote config is given
+      expect(provider).not.toBeInstanceOf(LocalNounProvider)
     })
 
     it('configures the provider with the given endpoint', () => {
@@ -171,9 +172,9 @@ describe('headlessly() initialization', () => {
         apiKey: 'hly_sk_test123',
       })
       headlessly.reset()
-      headlessly() // no args = MemoryNounProvider
+      headlessly() // no args = LocalNounProvider
       const provider = getProvider()
-      expect(provider).toBeInstanceOf(MemoryNounProvider)
+      expect(provider).toBeInstanceOf(LocalNounProvider)
     })
   })
 
@@ -209,14 +210,14 @@ describe('headlessly() initialization', () => {
       expect(provider.apiKey).toBe('hly_sk_explicit789')
     })
 
-    it('falls back to MemoryNounProvider when no env vars or options set', () => {
+    it('falls back to LocalNounProvider when no env vars or options set', () => {
       // Ensure env vars are not set
       vi.stubEnv('HEADLESSLY_API_KEY', '')
       vi.stubEnv('HEADLESSLY_ENDPOINT', '')
 
       headlessly()
       const provider = getProvider()
-      expect(provider).toBeInstanceOf(MemoryNounProvider)
+      expect(provider).toBeInstanceOf(LocalNounProvider)
     })
   })
 
@@ -397,14 +398,14 @@ describe('headlessly() initialization', () => {
     it('allows switching from memory to remote without manual reset', () => {
       headlessly()
       const provider1 = getProvider()
-      expect(provider1).toBeInstanceOf(MemoryNounProvider)
+      expect(provider1).toBeInstanceOf(LocalNounProvider)
 
       headlessly.reconfigure({
         endpoint: 'https://db.headless.ly',
         apiKey: 'hly_sk_reconfig',
       })
       const provider2 = getProvider() as { endpoint?: string }
-      expect(provider2).not.toBeInstanceOf(MemoryNounProvider)
+      expect(provider2).not.toBeInstanceOf(LocalNounProvider)
       expect(provider2.endpoint).toBe('https://db.headless.ly')
     })
 
@@ -463,11 +464,11 @@ describe('headlessly() initialization', () => {
       warnSpy.mockRestore()
     })
 
-    it('falls back to MemoryNounProvider when endpoint has no apiKey', () => {
+    it('falls back to LocalNounProvider when endpoint has no apiKey', () => {
       vi.spyOn(console, 'warn').mockImplementation(() => {})
       headlessly({ endpoint: 'https://db.headless.ly' })
       const provider = getProvider()
-      expect(provider).toBeInstanceOf(MemoryNounProvider)
+      expect(provider).toBeInstanceOf(LocalNounProvider)
       vi.restoreAllMocks()
     })
   })

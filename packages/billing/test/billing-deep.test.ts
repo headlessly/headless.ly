@@ -246,11 +246,11 @@ describe('@headlessly/billing — deep tests', () => {
   // 6. Subscription Schema — Enum Statuses
   // ---------------------------------------------------------------------------
   describe('Subscription schema', () => {
-    it('has enum field: status with 6 values', () => {
+    it('has enum field: status with 9 values', () => {
       const field = Subscription.$schema.fields.get('status')
       expect(field).toBeDefined()
       expect(field!.kind).toBe('enum')
-      expect(field!.enumValues).toEqual(['Active', 'PastDue', 'Cancelled', 'Trialing', 'Paused', 'Incomplete'])
+      expect(field!.enumValues).toEqual(['Active', 'PastDue', 'Cancelled', 'Trialing', 'Paused', 'Incomplete', 'Reactivated', 'Upgraded', 'Downgraded'])
     })
 
     it('has required datetime fields: currentPeriodStart, currentPeriodEnd, startedAt', () => {
@@ -311,7 +311,7 @@ describe('@headlessly/billing — deep tests', () => {
       const field = Invoice.$schema.fields.get('status')
       expect(field).toBeDefined()
       expect(field!.kind).toBe('enum')
-      expect(field!.enumValues).toEqual(['Draft', 'Open', 'Paid', 'Void', 'Uncollectible'])
+      expect(field!.enumValues).toEqual(['Draft', 'Open', 'Paid', 'Voided', 'Uncollectible'])
     })
 
     it('has required + unique number field (string!##)', () => {

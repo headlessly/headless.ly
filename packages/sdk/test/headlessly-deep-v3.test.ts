@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { clearRegistry, MemoryNounProvider, setProvider, getProvider } from 'digital-objects'
-import { Headlessly } from '../src/index'
+import { clearRegistry, setProvider, getProvider } from 'digital-objects'
+import { Headlessly, LocalNounProvider } from '../src/index'
 import type { HeadlesslyOrg } from '../src/index'
 
 type OrgWithEntities = HeadlesslyOrg & Record<string, any>
@@ -22,7 +22,7 @@ function trackHook(unsub: () => void): () => void {
 describe('headlessly-deep-v3 — 74 new tests', () => {
   beforeEach(() => {
     clearRegistry()
-    setProvider(new MemoryNounProvider())
+    setProvider(new LocalNounProvider())
   })
 
   afterEach(() => {
@@ -275,14 +275,14 @@ describe('headlessly-deep-v3 — 74 new tests', () => {
   // ===========================================================================
   describe('multi-tenant data isolation with separate providers', () => {
     it('org A data is invisible to org B with separate providers', async () => {
-      const providerA = new MemoryNounProvider()
+      const providerA = new LocalNounProvider()
       setProvider(providerA)
       const orgA = Headlessly({ tenant: 'tenant-a' }) as OrgWithEntities
       await orgA.Contact.create({ name: 'Alice in A' })
       await orgA.Contact.create({ name: 'Bob in A' })
 
       // Switch to org B with a fresh provider
-      const providerB = new MemoryNounProvider()
+      const providerB = new LocalNounProvider()
       setProvider(providerB)
       const orgB = Headlessly({ tenant: 'tenant-b' }) as OrgWithEntities
       const resultsB = await orgB.search({ type: 'Contact' })
@@ -290,12 +290,12 @@ describe('headlessly-deep-v3 — 74 new tests', () => {
     })
 
     it('org B data is invisible to org A after provider swap', async () => {
-      const providerA = new MemoryNounProvider()
+      const providerA = new LocalNounProvider()
       setProvider(providerA)
       Headlessly({ tenant: 'tenant-a' })
 
       // Create data in B
-      const providerB = new MemoryNounProvider()
+      const providerB = new LocalNounProvider()
       setProvider(providerB)
       const orgB = Headlessly({ tenant: 'tenant-b' }) as OrgWithEntities
       await orgB.Contact.create({ name: 'Charlie in B' })
@@ -320,25 +320,25 @@ describe('headlessly-deep-v3 — 74 new tests', () => {
     })
 
     it('creating entities in tenant A does not affect tenant B counts', async () => {
-      setProvider(new MemoryNounProvider())
+      setProvider(new LocalNounProvider())
       const orgA = Headlessly({ tenant: 'count-a' }) as OrgWithEntities
       await orgA.Deal.create({ name: 'Deal 1', value: 100 })
       await orgA.Deal.create({ name: 'Deal 2', value: 200 })
       await orgA.Deal.create({ name: 'Deal 3', value: 300 })
 
-      setProvider(new MemoryNounProvider())
+      setProvider(new LocalNounProvider())
       const orgB = Headlessly({ tenant: 'count-b' }) as OrgWithEntities
       const dealsB = await orgB.Deal.find()
       expect(dealsB.length).toBe(0)
     })
 
     it('delete in tenant A does not affect tenant B', async () => {
-      const provA = new MemoryNounProvider()
+      const provA = new LocalNounProvider()
       setProvider(provA)
       const orgA = Headlessly({ tenant: 'del-a' }) as OrgWithEntities
       const c = await orgA.Contact.create({ name: 'ToDelete' })
 
-      const provB = new MemoryNounProvider()
+      const provB = new LocalNounProvider()
       setProvider(provB)
       const orgB = Headlessly({ tenant: 'del-b' }) as OrgWithEntities
       await orgB.Contact.create({ name: 'Safe' })
@@ -733,19 +733,19 @@ describe('headlessly-deep-v3 — 74 new tests', () => {
   // ===========================================================================
   describe('provider lifecycle', () => {
     it('setProvider followed by getProvider returns the same instance', () => {
-      const provider = new MemoryNounProvider()
+      const provider = new LocalNounProvider()
       setProvider(provider)
       expect(getProvider()).toBe(provider)
     })
 
-    it('Headlessly memory mode sets a MemoryNounProvider', () => {
+    it('Headlessly memory mode sets a LocalNounProvider', () => {
       Headlessly({ tenant: 'provider-test', mode: 'memory' })
       const provider = getProvider()
-      expect(provider).toBeInstanceOf(MemoryNounProvider)
+      expect(provider).toBeInstanceOf(LocalNounProvider)
     })
 
     it('provider persists across entity operations', async () => {
-      const provider = new MemoryNounProvider()
+      const provider = new LocalNounProvider()
       setProvider(provider)
       const org = Headlessly({ tenant: 'persist' }) as OrgWithEntities
       await org.Contact.create({ name: 'Persist1' })
@@ -804,7 +804,7 @@ describe('headlessly-deep-v3 — 74 new tests', () => {
   describe('factory reconfiguration', () => {
     it('creating new factory instance with different mode changes provider', () => {
       Headlessly({ tenant: 'first', mode: 'memory' })
-      expect(getProvider()).toBeInstanceOf(MemoryNounProvider)
+      expect(getProvider()).toBeInstanceOf(LocalNounProvider)
 
       Headlessly({ tenant: 'second', mode: 'local' })
       const provider = getProvider()
@@ -813,18 +813,18 @@ describe('headlessly-deep-v3 — 74 new tests', () => {
 
     it('creating new factory instance with remote mode changes provider', () => {
       Headlessly({ tenant: 'mem', mode: 'memory' })
-      expect(getProvider()).toBeInstanceOf(MemoryNounProvider)
+      expect(getProvider()).toBeInstanceOf(LocalNounProvider)
 
       Headlessly({ tenant: 'rem', mode: 'remote', apiKey: 'key_test' })
       const provider = getProvider()
       expect(provider.constructor.name).toBe('DONounProvider')
     })
 
-    it('fresh setProvider with new MemoryNounProvider resets data', async () => {
+    it('fresh setProvider with new LocalNounProvider resets data', async () => {
       const org1 = Headlessly({ tenant: 'reset1' }) as OrgWithEntities
       await org1.Contact.create({ name: 'Before Reset' })
 
-      setProvider(new MemoryNounProvider())
+      setProvider(new LocalNounProvider())
       const org2 = Headlessly({ tenant: 'reset2' }) as OrgWithEntities
       const results = await org2.Contact.find()
       expect(results.length).toBe(0)
@@ -961,7 +961,7 @@ describe('headlessly-deep-v3 — 74 new tests', () => {
       expect(stageField).toBeDefined()
       expect(stageField!.kind).toBe('enum')
       expect(stageField!.enumValues).toContain('Prospecting')
-      expect(stageField!.enumValues).toContain('ClosedWon')
+      expect(stageField!.enumValues).toContain('Closed')
     })
   })
 })

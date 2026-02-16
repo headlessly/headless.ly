@@ -271,7 +271,7 @@ describe('@headlessly/crm — deep tests', () => {
       const field = Deal.$schema.fields.get('stage')
       expect(field).toBeDefined()
       expect(field!.kind).toBe('enum')
-      expect(field!.enumValues).toEqual(['Prospecting', 'Qualification', 'Proposal', 'Negotiation', 'ClosedWon', 'ClosedLost'])
+      expect(field!.enumValues).toEqual(['Prospecting', 'Qualification', 'Proposal', 'Negotiation', 'Closed', 'Won', 'Lost'])
     })
 
     it('Deal.recurringInterval has correct enum values', () => {
@@ -847,13 +847,13 @@ describe('@headlessly/crm — deep tests', () => {
   })
 
   describe('runtime: custom verb execution', () => {
-    it('Contact.qualify transitions status to Qualified', async () => {
-      const contact = await Contact.create({ name: 'Alice', status: 'Active' })
+    it('Contact.qualify transitions stage to Qualified', async () => {
+      const contact = await Contact.create({ name: 'Alice', stage: 'Lead' })
       const qualified = await (Contact as any).qualify(contact.$id)
       expect(qualified).toBeDefined()
       expect(qualified.$id).toBe(contact.$id)
-      // Verb resolve sets the status field to the target value (Qualified)
-      expect(qualified.status).toBe('Qualified')
+      // Verb resolve sets the stage field to the target value (Qualified)
+      expect(qualified.stage).toBe('Qualified')
     })
 
     it('Activity.complete transitions status to Completed', async () => {
@@ -932,11 +932,11 @@ describe('@headlessly/crm — deep tests', () => {
     it('Contact has correct number of fields and relationships', () => {
       const schema = Contact.$schema
       // Fields: name, firstName, lastName, email, phone, mobile, avatar, title,
-      //         department, role, status, source, leadScore, preferredChannel,
+      //         department, role, stage, status, source, leadScore, preferredChannel,
       //         timezone, language, linkedinUrl, twitterHandle, marketingConsent,
-      //         lastEngagement = 20
+      //         lastEngagement = 21
       // Relationships: organization, leads, activities, manager, reports = 5
-      expect(schema.fields.size).toBe(20)
+      expect(schema.fields.size).toBe(21)
       expect(schema.relationships.size).toBe(5)
     })
 

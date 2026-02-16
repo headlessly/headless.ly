@@ -19,7 +19,7 @@
  * All tests use real modules — no vi.mock() calls.
  */
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import { setProvider, MemoryNounProvider, clearRegistry } from 'digital-objects'
+import { setProvider, clearRegistry } from 'digital-objects'
 import {
   $,
   crm,
@@ -34,6 +34,7 @@ import {
   entityNames,
   headlessly,
   RemoteNounProvider,
+  LocalNounProvider,
   detectEnvironment,
   detectEndpoint,
   enableLazy,
@@ -45,7 +46,7 @@ import type { HeadlessContext, EntityName } from '../src/index'
 // ===========================================================================
 function freshProvider() {
   clearRegistry()
-  const provider = new MemoryNounProvider()
+  const provider = new LocalNounProvider()
   setProvider(provider)
   return provider
 }
