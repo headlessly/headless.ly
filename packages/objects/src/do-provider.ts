@@ -40,7 +40,7 @@ export interface DONounProviderOptions {
   endpoint: string
   /** API key for authentication */
   apiKey?: string
-  /** Transport type: 'http' (default) or 'ws' for real-time */
+  /** Transport type: 'ws' (default, persistent connection) or 'http' (single-use per request) */
   transport?: 'http' | 'ws'
   /**
    * Legacy: Fetch function to reach the DO.
@@ -118,9 +118,9 @@ export class DONounProvider implements NounProvider {
     if (options.apiKey) {
       rpcOptions.auth = options.apiKey
     }
-    // WebSocket: enable reconnecting transport when we have an API key for
-    // first-message auth. Without an API key, use non-reconnecting transport.
-    if (options.transport === 'ws') {
+    // Default to WebSocket — persistent connection avoids TLS handshake per request
+    const useWs = options.transport !== 'http'
+    if (useWs) {
       rpcOptions.reconnect = !!options.apiKey
     }
     this.rpcOptions = rpcOptions
@@ -132,7 +132,7 @@ export class DONounProvider implements NounProvider {
     }
 
     const isSecure = /^https:\/\//.test(normalizedEndpoint)
-    const protocol = options.transport === 'ws' ? (isSecure ? 'wss' : 'ws') : isSecure ? 'https' : 'http'
+    const protocol = useWs ? (isSecure ? 'wss' : 'ws') : isSecure ? 'https' : 'http'
     this.rpcUrl = normalizedEndpoint.replace(/^https?:\/\//, `${protocol}://`)
 
     // Share a single RPC instance — the http() transport in rpc.do already

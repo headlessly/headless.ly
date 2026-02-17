@@ -62,7 +62,7 @@ export interface HeadlesslyRpcOptions {
   apiKey?: string
   /** Endpoint override (default: https://db.headless.ly) */
   endpoint?: string
-  /** Transport: 'http' (default) or 'ws' for real-time */
+  /** Transport: 'ws' (default, persistent connection) or 'http' (single-use per request) */
   transport?: 'http' | 'ws'
 }
 
@@ -73,10 +73,14 @@ export interface HeadlesslyRpcOptions {
 export function buildHeadlesslyConfig(options: HeadlesslyRpcOptions): { url: string; rpcOptions: RPCOptions } {
   const base = (options.endpoint ?? 'https://db.headless.ly').replace(/\/+$/, '')
   const isSecure = /^https:\/\//.test(base)
-  const protocol = options.transport === 'ws' ? (isSecure ? 'wss' : 'ws') : isSecure ? 'https' : 'http'
+  // Default to WebSocket — persistent connection avoids TLS handshake per request (~67ms savings)
+  const useWs = options.transport !== 'http'
+  const protocol = useWs ? (isSecure ? 'wss' : 'ws') : isSecure ? 'https' : 'http'
   const url = base.replace(/^https?:\/\//, `${protocol}://`)
 
-  const rpcOptions: RPCOptions = {}
+  const rpcOptions: RPCOptions = {
+    reconnect: useWs,
+  }
   if (options.apiKey) {
     rpcOptions.auth = options.apiKey
   }
