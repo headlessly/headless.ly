@@ -1,0 +1,231 @@
+---
+title: Goal
+description: Business objectives with targets and progress tracking -- revenue goals, user growth, delivery milestones.
+---
+
+## Schema
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Goal = Noun('Goal', {
+  name: 'string!',
+  description: 'string',
+  metric: '-> Metric',
+  target: 'number!',
+  current: 'number',
+  unit: 'string',
+  period: 'Daily | Weekly | Monthly | Quarterly | Yearly',
+  status: 'OnTrack | AtRisk | Behind | Achieved | Completed | Missed | Reset',
+  organization: '-> Organization',
+  achieve: 'Achieved',
+  complete: 'Completed',
+  miss: 'Missed',
+  reset: 'Reset',
+})
+```
+
+## Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Goal name (e.g. `Q1 MRR Target`, `1000 Users by March`) |
+| `description` | string | No | Detailed description of the objective |
+| `metric` | -> Metric | No | The metric this goal tracks against |
+| `target` | number | Yes | Target value to achieve |
+| `current` | number | No | Current progress toward the target |
+| `unit` | string | No | Unit of measurement (e.g. `USD`, `users`, `percent`) |
+| `period` | enum | No | Time period: `Daily`, `Weekly`, `Monthly`, `Quarterly`, or `Yearly` |
+| `status` | enum | No | Current status: `OnTrack`, `AtRisk`, `Behind`, `Achieved`, `Completed`, `Missed`, or `Reset` |
+| `organization` | -> Organization | No | Tenant this goal belongs to |
+
+## Relationships
+
+| Field | Direction | Target | Description |
+|-------|-----------|--------|-------------|
+| `metric` | -> | Metric | The metric this goal measures progress against |
+| `organization` | -> | Organization | Tenant this goal belongs to |
+
+## Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `create` | `Created` | Define a new goal with a target |
+| `update` | `Updated` | Update goal fields (current progress, description, etc.) |
+| `delete` | `Deleted` | Remove a goal |
+| `achieve` | `Achieved` | Mark the goal as achieved -- target met |
+| `complete` | `Completed` | Mark the goal as completed -- period ended with target met |
+| `miss` | `Missed` | Mark the goal as missed -- period ended without meeting target |
+| `reset` | `Reset` | Reset the goal for a new period |
+
+### Verb Lifecycle
+
+```typescript
+import { Goal } from '@headlessly/analytics'
+
+// BEFORE hook -- validate before marking achieved
+Goal.achieving(goal => {
+  if (goal.current < goal.target) {
+    throw new Error(`Current value ${goal.current} has not reached target ${goal.target}`)
+  }
+})
+
+// Execute
+await Goal.achieve('goal_pQ8xNfKm')
+
+// AFTER hook -- celebrate and notify
+Goal.achieved((goal, $) => {
+  $.Event.create({
+    name: 'goal_achieved',
+    type: 'track',
+    source: 'API',
+    properties: JSON.stringify({
+      goalId: goal.$id,
+      goalName: goal.name,
+      target: goal.target,
+      actual: goal.current,
+    }),
+    timestamp: new Date().toISOString(),
+  })
+})
+```
+
+## Status State Machine
+
+```
+                create()
+(none) ──────────────────> OnTrack
+                              │
+                   ┌──────────┼──────────┐
+                   │          │          │
+                   v          v          v
+               AtRisk     Behind    Achieved ──> Completed
+                   │          │                      │
+                   │          v                      │
+                   └───────> Missed                  │
+                              │                      │
+                              v                      v
+                           Reset <──────────────── Reset
+                              │
+                              v
+                           OnTrack (new period)
+```
+
+| From | Verb | To |
+|------|------|----|
+| -- | `create` | `OnTrack` |
+| `OnTrack` | `update` | `AtRisk` or `Behind` |
+| `AtRisk` | `update` | `OnTrack` or `Behind` |
+| `Behind` | `update` | `OnTrack` or `AtRisk` |
+| `OnTrack` / `AtRisk` | `achieve` | `Achieved` |
+| `Achieved` | `complete` | `Completed` |
+| `Behind` / `AtRisk` | `miss` | `Missed` |
+| Any | `reset` | `Reset` (then back to `OnTrack`) |
+
+## Cross-Domain Patterns
+
+Goals tie business objectives to measurable outcomes across domains:
+
+```typescript
+import { Metric } from '@headlessly/analytics'
+
+// Auto-check goals when metrics are recorded
+Metric.recorded((metric, $) => {
+  const goals = await $.Goal.find({ metric: metric.$id })
+  for (const goal of goals) {
+    if (metric.value >= goal.target && goal.status !== 'Achieved') {
+      await $.Goal.achieve(goal.$id)
+    } else if (metric.value < goal.target * 0.5) {
+      await $.Goal.update(goal.$id, { status: 'Behind', current: metric.value })
+    } else if (metric.value < goal.target * 0.8) {
+      await $.Goal.update(goal.$id, { status: 'AtRisk', current: metric.value })
+    } else {
+      await $.Goal.update(goal.$id, { status: 'OnTrack', current: metric.value })
+    }
+  }
+})
+```
+
+- **Billing**: Revenue goals (MRR, ARR) track against financial metrics derived from Stripe
+- **CRM**: Sales goals track deal count, pipeline value, and conversion rates
+- **Marketing**: Campaign goals track lead generation, conversion, and ROI targets
+- **Projects**: Delivery goals track sprint velocity and milestone completion
+- **Metrics**: Every goal references a Metric -- when the metric is recorded, goal progress updates
+
+## Query Examples
+
+### SDK
+
+```typescript
+import { Goal } from '@headlessly/analytics'
+
+// Find all active goals
+const active = await Goal.find({
+  status: { $in: ['OnTrack', 'AtRisk', 'Behind'] },
+})
+
+// Get a specific goal with its metric
+const goal = await Goal.get('goal_pQ8xNfKm', {
+  include: ['metric'],
+})
+
+// Create a quarterly revenue goal
+await Goal.create({
+  name: 'Q1 MRR Target',
+  description: 'Reach $10K MRR by end of Q1',
+  metric: 'metric_k7TmPvQx',
+  target: 10000,
+  current: 4200,
+  unit: 'USD',
+  period: 'Quarterly',
+  status: 'OnTrack',
+})
+
+// Mark achieved
+await Goal.achieve('goal_pQ8xNfKm')
+
+// Reset for next period
+await Goal.reset('goal_pQ8xNfKm')
+```
+
+### MCP
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Goal",
+  "filter": { "status": "AtRisk", "period": "Quarterly" },
+  "sort": { "$updatedAt": "desc" },
+  "limit": 10
+}
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Goal", "id": "goal_pQ8xNfKm", "include": ["metric"] }
+```
+
+```ts title="headless.ly/mcp#do"
+const atRisk = await $.Goal.find({ status: 'AtRisk' })
+await $.Goal.achieve('goal_pQ8xNfKm')
+await $.Goal.reset('goal_pQ8xNfKm')
+```
+
+### REST
+
+```bash
+# List goals by status
+curl https://analytics.headless.ly/~acme/goals?status=OnTrack&period=Quarterly
+
+# Get a specific goal
+curl https://analytics.headless.ly/~acme/goals/goal_pQ8xNfKm
+
+# Create a goal
+curl -X POST https://analytics.headless.ly/~acme/goals \
+  -H 'Content-Type: application/json' \
+  -d '{"name": "Q1 MRR Target", "target": 10000, "current": 4200, "unit": "USD", "period": "Quarterly", "metric": "metric_k7TmPvQx"}'
+
+# Achieve a goal
+curl -X POST https://analytics.headless.ly/~acme/goals/goal_pQ8xNfKm/achieve
+
+# Reset a goal
+curl -X POST https://analytics.headless.ly/~acme/goals/goal_pQ8xNfKm/reset
+```

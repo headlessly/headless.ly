@@ -1,0 +1,144 @@
+---
+title: Multi-Tenancy
+description: How $context scopes data to tenants with complete isolation via Durable Objects.
+icon: Building
+---
+
+## Tenant Context
+
+Every entity in headless.ly is scoped to a tenant via the `$context` meta-field. This field is a namespace URL in the format `https://headless.ly/~{tenant}`:
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+const contact = await Contact.create({ name: 'Alice', stage: 'Lead' })
+console.log(contact.$context) // 'https://headless.ly/~acme'
+```
+
+The tenant is set once when the SDK is initialized. All subsequent operations are automatically scoped. There is no way to accidentally read or write data belonging to another tenant.
+
+## URL Pattern
+
+Tenants are addressed via the `~` path prefix across all interfaces:
+
+```
+https://{subdomain}.headless.ly/~{tenant}/{Entity}
+https://{subdomain}.headless.ly/~{tenant}/{Entity}/{id}
+https://{subdomain}.headless.ly/~{tenant}/{Entity}/{id}/{verb}
+```
+
+```bash
+# Create a contact in the "acme" tenant
+POST https://crm.headless.ly/~acme/Contact
+{ "name": "Alice", "stage": "Lead" }
+
+# Query contacts in the "beta" tenant
+GET https://crm.headless.ly/~beta/Contact?stage=Lead
+
+# Execute a verb
+POST https://crm.headless.ly/~acme/Contact/contact_fX9bL5nRd/qualify
+```
+
+## Durable Object Isolation
+
+Each tenant gets its own Cloudflare Durable Object. This is not a shared database with row-level filtering -- it is a separate compute and storage instance:
+
+| Layer | Isolation Mechanism |
+|-------|-------------------|
+| **Compute** | One Durable Object per tenant (separate V8 isolate) |
+| **Storage** | Tenant-scoped SQLite database within the DO |
+| **Events** | Tenant-scoped event log with separate Iceberg partitions |
+| **Cache** | Tenant-prefixed KV keys |
+| **WebSocket** | Tenant-scoped connection groups |
+
+A bug, a spike in traffic, or a runaway query in one tenant cannot affect another. The Durable Object boundary is the isolation boundary.
+
+## Subdomain Routing
+
+Every `*.headless.ly` subdomain routes to the same Cloudflare Worker. The subdomain determines composition context -- which entities are surfaced and how the API is scoped -- but all subdomains access the same underlying tenant data:
+
+```
+CRM.Headless.ly/~acme         → CRM entities for acme
+Healthcare.Headless.ly/~acme   → Healthcare-scoped entities for acme
+build.headless.ly/~acme        → Build-phase entities for acme
+```
+
+The subdomain is a lens, not a partition. `CRM.Headless.ly/~acme` and `Healthcare.Headless.ly/~acme` read from the same Durable Object. The subdomain controls which entities appear in the API surface and MCP tools:
+
+```
+CRM.Headless.ly/healthcare   =   Healthcare.Headless.ly/crm
+```
+
+Both resolve to: CRM entities filtered by healthcare industry context. Subdomain and path are interchangeable dimensions.
+
+## SDK Configuration
+
+### Environment Variable
+
+The simplest approach -- set the tenant via environment variable:
+
+```bash
+export HEADLESSLY_TENANT=acme
+export HEADLESSLY_API_KEY=hly_sk_...
+```
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+// Automatically scoped to the "acme" tenant
+await Contact.create({ name: 'Alice', stage: 'Lead' })
+```
+
+### Factory Function
+
+For multi-tenant applications that operate across tenants, use the `Headlessly()` factory:
+
+```typescript
+import { Headlessly } from '@headlessly/sdk'
+
+const acme = Headlessly({ tenant: 'acme', mode: 'remote', apiKey: 'hly_sk_...' })
+const beta = Headlessly({ tenant: 'beta', mode: 'remote', apiKey: 'hly_sk_...' })
+
+// Completely isolated data
+await acme.Contact.create({ name: 'Alice', stage: 'Lead' })
+await beta.Contact.create({ name: 'Bob', stage: 'Lead' })
+
+// Query within tenant scope
+const acmeLeads = await acme.Contact.find({ stage: 'Lead' })
+const betaLeads = await beta.Contact.find({ stage: 'Lead' })
+// acmeLeads and betaLeads are entirely separate datasets
+```
+
+### MCP
+
+MCP connections are scoped by subdomain. An agent connecting to `crm.headless.ly/~acme/mcp` can only access the `acme` tenant's data:
+
+```json title="headless.ly/mcp#search"
+{ "type": "Contact", "filter": { "stage": "Lead" } }
+```
+
+The tenant is implicit in the MCP connection URL. There is no way to query across tenant boundaries from an MCP tool.
+
+## Data Guarantees
+
+| Guarantee | How It Works |
+|-----------|-------------|
+| **No cross-tenant reads** | Durable Object ID is derived from tenant name -- different tenant, different DO |
+| **No cross-tenant writes** | All writes go through the tenant's DO, which only accepts operations for its own namespace |
+| **No shared storage** | SQLite database is local to each DO instance |
+| **Audit trail per tenant** | Event log is partitioned by tenant in the Iceberg lakehouse |
+| **Independent versioning** | `$version` counters are per-entity, per-tenant |
+
+## Tenant Lifecycle
+
+Tenants are created implicitly on first write. There is no provisioning step:
+
+```typescript
+import { Headlessly } from '@headlessly/sdk'
+
+// This creates the "newstartup" tenant on first operation
+const ns = Headlessly({ tenant: 'newstartup', mode: 'remote', apiKey: 'hly_sk_...' })
+await ns.Contact.create({ name: 'Founder', stage: 'Lead' })
+```
+
+The Durable Object is instantiated on demand by Cloudflare. Storage is allocated as data is written. There is no cold-start penalty beyond the first request to a new tenant.

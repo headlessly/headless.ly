@@ -1,0 +1,139 @@
+---
+title: Message
+description: Multi-channel messages -- email, SMS, chat, push notifications.
+---
+
+## Schema
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Message = Noun('Message', {
+  body: 'string!',
+  channel: 'Email | SMS | Chat | Push',
+  status: 'Draft | Sent | Delivered | Read | Failed',
+  sender: '-> Contact',
+  recipient: '-> Contact',
+  send: 'Sent',
+  deliver: 'Delivered',
+  read: 'Read',
+})
+```
+
+## Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `body` | string | Yes | Message content |
+| `channel` | enum | No | Email, SMS, Chat, or Push |
+| `status` | enum | No | Draft, Sent, Delivered, Read, or Failed |
+| `sender` | -> Contact | No | Contact who sent the message |
+| `recipient` | -> Contact | No | Contact receiving the message |
+
+## Relationships
+
+| Field | Direction | Target | Description |
+|-------|-----------|--------|-------------|
+| `sender` | -> | Contact | The message sender |
+| `recipient` | -> | Contact | The message recipient |
+
+## Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `create` | `Created` | Create a new message |
+| `update` | `Updated` | Update message |
+| `delete` | `Deleted` | Delete message |
+| `send` | `Sent` | Send the message |
+| `deliver` | `Delivered` | Mark as delivered |
+| `read` | `Read` | Mark as read |
+
+### Verb Lifecycle
+
+```typescript
+import { Message } from '@headlessly/sdk'
+
+// BEFORE hook -- validate before sending
+Message.sending(message => {
+  if (!message.recipient) throw new Error('Recipient required')
+  return message
+})
+
+// Execute
+await Message.send({ id: 'message_tW5nKpQm' })
+
+// AFTER hook -- react to sent messages
+Message.sent((message, $) => {
+  $.Event.create({
+    name: 'message.sent',
+    type: 'communication',
+    data: { channel: message.channel, recipient: message.recipient },
+  })
+})
+```
+
+## Status State Machine
+
+```
+Draft -> Sent -> Delivered -> Read
+                    \-> Failed
+```
+
+- **Draft**: Message created but not yet sent
+- **Sent**: Message dispatched to delivery channel
+- **Delivered**: Confirmed delivery to recipient
+- **Read**: Recipient opened/read the message
+- **Failed**: Delivery failed
+
+## Cross-Domain Patterns
+
+Message connects CRM contacts to communication channels:
+
+- **Contact -> Message**: Every message links sender and recipient to CRM contacts
+- **Campaign -> Message**: Marketing campaigns trigger message sends
+- **Ticket -> Message**: Support tickets generate notification messages
+- **Agent -> Message**: Agents send automated messages on behalf of the organization
+
+## Query Examples
+
+### SDK
+
+```typescript
+import { Message } from '@headlessly/sdk'
+
+// Find all unread messages for a contact
+const unread = await Message.find({
+  recipient: 'contact_fX9bL5nRd',
+  status: 'Delivered',
+})
+
+// Send a message
+const msg = await Message.create({
+  body: 'Welcome to Acme!',
+  channel: 'Email',
+  sender: 'contact_k7TmPvQx',
+  recipient: 'contact_fX9bL5nRd',
+})
+await Message.send({ id: msg.$id })
+```
+
+### MCP
+
+```json title="headless.ly/mcp#search"
+{ "type": "Message", "filter": { "channel": "Email", "status": "Sent" } }
+```
+
+### REST
+
+```bash
+# List messages filtered by channel and status
+curl https://headless.ly/~acme/messages?channel=Email&status=Sent
+
+# Create a message
+curl -X POST https://headless.ly/~acme/messages \
+  -H 'Content-Type: application/json' \
+  -d '{"body": "Welcome to Acme!", "channel": "Email", "sender": "contact_k7TmPvQx", "recipient": "contact_fX9bL5nRd"}'
+
+# Send a message
+curl -X POST https://headless.ly/~acme/messages/message_tW5nKpQm/send
+```

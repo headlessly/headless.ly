@@ -1,0 +1,76 @@
+---
+title: Support
+description: Ticket -- customer support lifecycle from open to resolved.
+icon: LifeBuoy
+---
+
+One entity handles the entire customer support lifecycle -- from initial request through resolution, escalation, and satisfaction tracking. Tickets connect to CRM contacts, organizations, and deals for full account context.
+
+```typescript
+import { Ticket } from '@headlessly/support'
+
+const ticket = await Ticket.create({
+  subject: 'Cannot access billing portal',
+  description: 'Getting a 403 error when clicking the billing link.',
+  priority: 'High',
+  channel: 'Email',
+  requester: 'contact_fX9bL5nRd',
+  organization: 'org_Nw8rTxJv',
+})
+
+await Ticket.resolve(ticket.$id)
+```
+
+## Entities
+
+| Entity | Description | Custom Verbs |
+|--------|-------------|-------------|
+| [Ticket](/entities/support/ticket) | Support requests with priority, channel, and satisfaction tracking | `resolve`, `escalate`, `close`, `reopen` |
+
+## Cross-Domain Connections
+
+Support connects to the full business graph:
+
+```typescript
+import { Ticket } from '@headlessly/support'
+
+Ticket.created((ticket, $) => {
+  $.Activity.create({
+    subject: `Support: ${ticket.subject}`,
+    type: 'Task',
+    contact: ticket.requester,
+  })
+})
+
+Ticket.escalated((ticket, $) => {
+  $.Issue.create({
+    title: `Escalation: ${ticket.subject}`,
+    type: 'Bug',
+    priority: ticket.priority,
+  })
+})
+```
+
+- **CRM**: Tickets reference Contacts as requesters and assignees. Organizations provide account-level context. Deals link support to active sales.
+- **Projects**: Escalated tickets create Issues for engineering follow-up.
+- **Analytics**: Ticket events feed into Metrics -- first response time, resolution time, CSAT scores.
+- **Billing**: Ticket context includes subscription status for priority routing.
+
+## Package
+
+```bash
+npm install @headlessly/support
+```
+
+```typescript
+import { Ticket } from '@headlessly/support'
+```
+
+Or via the unified SDK:
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+await $.Ticket.find({ status: 'Open', priority: 'Urgent' })
+await $.Ticket.resolve('ticket_nV4xKpQm')
+```

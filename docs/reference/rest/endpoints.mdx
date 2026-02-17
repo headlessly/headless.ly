@@ -1,0 +1,209 @@
+---
+title: Endpoints
+description: Complete REST API endpoint reference — every method, path, parameter, and response.
+---
+
+All endpoints are tenant-scoped under the base URL `https://headless.ly/~{tenant}`. Replace `{tenant}` with your organization slug.
+
+## List Entities
+
+```
+GET /~:tenant/:type
+```
+
+Returns a paginated list of entities matching optional query parameters.
+
+### Query Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `filter` | JSON string | `{}` | MongoDB-style filter object, URL-encoded |
+| `sort` | string | `-createdAt` | Field to sort by. Prefix `-` for descending |
+| `limit` | integer | `25` | Results per page (1-100) |
+| `offset` | integer | `0` | Number of results to skip |
+| `cursor` | string | -- | Opaque pagination cursor from a previous response |
+| `asOf` | ISO 8601 | -- | Time travel — return state as of this timestamp |
+| `include` | string | -- | Comma-separated relationship fields to eagerly load |
+
+### Example
+
+```bash
+curl "https://headless.ly/~acme/Contact?filter=%7B%22stage%22%3A%22Lead%22%7D&sort=-createdAt&limit=10" \
+  -H "Authorization: Bearer hly_sk_your_key"
+```
+
+### Response
+
+```json
+{
+  "results": [
+    {
+      "$id": "contact_fX9bL5nRd",
+      "$type": "Contact",
+      "name": "Alice Chen",
+      "email": "alice@startup.io",
+      "stage": "Lead",
+      "createdAt": "2026-01-15T09:30:00Z"
+    }
+  ],
+  "total": 142,
+  "hasMore": true,
+  "cursor": "eyJvIjoyNSwibCI6MjV9"
+}
+```
+
+## Create Entity
+
+```
+POST /~:tenant/:type
+```
+
+Creates a new entity. The request body is a JSON object with the entity fields. Returns the created entity with a generated `$id`.
+
+```bash
+curl -X POST "https://headless.ly/~acme/Contact" \
+  -H "Authorization: Bearer hly_sk_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Alice Chen", "email": "alice@startup.io", "stage": "Lead"}'
+```
+
+```json
+{
+  "$id": "contact_fX9bL5nRd",
+  "$type": "Contact",
+  "name": "Alice Chen",
+  "email": "alice@startup.io",
+  "stage": "Lead",
+  "createdAt": "2026-01-15T09:30:00Z",
+  "updatedAt": "2026-01-15T09:30:00Z"
+}
+```
+
+## Get Entity by ID
+
+```
+GET /~:tenant/:type/:id
+```
+
+Returns a single entity. Supports `include` and `fields` query parameters.
+
+```bash
+curl "https://headless.ly/~acme/Contact/contact_fX9bL5nRd?include=organization,deals" \
+  -H "Authorization: Bearer hly_sk_your_key"
+```
+
+```json
+{
+  "$id": "contact_fX9bL5nRd",
+  "$type": "Contact",
+  "name": "Alice Chen",
+  "stage": "Qualified",
+  "organization": {
+    "$id": "org_e5JhLzXc",
+    "$type": "Organization",
+    "name": "Startup Inc"
+  },
+  "deals": [
+    { "$id": "deal_k7TmPvQx", "$type": "Deal", "value": 48000, "stage": "Negotiation" }
+  ]
+}
+```
+
+## Update Entity
+
+```
+PUT /~:tenant/:type/:id
+```
+
+Partial update. Merges the request body into the existing entity. Returns the updated entity.
+
+```bash
+curl -X PUT "https://headless.ly/~acme/Contact/contact_fX9bL5nRd" \
+  -H "Authorization: Bearer hly_sk_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{"stage": "Customer"}'
+```
+
+## Delete Entity
+
+```
+DELETE /~:tenant/:type/:id
+```
+
+Soft-deletes the entity. The entity is marked as deleted but remains in the immutable event log and is accessible via time travel queries.
+
+```bash
+curl -X DELETE "https://headless.ly/~acme/Contact/contact_fX9bL5nRd" \
+  -H "Authorization: Bearer hly_sk_your_key"
+```
+
+Returns `204 No Content` on success.
+
+## Execute Custom Verb
+
+```
+POST /~:tenant/:type/:id/:verb
+```
+
+Executes a custom verb defined on the entity's Noun schema. The verb fires the full conjugation lifecycle: `qualifying` (BEFORE), `qualify` (execute), `qualified` (AFTER).
+
+```bash
+curl -X POST "https://headless.ly/~acme/Contact/contact_fX9bL5nRd/qualify" \
+  -H "Authorization: Bearer hly_sk_your_key"
+```
+
+Verbs that accept arguments pass them in the request body:
+
+```bash
+curl -X POST "https://headless.ly/~acme/Deal/deal_k7TmPvQx/close" \
+  -H "Authorization: Bearer hly_sk_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{"wonReason": "Great product fit"}'
+```
+
+## Event Stream
+
+```
+GET /~:tenant/events
+```
+
+Returns change-data-capture events for the tenant. Supports filtering by type and time range.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `since` | ISO 8601 | -- | Only events after this timestamp |
+| `type` | string | all | Filter by entity type |
+| `limit` | integer | 100 | Maximum events to return |
+
+```bash
+curl "https://headless.ly/~acme/events?since=2026-01-15T00:00:00Z&type=Contact" \
+  -H "Authorization: Bearer hly_sk_your_key"
+```
+
+## Batch Operations
+
+```
+POST /~:tenant/batch
+```
+
+Execute multiple operations in a single request. See the [Batch API](/docs/reference/rest/batch) reference for details.
+
+## Business Metrics
+
+```
+GET /~:tenant/metrics
+```
+
+Returns an aggregated business snapshot across all entity types -- revenue, pipeline, product, support, and marketing metrics.
+
+```bash
+curl "https://headless.ly/~acme/metrics" \
+  -H "Authorization: Bearer hly_sk_your_key"
+```
+
+Fetch a specific metric by name:
+
+```bash
+curl "https://headless.ly/~acme/Metric/mrr" \
+  -H "Authorization: Bearer hly_sk_your_key"
+```

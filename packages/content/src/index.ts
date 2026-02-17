@@ -5,6 +5,7 @@ export const Content = Noun('Content', {
   slug: 'string##',
   excerpt: 'string',
   body: 'string',
+  organization: '-> Organization',
   site: '-> Site.content',
   type: 'Page | Post | Article | Guide',
   categories: 'string',
@@ -16,7 +17,7 @@ export const Content = Noun('Content', {
   seoTitle: 'string',
   seoDescription: 'string',
   ogImage: 'string',
-  noIndex: 'string',
+  noIndex: 'boolean',
   canonicalUrl: 'string',
   featuredImage: '-> Asset',
   readingTime: 'number',
@@ -45,6 +46,7 @@ export const Asset = Noun('Asset', {
   uploadedBy: '-> Contact',
   source: 'string',
   license: 'string',
+  process: 'Processed',
 })
 
 export const Site = Noun('Site', {

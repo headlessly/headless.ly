@@ -1,0 +1,149 @@
+---
+title: Webhooks
+description: Receive real-time event notifications via HTTP webhooks.
+---
+
+Webhooks deliver real-time event notifications to your server whenever entities are created, updated, deleted, or transition through custom verbs. Every mutation in the immutable event log can trigger a webhook.
+
+## Register a Webhook
+
+```bash
+curl -X POST "https://headless.ly/~acme/webhooks" \
+  -H "Authorization: Bearer hly_sk_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://your-app.com/webhooks/headlessly",
+    "events": ["Contact.created", "Contact.qualified", "Deal.closed"],
+    "secret": "whsec_your_signing_secret"
+  }'
+```
+
+### Parameters
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `url` | string | Yes | HTTPS endpoint that receives webhook payloads |
+| `events` | string[] | Yes | Event types to subscribe to (see Event Types below) |
+| `secret` | string | No | Signing secret for payload verification. Auto-generated if omitted |
+
+### Response
+
+```json
+{
+  "$id": "webhook_rT4nXwBp",
+  "url": "https://your-app.com/webhooks/headlessly",
+  "events": ["Contact.created", "Contact.qualified", "Deal.closed"],
+  "status": "active",
+  "createdAt": "2026-01-15T09:30:00Z"
+}
+```
+
+## Event Types
+
+Events follow the pattern `{Entity}.{verb_past_tense}`:
+
+| Event | Trigger |
+|-------|---------|
+| `Contact.created` | A Contact entity was created |
+| `Contact.updated` | A Contact entity was updated |
+| `Contact.deleted` | A Contact entity was deleted |
+| `Contact.qualified` | The `qualify` verb was executed on a Contact |
+| `Deal.closed` | The `close` verb was executed on a Deal |
+| `Subscription.upgraded` | The `upgrade` verb was executed on a Subscription |
+| `*.created` | Any entity was created (wildcard) |
+| `*.updated` | Any entity was updated (wildcard) |
+
+Use `*` as a wildcard for the entity type to receive all events of that verb.
+
+## Webhook Payload
+
+Each delivery sends a POST request to your URL with a JSON body:
+
+```json
+{
+  "id": "evt_nB2wRtLp",
+  "type": "Contact.qualified",
+  "timestamp": "2026-01-15T12:30:00Z",
+  "tenant": "acme",
+  "data": {
+    "$id": "contact_fX9bL5nRd",
+    "$type": "Contact",
+    "name": "Alice Chen",
+    "email": "alice@startup.io",
+    "stage": "Qualified"
+  },
+  "previous": {
+    "stage": "Lead"
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique event ID for idempotency |
+| `type` | string | Event type in `Entity.verb` format |
+| `timestamp` | string | ISO 8601 timestamp of when the event occurred |
+| `tenant` | string | Tenant slug |
+| `data` | object | Current state of the entity after the event |
+| `previous` | object | Changed fields with their previous values (only for updates and verbs) |
+
+## Signature Verification
+
+Every webhook delivery includes a signature header for payload verification:
+
+```
+X-Headlessly-Signature: sha256=a1b2c3d4e5f6...
+```
+
+Verify the signature by computing HMAC-SHA256 of the raw request body using your webhook secret:
+
+```typescript
+import { createHmac } from 'crypto'
+
+function verifyWebhook(body: string, signature: string, secret: string): boolean {
+  const expected = 'sha256=' + createHmac('sha256', secret).update(body).digest('hex')
+  return expected === signature
+}
+```
+
+Reject any request where the signature does not match. This prevents forged payloads.
+
+## Retry Policy
+
+Failed deliveries (non-2xx response or timeout) are retried with exponential backoff:
+
+| Attempt | Delay |
+|---------|-------|
+| 1st retry | 30 seconds |
+| 2nd retry | 2 minutes |
+| 3rd retry | 15 minutes |
+| 4th retry | 1 hour |
+| 5th retry | 6 hours |
+
+After 5 failed retries, the webhook is marked as `failing`. It remains active and continues to receive new events, but a warning appears in your dashboard. Fix the endpoint and the backlog will drain automatically.
+
+Deliveries time out after 10 seconds. Return a `2xx` status code quickly and process the payload asynchronously if needed.
+
+## Manage Webhooks
+
+```bash
+# List all webhooks
+GET /~acme/webhooks
+
+# Get a specific webhook
+GET /~acme/webhooks/webhook_rT4nXwBp
+
+# Update events or URL
+PUT /~acme/webhooks/webhook_rT4nXwBp
+{ "events": ["Contact.created", "Deal.*"] }
+
+# Delete a webhook
+DELETE /~acme/webhooks/webhook_rT4nXwBp
+
+# View delivery history
+GET /~acme/webhooks/webhook_rT4nXwBp/deliveries
+```
+
+## Idempotency
+
+Each webhook payload includes a unique `id` field. Use this to deduplicate deliveries on your end, since retries can result in the same event being delivered more than once.

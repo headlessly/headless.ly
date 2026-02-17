@@ -22,6 +22,7 @@ export const Campaign = Noun('Campaign', {
   utmSource: 'string',
   utmMedium: 'string',
   utmCampaign: 'string',
+  organization: '-> Organization',
   owner: '-> Contact',
   launch: 'Launched',
   pause: 'Paused',
@@ -34,7 +35,8 @@ export const Segment = Noun('Segment', {
   criteria: 'string',
   organization: '-> Organization',
   memberCount: 'number',
-  isDynamic: 'string',
+  isDynamic: 'boolean',
+  refresh: 'Refreshed',
 })
 
 export const Form = Noun('Form', {
@@ -46,4 +48,5 @@ export const Form = Noun('Form', {
   submissionCount: 'number',
   publish: 'Published',
   archive: 'Archived',
+  submit: 'Submitted',
 })

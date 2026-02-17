@@ -9,6 +9,7 @@ export const Ticket = Noun('Ticket', {
   assignee: '-> Contact',
   requester: '-> Contact',
   organization: '-> Organization',
+  deal: '-> Deal',
   channel: 'Email | Chat | Phone | Web | API',
   tags: 'string',
   firstResponseAt: 'datetime',

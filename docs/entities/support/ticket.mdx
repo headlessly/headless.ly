@@ -1,0 +1,265 @@
+---
+title: Ticket
+description: Customer support requests with priority, channel tracking, escalation, and satisfaction scoring.
+---
+
+## Schema
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Ticket = Noun('Ticket', {
+  subject: 'string!',
+  description: 'string',
+  status: 'Open | Pending | InProgress | Resolved | Escalated | Closed | Reopened',
+  priority: 'Low | Medium | High | Urgent',
+  category: 'string',
+  assignee: '-> Contact',
+  requester: '-> Contact',
+  organization: '-> Organization',
+  deal: '-> Deal',
+  channel: 'Email | Chat | Phone | Web | API',
+  tags: 'string',
+  firstResponseAt: 'datetime',
+  resolvedAt: 'datetime',
+  satisfaction: 'number',
+  resolve: 'Resolved',
+  escalate: 'Escalated',
+  close: 'Closed',
+  reopen: 'Reopened',
+})
+```
+
+## Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `subject` | string | Yes | Short summary of the support request |
+| `description` | string | No | Detailed description of the issue |
+| `status` | enum | No | Open, Pending, InProgress, Resolved, Escalated, Closed, or Reopened |
+| `priority` | enum | No | Low, Medium, High, or Urgent |
+| `category` | string | No | Support category (e.g., billing, technical, account) |
+| `assignee` | -> Contact | No | Support agent handling the ticket |
+| `requester` | -> Contact | No | Customer who submitted the request |
+| `organization` | -> Organization | No | Organization the requester belongs to |
+| `deal` | -> Deal | No | Associated deal for sales-context support |
+| `channel` | enum | No | Email, Chat, Phone, Web, or API |
+| `tags` | string | No | Comma-separated tags for categorization |
+| `firstResponseAt` | datetime | No | Timestamp of the first agent response |
+| `resolvedAt` | datetime | No | Timestamp when the ticket was resolved |
+| `satisfaction` | number | No | Customer satisfaction score (1-5) |
+
+## Relationships
+
+| Field | Direction | Target | Description |
+|-------|-----------|--------|-------------|
+| `assignee` | -> | Contact | The support agent working on this ticket |
+| `requester` | -> | Contact | The customer who submitted the ticket |
+| `organization` | -> | Organization | The customer's organization for account context |
+| `deal` | -> | Deal | Associated sales deal for pre-sale or renewal support |
+
+## Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `create` | `Created` | Open a new support ticket |
+| `update` | `Updated` | Update ticket fields |
+| `delete` | `Deleted` | Soft-delete the ticket |
+| `resolve` | `Resolved` | Mark the ticket as resolved |
+| `escalate` | `Escalated` | Escalate to a higher support tier or engineering |
+| `close` | `Closed` | Close the ticket after resolution or inactivity |
+| `reopen` | `Reopened` | Reopen a closed or resolved ticket |
+
+### Verb Lifecycle
+
+```typescript
+import { Ticket } from '@headlessly/support'
+
+// BEFORE hook -- validate before escalation
+Ticket.escalating(ticket => {
+  if (ticket.status === 'Closed') {
+    throw new Error('Cannot escalate a closed ticket -- reopen it first')
+  }
+})
+
+// Execute
+await Ticket.escalate('ticket_nV4xKpQm')
+
+// AFTER hook -- create an engineering issue on escalation
+Ticket.escalated((ticket, $) => {
+  $.Issue.create({
+    title: `Escalation: ${ticket.subject}`,
+    description: ticket.description,
+    type: 'Bug',
+    priority: ticket.priority,
+    reporter: ticket.requester,
+  })
+  $.Activity.create({
+    subject: `Ticket escalated: ${ticket.subject}`,
+    type: 'Task',
+    contact: ticket.assignee,
+  })
+})
+```
+
+## Status State Machine
+
+```
+              create()
+(none) ──────────────→ Open
+                         │
+            update()     │     escalate()
+              ┌──────────┤──────────┐
+              ▼          │          ▼
+           Pending    InProgress  Escalated
+              │          │          │
+              └────┬─────┘          │
+                   │     resolve()  │
+                   ▼                │
+               Resolved ←──────────┘
+                   │          resolve()
+           close() │
+                   ▼
+                Closed ←── close()
+                   │          ▲
+         reopen()  │          │
+                   ▼          │
+               Reopened ──────┘
+                   │      close()
+                   └──→ Open (via update)
+```
+
+Valid transitions:
+
+| From | Verb | To |
+|------|------|----|
+| -- | `create` | `Open` |
+| `Open` | `update` | `Pending` |
+| `Open` | `update` | `InProgress` |
+| `Open` | `escalate` | `Escalated` |
+| `Open` | `resolve` | `Resolved` |
+| `Pending` | `resolve` | `Resolved` |
+| `InProgress` | `resolve` | `Resolved` |
+| `InProgress` | `escalate` | `Escalated` |
+| `Escalated` | `resolve` | `Resolved` |
+| `Resolved` | `close` | `Closed` |
+| `Open` | `close` | `Closed` |
+| `Closed` | `reopen` | `Reopened` |
+| `Reopened` | `close` | `Closed` |
+| `Reopened` | `escalate` | `Escalated` |
+
+## Cross-Domain Patterns
+
+Ticket connects to CRM, Projects, Analytics, and Billing for full account-aware support:
+
+- **CRM**: Requesters and assignees are Contacts. Organization provides account context -- tier, health score, lifetime value -- for priority routing. Deals link support to active sales.
+- **Projects**: Escalated tickets create Issues for engineering follow-up. When the issue is resolved, the ticket can be auto-closed.
+- **Analytics**: Ticket lifecycle events feed into Metrics -- first response time, resolution time, CSAT, escalation rate.
+- **Billing**: Subscription status determines SLA tier. Enterprise customers route to dedicated support.
+
+```typescript
+import { Ticket } from '@headlessly/support'
+
+// Auto-prioritize tickets from enterprise customers
+Ticket.creating(async (ticket, $) => {
+  if (ticket.organization) {
+    const org = await $.Organization.get(ticket.organization)
+    if (org.tier === 'Enterprise') {
+      ticket.priority = 'High'
+    }
+  }
+})
+
+// Track support metrics
+Ticket.resolved((ticket, $) => {
+  const resolutionTime = Date.now() - new Date(ticket.$createdAt).getTime()
+  $.Metric.record({
+    name: 'ticket.resolution_time',
+    value: resolutionTime,
+    dimensions: {
+      priority: ticket.priority,
+      channel: ticket.channel,
+      category: ticket.category,
+    },
+  })
+})
+```
+
+## Query Examples
+
+### SDK
+
+```typescript
+import { Ticket } from '@headlessly/support'
+
+// Find all urgent open tickets
+const urgent = await Ticket.find({
+  priority: 'Urgent',
+  status: 'Open',
+})
+
+// Get a specific ticket with context
+const ticket = await Ticket.get('ticket_nV4xKpQm', {
+  include: ['requester', 'assignee', 'organization', 'deal'],
+})
+
+// Create a ticket from an API integration
+await Ticket.create({
+  subject: 'API rate limit exceeded',
+  description: 'Receiving 429 errors on the /api/contacts endpoint since 2pm.',
+  priority: 'High',
+  channel: 'API',
+  requester: 'contact_fX9bL5nRd',
+  organization: 'org_Nw8rTxJv',
+  category: 'technical',
+})
+
+// Resolve and close
+await Ticket.resolve('ticket_nV4xKpQm')
+await Ticket.close('ticket_nV4xKpQm')
+```
+
+### MCP
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Ticket",
+  "filter": { "status": "Open", "priority": "Urgent" },
+  "sort": { "$createdAt": "asc" },
+  "limit": 50
+}
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Ticket", "id": "ticket_nV4xKpQm", "include": ["requester", "organization"] }
+```
+
+```ts title="headless.ly/mcp#do"
+const open = await $.Ticket.find({ status: 'Open' })
+await $.Ticket.escalate('ticket_nV4xKpQm')
+await $.Ticket.resolve('ticket_nV4xKpQm')
+```
+
+### REST
+
+```bash
+# List open urgent tickets
+curl https://headless.ly/~acme/tickets?status=Open&priority=Urgent
+
+# Get a specific ticket
+curl https://headless.ly/~acme/tickets/ticket_nV4xKpQm
+
+# Create a ticket
+curl -X POST https://headless.ly/~acme/tickets \
+  -H 'Content-Type: application/json' \
+  -d '{"subject": "API rate limit exceeded", "priority": "High", "channel": "API", "requester": "contact_fX9bL5nRd"}'
+
+# Escalate a ticket
+curl -X POST https://headless.ly/~acme/tickets/ticket_nV4xKpQm/escalate
+
+# Resolve a ticket
+curl -X POST https://headless.ly/~acme/tickets/ticket_nV4xKpQm/resolve
+
+# Close a ticket
+curl -X POST https://headless.ly/~acme/tickets/ticket_nV4xKpQm/close
+```

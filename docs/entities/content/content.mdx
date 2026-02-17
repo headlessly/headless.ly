@@ -1,0 +1,263 @@
+---
+title: Content
+description: Typed documents -- pages, posts, articles, and guides with SEO, scheduling, and visibility controls.
+---
+
+## Schema
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Content = Noun('Content', {
+  title: 'string!',
+  slug: 'string##',
+  excerpt: 'string',
+  body: 'string',
+  organization: '-> Organization',
+  site: '-> Site.content',
+  type: 'Page | Post | Article | Guide',
+  categories: 'string',
+  tags: 'string',
+  status: 'Draft | Published | Scheduled | Archived',
+  publishedAt: 'datetime',
+  scheduledAt: 'datetime',
+  author: '-> Contact',
+  seoTitle: 'string',
+  seoDescription: 'string',
+  ogImage: 'string',
+  noIndex: 'boolean',
+  canonicalUrl: 'string',
+  featuredImage: '-> Asset',
+  readingTime: 'number',
+  viewCount: 'number',
+  visibility: 'Public | Private | Members',
+  publish: 'Published',
+  archive: 'Archived',
+  schedule: 'Scheduled',
+})
+```
+
+## Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `title` | string | Yes | Display title of the content |
+| `slug` | string (unique, indexed) | No | URL-safe identifier |
+| `excerpt` | string | No | Short summary for listings and previews |
+| `body` | string | No | Full content body (Markdown/MDX supported) |
+| `organization` | -> Organization | No | Owning organization |
+| `site` | -> Site | No | Parent site for this content |
+| `type` | enum | No | Page, Post, Article, or Guide |
+| `categories` | string | No | Comma-separated content categories |
+| `tags` | string | No | Comma-separated tags for filtering |
+| `status` | enum | No | Draft, Published, Scheduled, or Archived |
+| `publishedAt` | datetime | No | When the content was published |
+| `scheduledAt` | datetime | No | When the content is scheduled to publish |
+| `author` | -> Contact | No | Person who wrote the content |
+| `seoTitle` | string | No | Override title for search engines |
+| `seoDescription` | string | No | Meta description for search engines |
+| `ogImage` | string | No | Open Graph image URL for social sharing |
+| `noIndex` | boolean | No | Whether to exclude from search engine indexing |
+| `canonicalUrl` | string | No | Canonical URL for duplicate content |
+| `featuredImage` | -> Asset | No | Hero or thumbnail image |
+| `readingTime` | number | No | Estimated reading time in minutes |
+| `viewCount` | number | No | Total page views |
+| `visibility` | enum | No | Public, Private, or Members-only |
+
+## Relationships
+
+| Field | Direction | Target | Description |
+|-------|-----------|--------|-------------|
+| `organization` | -> | Organization | The organization that owns this content |
+| `site` | -> | Site.content | The site this content belongs to |
+| `author` | -> | Contact | The person who authored this content |
+| `featuredImage` | -> | Asset | The hero or thumbnail image |
+
+## Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `create` | `Created` | Create a new draft |
+| `update` | `Updated` | Update content fields |
+| `delete` | `Deleted` | Soft-delete the content |
+| `publish` | `Published` | Publish and make visible according to visibility settings |
+| `archive` | `Archived` | Remove from public view |
+| `schedule` | `Scheduled` | Schedule for future publication |
+
+### Verb Lifecycle
+
+```typescript
+import { Content } from '@headlessly/content'
+
+// BEFORE hook -- validate before publishing
+Content.publishing(content => {
+  if (!content.body || content.body.length < 100) {
+    throw new Error('Content body must be at least 100 characters')
+  }
+  if (!content.seoTitle) {
+    content.seoTitle = content.title
+  }
+})
+
+// Execute
+await Content.publish('content_hR5nVkTw')
+
+// AFTER hook -- trigger downstream workflows
+Content.published((content, $) => {
+  $.Event.create({
+    type: 'content.published',
+    properties: {
+      contentId: content.$id,
+      title: content.title,
+      type: content.type,
+    },
+  })
+  $.Campaign.create({
+    name: `Promote: ${content.title}`,
+    type: 'Content',
+    status: 'Draft',
+  })
+})
+```
+
+## Status State Machine
+
+```
+              create()
+(none) ──────────────→ Draft
+                         │
+           publish()     │    schedule()
+              ┌──────────┤──────────┐
+              ▼                     ▼
+          Published            Scheduled
+              │                     │
+              │          publish() (auto)
+              │                     │
+              │          ┌──────────┘
+              │          ▼
+              │      Published
+              │
+   archive()  │
+              ▼
+          Archived
+              │
+   publish()  │
+              ▼
+          Published
+```
+
+Valid transitions:
+
+| From | Verb | To |
+|------|------|----|
+| -- | `create` | `Draft` |
+| `Draft` | `publish` | `Published` |
+| `Draft` | `schedule` | `Scheduled` |
+| `Scheduled` | `publish` | `Published` |
+| `Published` | `archive` | `Archived` |
+| `Archived` | `publish` | `Published` |
+
+## Cross-Domain Patterns
+
+Content connects to the full business graph for editorial workflows, SEO, and attribution:
+
+- **CRM**: Authors are Contacts. Organization-scoped content enables multi-tenant publishing.
+- **Marketing**: Published content triggers Campaign creation. Content views feed into Funnel analytics.
+- **Analytics**: Publish, view, and archive events feed into Metrics. View counts and reading time aggregate for content performance dashboards.
+- **Support**: Help articles and guides serve as self-service support resources.
+- **Projects**: Content creation tracked as Issues in editorial or marketing projects.
+
+```typescript
+import { Content } from '@headlessly/content'
+
+Content.published((content, $) => {
+  // Track content velocity
+  $.Metric.record({
+    name: 'content.published',
+    value: 1,
+    dimensions: {
+      type: content.type,
+      author: content.author,
+      site: content.site,
+    },
+  })
+})
+```
+
+## Query Examples
+
+### SDK
+
+```typescript
+import { Content } from '@headlessly/content'
+
+// Find all published posts
+const posts = await Content.find({
+  status: 'Published',
+  type: 'Post',
+})
+
+// Get a specific content item with author
+const article = await Content.get('content_hR5nVkTw', {
+  include: ['author', 'featuredImage', 'site'],
+})
+
+// Create a draft
+await Content.create({
+  title: 'Getting Started with headless.ly',
+  slug: 'getting-started',
+  body: '# Getting Started\n\nheadless.ly gives you everything...',
+  type: 'Guide',
+  site: 'site_jK8sTxJv',
+  author: 'contact_fX9bL5nRd',
+  status: 'Draft',
+  visibility: 'Public',
+})
+
+// Publish and schedule
+await Content.publish('content_hR5nVkTw')
+await Content.schedule('content_hR5nVkTw', { scheduledAt: '2026-04-01T09:00:00Z' })
+```
+
+### MCP
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Content",
+  "filter": { "status": "Published", "type": "Post" },
+  "sort": { "publishedAt": "desc" },
+  "limit": 20
+}
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Content", "id": "content_hR5nVkTw", "include": ["author", "site"] }
+```
+
+```ts title="headless.ly/mcp#do"
+const drafts = await $.Content.find({ status: 'Draft', author: 'contact_fX9bL5nRd' })
+await $.Content.publish('content_hR5nVkTw')
+```
+
+### REST
+
+```bash
+# List published posts
+curl https://headless.ly/~acme/content?status=Published&type=Post
+
+# Get a specific content item
+curl https://headless.ly/~acme/content/content_hR5nVkTw
+
+# Create a draft
+curl -X POST https://headless.ly/~acme/content \
+  -H 'Content-Type: application/json' \
+  -d '{"title": "Getting Started", "slug": "getting-started", "type": "Guide", "status": "Draft"}'
+
+# Publish content
+curl -X POST https://headless.ly/~acme/content/content_hR5nVkTw/publish
+
+# Schedule content
+curl -X POST https://headless.ly/~acme/content/content_hR5nVkTw/schedule \
+  -H 'Content-Type: application/json' \
+  -d '{"scheduledAt": "2026-04-01T09:00:00Z"}'
+```

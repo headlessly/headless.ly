@@ -1,0 +1,239 @@
+---
+title: Issue
+description: Unit of work -- bugs, features, tasks, and epics with priority, assignment, and full lifecycle tracking.
+---
+
+## Schema
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Issue = Noun('Issue', {
+  title: 'string!',
+  description: 'string',
+  status: 'Open | Assigned | InProgress | Review | Done | Closed | Reopened',
+  priority: 'Low | Medium | High | Urgent',
+  type: 'Bug | Feature | Task | Epic',
+  project: '-> Project.issues',
+  assignee: '-> Contact',
+  reporter: '-> Contact',
+  labels: 'string',
+  milestone: 'string',
+  dueDate: 'date',
+  comments: '<- Comment.issue[]',
+  assign: 'Assigned',
+  close: 'Closed',
+  reopen: 'Reopened',
+})
+```
+
+## Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `title` | string | Yes | Short summary of the issue |
+| `description` | string | No | Detailed description, context, and acceptance criteria |
+| `status` | enum | No | Open, Assigned, InProgress, Review, Done, Closed, or Reopened |
+| `priority` | enum | No | Low, Medium, High, or Urgent |
+| `type` | enum | No | Bug, Feature, Task, or Epic |
+| `project` | -> Project | No | Parent project |
+| `assignee` | -> Contact | No | Person responsible for completing the issue |
+| `reporter` | -> Contact | No | Person who filed the issue |
+| `labels` | string | No | Comma-separated labels for categorization |
+| `milestone` | string | No | Target milestone or release |
+| `dueDate` | date | No | Deadline for completion |
+| `comments` | <- Comment[] | No | Discussion thread on this issue |
+
+## Relationships
+
+| Field | Direction | Target | Description |
+|-------|-----------|--------|-------------|
+| `project` | -> | Project.issues | The project this issue belongs to |
+| `assignee` | -> | Contact | The person working on this issue |
+| `reporter` | -> | Contact | The person who created the issue |
+| `comments` | <- | Comment.issue[] | All comments on this issue |
+
+## Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `create` | `Created` | Create a new issue |
+| `update` | `Updated` | Update issue fields |
+| `delete` | `Deleted` | Soft-delete the issue |
+| `assign` | `Assigned` | Assign the issue to someone |
+| `close` | `Closed` | Close the issue as done or won't-fix |
+| `reopen` | `Reopened` | Reopen a closed issue |
+
+### Verb Lifecycle
+
+```typescript
+import { Issue } from '@headlessly/projects'
+
+// BEFORE hook -- validate before assignment
+Issue.assigning(issue => {
+  if (issue.status === 'Closed') {
+    throw new Error('Cannot assign a closed issue')
+  }
+})
+
+// Execute
+await Issue.assign('issue_pQ8xNfKm', { assignee: 'contact_fX9bL5nRd' })
+
+// AFTER hook -- notify the assignee
+Issue.assigned((issue, $) => {
+  $.Activity.create({
+    subject: `Assigned: ${issue.title}`,
+    type: 'Task',
+    contact: issue.assignee,
+  })
+})
+```
+
+## Status State Machine
+
+```
+             create()
+(none) ──────────────→ Open
+                         │
+              assign()   │
+                         ▼
+                      Assigned
+                         │
+               update()  │
+                         ▼
+                     InProgress
+                         │
+               update()  │
+                         ▼
+                       Review
+                         │
+               update()  │
+                         ▼
+                        Done
+                         │
+                close()  │
+                         ▼
+                       Closed ←── close()
+                         │           ▲
+              reopen()   │           │
+                         ▼           │
+                      Reopened ──────┘
+                         │       close()
+                         │
+                         └──→ Open (via update)
+```
+
+Valid transitions:
+
+| From | Verb | To |
+|------|------|----|
+| -- | `create` | `Open` |
+| `Open` | `assign` | `Assigned` |
+| `Assigned` | `update` | `InProgress` |
+| `InProgress` | `update` | `Review` |
+| `Review` | `update` | `Done` |
+| `Done` | `close` | `Closed` |
+| `Open` | `close` | `Closed` |
+| `InProgress` | `close` | `Closed` |
+| `Closed` | `reopen` | `Reopened` |
+| `Reopened` | `close` | `Closed` |
+| `Reopened` | `assign` | `Assigned` |
+
+## Cross-Domain Patterns
+
+Issue is the atomic unit of work that connects across domains:
+
+- **CRM**: Contacts serve as assignees and reporters. Organization context flows through the parent Project.
+- **Support**: Escalated tickets create issues. When an issue is closed, linked tickets can be auto-resolved.
+- **Analytics**: Issue lifecycle events (created, assigned, closed) feed into Metrics for velocity tracking.
+- **Marketing**: Feature-type issues can be linked to Campaign announcements on completion.
+
+```typescript
+import { Issue } from '@headlessly/projects'
+
+Issue.closed((issue, $) => {
+  // Auto-resolve linked support tickets
+  const tickets = await $.Ticket.find({
+    tags: { $regex: issue.$id },
+    status: 'Open',
+  })
+  for (const ticket of tickets) {
+    await $.Ticket.resolve(ticket.$id)
+  }
+})
+```
+
+## Query Examples
+
+### SDK
+
+```typescript
+import { Issue } from '@headlessly/projects'
+
+// Find all urgent open issues
+const urgent = await Issue.find({
+  priority: 'Urgent',
+  status: 'Open',
+})
+
+// Get an issue with comments
+const issue = await Issue.get('issue_pQ8xNfKm', {
+  include: ['comments', 'assignee', 'reporter'],
+})
+
+// Create a bug report
+await Issue.create({
+  title: 'Login page returns 500 on Safari',
+  description: 'Steps to reproduce: open login page in Safari 18...',
+  type: 'Bug',
+  priority: 'High',
+  project: 'project_e5JhLzXc',
+  reporter: 'contact_fX9bL5nRd',
+})
+
+// Assign and track
+await Issue.assign('issue_pQ8xNfKm', { assignee: 'contact_k7TmPvQx' })
+```
+
+### MCP
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Issue",
+  "filter": { "status": "Open", "priority": "Urgent" },
+  "sort": { "$createdAt": "desc" },
+  "limit": 50
+}
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Issue", "id": "issue_pQ8xNfKm", "include": ["comments"] }
+```
+
+```ts title="headless.ly/mcp#do"
+const bugs = await $.Issue.find({ type: 'Bug', status: 'Open' })
+await $.Issue.assign('issue_pQ8xNfKm', { assignee: 'contact_fX9bL5nRd' })
+```
+
+### REST
+
+```bash
+# List open issues for a project
+curl https://headless.ly/~acme/issues?project=project_e5JhLzXc&status=Open
+
+# Get a specific issue
+curl https://headless.ly/~acme/issues/issue_pQ8xNfKm
+
+# Create an issue
+curl -X POST https://headless.ly/~acme/issues \
+  -H 'Content-Type: application/json' \
+  -d '{"title": "Login page returns 500", "type": "Bug", "priority": "High", "project": "project_e5JhLzXc"}'
+
+# Assign an issue
+curl -X POST https://headless.ly/~acme/issues/issue_pQ8xNfKm/assign \
+  -H 'Content-Type: application/json' \
+  -d '{"assignee": "contact_fX9bL5nRd"}'
+
+# Close an issue
+curl -X POST https://headless.ly/~acme/issues/issue_pQ8xNfKm/close
+```

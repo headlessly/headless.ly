@@ -1,0 +1,194 @@
+---
+title: Content Pipeline
+description: Draft, review, schedule, publish, and analyze content across sites.
+---
+
+The content pipeline workflow connects Content and Analytics into a unified publishing system. [Content](/entities/content/content) moves through lifecycle stages -- draft, review, schedule, publish -- while [Events](/entities/analytics/event) and [Metrics](/entities/analytics/metric) track performance automatically.
+
+## Full Flow
+
+```typescript
+import { Content, Asset, Site } from '@headlessly/content'
+import { Event, Metric } from '@headlessly/analytics'
+
+// 1. Create draft
+const post = await Content.create({
+  title: 'Why Agent-First Architecture Wins',
+  body: '# The shift is happening...',
+  type: 'blog',
+  site: 'site_pL4xRmWn',
+  status: 'Draft',
+})
+
+// 2. Attach assets
+const image = await Asset.create({
+  name: 'hero-image.png',
+  url: 'https://cdn.headless.ly/assets/hero-image.png',
+  content: post.$id,
+})
+
+// 3. Schedule publication
+await Content.schedule({ id: post.$id, publishAt: '2026-03-01T09:00:00Z' })
+
+// 4. Publish (auto or manual)
+await Content.publish({ id: post.$id })
+
+// 5. Track engagement via after-hook
+Content.published(async (content, $) => {
+  await $.Event.create({
+    type: 'content.published',
+    subject: content.$id,
+    properties: { title: content.title, site: content.site },
+  })
+  await $.Metric.record({
+    name: 'content.publications',
+    value: 1,
+    dimensions: { type: content.type, site: content.site },
+  })
+})
+```
+
+## Step-by-Step Breakdown
+
+### Step 1: Create Draft Content
+
+A [Content](/entities/content/content) entity starts in `Draft` status, linked to a [Site](/entities/content/site).
+
+```typescript
+import { Content } from '@headlessly/content'
+
+const post = await Content.create({
+  title: 'Why Agent-First Architecture Wins',
+  body: '# The shift is happening...',
+  type: 'blog',
+  site: 'site_pL4xRmWn',
+  status: 'Draft',
+})
+// post.$id => 'content_vT8kJnYq'
+```
+
+### Step 2: Attach Assets
+
+An [Asset](/entities/content/asset) links media files to the content entity.
+
+```typescript
+import { Asset } from '@headlessly/content'
+
+const image = await Asset.create({
+  name: 'hero-image.png',
+  url: 'https://cdn.headless.ly/assets/hero-image.png',
+  content: 'content_vT8kJnYq',
+})
+// image.$id => 'asset_wN3xFpRm'
+```
+
+### Step 3: Schedule Publication
+
+Scheduling sets the publish time. The system will auto-publish when the time arrives.
+
+```typescript
+await Content.schedule({
+  id: 'content_vT8kJnYq',
+  publishAt: '2026-03-01T09:00:00Z',
+})
+// post.status => 'Scheduled'
+```
+
+### Step 4: Publish
+
+Publication transitions the content to `Published` and makes it live on the target site.
+
+```typescript
+await Content.publish({ id: 'content_vT8kJnYq' })
+// post.status => 'Published'
+```
+
+### Step 5: Track Performance
+
+The `Content.published` after-hook bridges Content into Analytics, recording events and metrics.
+
+```typescript
+import { Event, Metric } from '@headlessly/analytics'
+
+Content.published(async (content, $) => {
+  await $.Event.create({
+    type: 'content.published',
+    subject: content.$id,
+    properties: { title: content.title, site: content.site },
+  })
+  await $.Metric.record({
+    name: 'content.publications',
+    value: 1,
+    dimensions: { type: content.type, site: content.site },
+  })
+})
+```
+
+## Event Flow
+
+| Step | Event | Payload |
+|------|-------|---------|
+| Draft created | `content.created` | `{ $id: 'content_vT8kJnYq', status: 'Draft' }` |
+| Asset attached | `asset.created` | `{ $id: 'asset_wN3xFpRm', content: 'content_vT8kJnYq' }` |
+| Scheduled | `content.scheduled` | `{ publishAt: '2026-03-01T09:00:00Z' }` |
+| Published | `content.published` | `{ status: 'Published' }` |
+| Event tracked | `event.created` | `{ type: 'content.published' }` |
+| Metric recorded | `metric.recorded` | `{ name: 'content.publications', value: 1 }` |
+
+## MCP Example
+
+An agent can manage the full content lifecycle:
+
+```json
+{
+  "tool": "do",
+  "input": "Create a blog post titled 'Why Agent-First Architecture Wins' on site_pL4xRmWn and schedule it for March 1st 2026 at 9am UTC"
+}
+```
+
+```json
+{
+  "tool": "search",
+  "input": { "type": "Content", "filter": { "status": "Scheduled", "site": "site_pL4xRmWn" } }
+}
+```
+
+```json
+{
+  "tool": "fetch",
+  "input": { "id": "content_vT8kJnYq" }
+}
+```
+
+## Automation Pattern
+
+Automate the review-to-publish pipeline with chained hooks:
+
+```typescript
+Content.created(async (content, $) => {
+  if (content.type === 'blog') {
+    await $.Activity.create({
+      type: 'review_requested',
+      subject: content.$id,
+      assignee: 'user_bQ4xNmWj',
+    })
+  }
+})
+
+Content.published(async (content, $) => {
+  await $.Event.create({
+    type: 'content.published',
+    subject: content.$id,
+    properties: { title: content.title, site: content.site },
+  })
+  // Track reads over time
+  await $.Goal.create({
+    name: `${content.title} - 1k reads`,
+    target: 1000,
+    metric: 'content.reads',
+    dimensions: { content: content.$id },
+  })
+})
+```
+
+Content and Analytics share the same graph. Publishing triggers event tracking, metric recording, and goal creation -- no separate analytics integration, no tracking pixel configuration, no third-party dashboard setup.

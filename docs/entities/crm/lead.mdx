@@ -1,0 +1,236 @@
+---
+title: Lead
+description: Inbound leads with BANT qualification, campaign attribution, and conversion tracking.
+---
+
+## Schema
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Lead = Noun('Lead', {
+  name: 'string!',
+  contact: '-> Contact.leads',
+  organization: '-> Organization',
+  owner: '-> Contact',
+  status: 'New | Contacted | Qualified | Converted | Lost',
+  source: 'string!',
+  sourceDetail: 'string',
+  campaign: '-> Campaign.leads',
+  score: 'number',
+  budget: 'number',
+  authority: 'string',
+  need: 'string',
+  timeline: 'string',
+  deal: '-> Deal.leads',
+  convertedAt: 'datetime',
+  lostReason: 'string',
+  lostAt: 'datetime',
+  firstTouchAt: 'datetime',
+  lastActivityAt: 'datetime',
+  convert: 'Converted',
+  lose: 'Lost',
+})
+```
+
+## Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Lead name or description |
+| `contact` | -> Contact | No | The person associated with this lead |
+| `organization` | -> Organization | No | The company associated with this lead |
+| `owner` | -> Contact | No | Sales rep or agent responsible for this lead |
+| `status` | enum | No | New, Contacted, Qualified, Converted, or Lost |
+| `source` | string | Yes | Acquisition channel (website, referral, event, etc.) |
+| `sourceDetail` | string | No | Specific source detail (e.g., campaign name, URL) |
+| `campaign` | -> Campaign | No | Marketing campaign that generated this lead |
+| `score` | number | No | Lead qualification score |
+| `budget` | number | No | BANT: Estimated budget |
+| `authority` | string | No | BANT: Decision-making authority |
+| `need` | string | No | BANT: Business need or pain point |
+| `timeline` | string | No | BANT: Purchase timeline |
+| `deal` | -> Deal | No | Deal created from this lead after conversion |
+| `convertedAt` | datetime | No | Timestamp when the lead was converted |
+| `lostReason` | string | No | Why the lead was lost |
+| `lostAt` | datetime | No | Timestamp when the lead was marked as lost |
+| `firstTouchAt` | datetime | No | Timestamp of first interaction |
+| `lastActivityAt` | datetime | No | Timestamp of most recent activity |
+
+## Relationships
+
+| Field | Direction | Target | Description |
+|-------|-----------|--------|-------------|
+| `contact` | -> | Contact.leads | The person behind this lead |
+| `organization` | -> | Organization | The company behind this lead |
+| `owner` | -> | Contact | Sales rep or agent assigned to work this lead |
+| `campaign` | -> | Campaign.leads | Marketing campaign that generated this lead |
+| `deal` | -> | Deal.leads | Deal created when the lead converts |
+
+## Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `create` | `Created` | Create a new lead |
+| `update` | `Updated` | Update lead fields |
+| `delete` | `Deleted` | Delete a lead |
+| `convert` | `Converted` | Convert the lead into a deal |
+| `lose` | `Lost` | Mark the lead as lost with a reason |
+
+### Verb Lifecycle
+
+```typescript
+import { Lead } from '@headlessly/crm'
+
+// BEFORE hook -- validate conversion prerequisites
+Lead.converting(lead => {
+  if (!lead.contact) throw new Error('Lead must have a contact before conversion')
+  if (lead.status === 'Lost') throw new Error('Cannot convert a lost lead')
+})
+
+// Execute -- convert the lead
+await Lead.convert('lead_pQ8xNfKm')
+
+// AFTER hook -- create the deal and update related records
+Lead.converted((lead, $) => {
+  const deal = $.Deal.create({
+    name: lead.name,
+    contact: lead.contact,
+    organization: lead.organization,
+    value: lead.budget || 0,
+    stage: 'Prospecting',
+    source: lead.source,
+    campaign: lead.campaign,
+  })
+  $.Lead.update(lead.$id, { deal: deal.$id })
+  $.Contact.update(lead.contact, { stage: 'Qualified' })
+})
+```
+
+## Status State Machine
+
+```
+New --> Contacted --> Qualified --> Converted
+  \         \            \
+   \         \            \
+    -----------\-----------> Lost
+```
+
+- **New**: Lead just entered the system, no outreach yet
+- **Contacted**: Initial outreach has been made
+- **Qualified**: Passed BANT criteria or scoring threshold
+- **Converted**: Successfully converted to a Deal
+- **Lost**: Disqualified or unresponsive, with a recorded reason
+
+Leads are terminal once Converted or Lost. A lost lead can be reopened by updating its status back to New.
+
+## BANT Qualification
+
+The Lead entity has built-in fields for BANT qualification:
+
+| Field | BANT | Description |
+|-------|------|-------------|
+| `budget` | Budget | What can the prospect spend? |
+| `authority` | Authority | Who makes the purchasing decision? |
+| `need` | Need | What problem are they solving? |
+| `timeline` | Timeline | When do they need a solution? |
+
+```typescript
+import { Lead } from '@headlessly/crm'
+
+await Lead.create({
+  name: 'Acme Platform Evaluation',
+  contact: 'contact_fX9bL5nRd',
+  organization: 'org_Nw8rTxJv',
+  source: 'demo-request',
+  budget: 50_000,
+  authority: 'CTO - final decision maker',
+  need: 'Replace fragmented SaaS tools with unified platform',
+  timeline: 'Q2 2025',
+})
+```
+
+## Cross-Domain Patterns
+
+Lead is the bridge between Marketing and CRM:
+
+- **Marketing**: `Lead.campaign` tracks which Campaign generated the lead. `Lead.source` records the channel. This data feeds attribution models via Analytics.
+- **CRM (Contact)**: Every lead references a Contact. When the lead converts, the contact's stage advances to Qualified or Customer.
+- **CRM (Deal)**: `Lead.convert()` creates a Deal. The `Lead.deal` back-link preserves the full attribution chain from campaign to revenue.
+- **Analytics**: Lead creation, conversion, and loss events feed Funnels. Time from `firstTouchAt` to `convertedAt` measures sales cycle length.
+
+```typescript
+import { Lead } from '@headlessly/crm'
+
+// Track lead-to-deal conversion metrics
+Lead.converted((lead, $) => {
+  const cycleMs = new Date(lead.convertedAt).getTime() - new Date(lead.firstTouchAt).getTime()
+  const cycleDays = Math.round(cycleMs / 86_400_000)
+  $.Event.create({
+    name: 'lead_converted',
+    properties: {
+      source: lead.source,
+      cycleDays,
+      budget: lead.budget,
+    },
+  })
+})
+```
+
+## Query Examples
+
+### SDK
+
+```typescript
+import { Lead } from '@headlessly/crm'
+
+// Find high-value leads from a specific campaign
+const hotLeads = await Lead.find({
+  status: 'Qualified',
+  campaign: 'campaign_hR5wLxPn',
+  score: { $gte: 80 },
+})
+
+// Get a lead with full context
+const lead = await Lead.get('lead_pQ8xNfKm', {
+  include: ['contact', 'organization', 'campaign', 'deal'],
+})
+
+// Create a lead from a form submission
+await Lead.create({
+  name: 'Website Demo Request',
+  contact: 'contact_fX9bL5nRd',
+  source: 'website',
+  sourceDetail: '/pricing',
+  score: 65,
+})
+```
+
+### MCP
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Lead",
+  "filter": { "status": "New", "source": "website" },
+  "sort": { "score": "desc" },
+  "limit": 25
+}
+```
+
+### REST
+
+```bash
+# List leads filtered by status
+curl https://crm.headless.ly/~acme/leads?status=Qualified
+
+# Get a specific lead
+curl https://crm.headless.ly/~acme/leads/lead_pQ8xNfKm
+
+# Create a lead
+curl -X POST https://crm.headless.ly/~acme/leads \
+  -H 'Content-Type: application/json' \
+  -d '{"name": "Inbound Demo", "contact": "contact_fX9bL5nRd", "source": "website"}'
+
+# Convert a lead
+curl -X POST https://crm.headless.ly/~acme/leads/lead_pQ8xNfKm/convert
+```

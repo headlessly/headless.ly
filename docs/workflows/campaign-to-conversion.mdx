@@ -1,0 +1,209 @@
+---
+title: Campaign to Conversion
+description: Launch a campaign, capture leads, qualify contacts, close deals — the marketing-to-sales handoff.
+---
+
+The campaign-to-conversion workflow bridges Marketing and CRM. A [Campaign](/entities/marketing/campaign) launches, a [Form](/entities/marketing/form) captures submissions, leads flow into the CRM pipeline, and deals close -- all within the same typed graph.
+
+## Full Flow
+
+```typescript
+import { Campaign, Form } from '@headlessly/marketing'
+import { Contact, Lead, Deal } from '@headlessly/crm'
+
+// 1. Launch campaign
+const campaign = await Campaign.create({
+  name: 'Q1 Product Launch',
+  channel: 'email',
+  segment: 'segment_dR2xPmKv',
+  status: 'Draft',
+})
+await Campaign.launch({ id: campaign.$id })
+
+// 2. Capture form submission
+const form = await Form.submit({
+  form: 'form_hT5wNqJx',
+  data: { name: 'Bob Rivera', email: 'bob@startup.io', company: 'StartupIO' },
+  campaign: campaign.$id,
+})
+
+// 3. Auto-create lead from form submission
+Form.submitted(async (submission, $) => {
+  const contact = await $.Contact.create({
+    name: submission.data.name,
+    email: submission.data.email,
+    stage: 'Lead',
+    source: submission.campaign,
+  })
+  await $.Lead.create({
+    contact: contact.$id,
+    campaign: submission.campaign,
+    score: 50,
+  })
+})
+
+// 4. Qualify and create deal
+await Contact.qualify({ id: 'contact_nM6rYwLp' })
+const deal = await Deal.create({
+  name: 'StartupIO Pro',
+  value: 12_000,
+  contact: 'contact_nM6rYwLp',
+  stage: 'Prospecting',
+})
+
+// 5. Close
+await Deal.win({ id: deal.$id })
+```
+
+## Step-by-Step Breakdown
+
+### Step 1: Create and Launch a Campaign
+
+A [Campaign](/entities/marketing/campaign) targets a [Segment](/entities/marketing/segment) through a specific channel. Launching transitions it from `Draft` to `Active`.
+
+```typescript
+import { Campaign } from '@headlessly/marketing'
+
+const campaign = await Campaign.create({
+  name: 'Q1 Product Launch',
+  channel: 'email',
+  segment: 'segment_dR2xPmKv',
+  status: 'Draft',
+})
+await Campaign.launch({ id: campaign.$id })
+// campaign.$id => 'campaign_jW3tFbXn'
+// campaign.status => 'Active'
+```
+
+### Step 2: Capture Form Submissions
+
+A [Form](/entities/marketing/form) captures leads. Each submission links back to the campaign for attribution.
+
+```typescript
+import { Form } from '@headlessly/marketing'
+
+await Form.submit({
+  form: 'form_hT5wNqJx',
+  data: { name: 'Bob Rivera', email: 'bob@startup.io', company: 'StartupIO' },
+  campaign: 'campaign_jW3tFbXn',
+})
+```
+
+### Step 3: Auto-Create Leads
+
+The `Form.submitted` after-hook bridges Marketing into CRM by creating a [Contact](/entities/crm/contact) and [Lead](/entities/crm/lead).
+
+```typescript
+import { Contact, Lead } from '@headlessly/crm'
+
+Form.submitted(async (submission, $) => {
+  const contact = await $.Contact.create({
+    name: submission.data.name,
+    email: submission.data.email,
+    stage: 'Lead',
+    source: submission.campaign,
+  })
+  await $.Lead.create({
+    contact: contact.$id,
+    campaign: submission.campaign,
+    score: 50,
+  })
+})
+```
+
+### Step 4: Qualify and Create Deal
+
+Once the lead is scored, qualification transitions the contact and a [Deal](/entities/crm/deal) is created.
+
+```typescript
+import { Deal } from '@headlessly/crm'
+
+await Contact.qualify({ id: 'contact_nM6rYwLp' })
+
+const deal = await Deal.create({
+  name: 'StartupIO Pro',
+  value: 12_000,
+  contact: 'contact_nM6rYwLp',
+  stage: 'Prospecting',
+})
+// deal.$id => 'deal_qP8vJxRn'
+```
+
+### Step 5: Close the Deal
+
+Winning the deal completes the marketing-to-sales handoff.
+
+```typescript
+await Deal.win({ id: 'deal_qP8vJxRn' })
+```
+
+## Event Flow
+
+| Step | Event | Payload |
+|------|-------|---------|
+| Campaign created | `campaign.created` | `{ $id: 'campaign_jW3tFbXn', status: 'Draft' }` |
+| Campaign launched | `campaign.launched` | `{ $id: 'campaign_jW3tFbXn', status: 'Active' }` |
+| Form submitted | `form.submitted` | `{ form: 'form_hT5wNqJx', campaign: 'campaign_jW3tFbXn' }` |
+| Contact created | `contact.created` | `{ $id: 'contact_nM6rYwLp', stage: 'Lead' }` |
+| Lead created | `lead.created` | `{ contact: 'contact_nM6rYwLp', score: 50 }` |
+| Contact qualified | `contact.qualified` | `{ stage: 'Qualified' }` |
+| Deal created | `deal.created` | `{ $id: 'deal_qP8vJxRn', value: 12000 }` |
+| Deal won | `deal.won` | `{ stage: 'Won' }` |
+
+## MCP Example
+
+An agent orchestrates the full funnel:
+
+```json
+{
+  "tool": "do",
+  "input": "Launch the Q1 Product Launch campaign targeting segment_dR2xPmKv via email"
+}
+```
+
+```json
+{
+  "tool": "search",
+  "input": { "type": "Lead", "filter": { "campaign": "campaign_jW3tFbXn", "score": { "$gte": 40 } } }
+}
+```
+
+```json
+{
+  "tool": "do",
+  "input": "Qualify contact_nM6rYwLp and create a $12k deal called StartupIO Pro"
+}
+```
+
+## Automation Pattern
+
+Chain the entire funnel with two hooks -- form submissions auto-create leads, and lead scoring auto-qualifies:
+
+```typescript
+Form.submitted(async (submission, $) => {
+  const contact = await $.Contact.create({
+    name: submission.data.name,
+    email: submission.data.email,
+    stage: 'Lead',
+    source: submission.campaign,
+  })
+  await $.Lead.create({
+    contact: contact.$id,
+    campaign: submission.campaign,
+    score: 50,
+  })
+})
+
+Lead.updated(async (lead, $) => {
+  if (lead.score >= 80) {
+    await $.Contact.qualify({ id: lead.contact })
+    await $.Deal.create({
+      name: `${lead.companyName} Opportunity`,
+      contact: lead.contact,
+      stage: 'Prospecting',
+    })
+  }
+})
+```
+
+Marketing and Sales share the same graph. Attribution flows from campaign to form to lead to deal to revenue -- no CSV exports, no manual imports, no integration middleware.

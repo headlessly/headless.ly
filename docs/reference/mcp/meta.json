@@ -1,4 +1,4 @@
 {
   "title": "MCP",
-  "pages": ["index", "search", "fetch", "do", "architecture"]
+  "pages": ["index", "search", "fetch", "do", "progressive-capability", "architecture"]
 }

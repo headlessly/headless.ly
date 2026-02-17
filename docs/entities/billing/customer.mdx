@@ -1,0 +1,189 @@
+---
+title: Customer
+description: Stripe Customer -- the billing identity that links an Organization to payment processing.
+---
+
+## Schema
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Customer = Noun('Customer', {
+  name: 'string!',
+  email: 'string!#',
+  organization: '-> Organization',
+  stripeCustomerId: 'string##',
+  subscriptions: '<- Subscription.customer[]',
+  invoices: '<- Invoice.customer[]',
+  payments: '<- Payment.customer[]',
+  paymentMethod: 'string',
+  currency: 'string',
+  contact: '-> Contact',
+  taxExempt: 'string',
+})
+```
+
+## Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Billing name -- typically the company or individual name |
+| `email` | string | Yes | Billing email address (indexed) |
+| `paymentMethod` | string | No | Default payment method identifier (e.g. `pm_card_visa`) |
+| `currency` | string | No | Preferred currency code (e.g. `usd`, `eur`) |
+| `taxExempt` | string | No | Tax exemption status (e.g. `none`, `exempt`, `reverse`) |
+| `stripeCustomerId` | string | No | Stripe Customer ID (unique, indexed) -- populated automatically on creation |
+
+## Relationships
+
+| Field | Direction | Target | Description |
+|-------|-----------|--------|-------------|
+| `organization` | `->` | Organization | The company this customer belongs to |
+| `contact` | `->` | Contact | The CRM contact linked to this billing entity |
+| `subscriptions` | `<-` | Subscription.customer[] | All subscriptions for this customer |
+| `invoices` | `<-` | Invoice.customer[] | All invoices billed to this customer |
+| `payments` | `<-` | Payment.customer[] | All payments received from this customer |
+
+## Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `create` | `Created` | Create a new customer (also creates in Stripe) |
+| `update` | `Updated` | Update customer fields (syncs to Stripe) |
+| `delete` | `Deleted` | Soft-delete the customer |
+
+### Verb Lifecycle
+
+Every verb follows the full conjugation pattern -- execute, before hook, after hook:
+
+```typescript
+import { Customer } from '@headlessly/billing'
+
+// Execute
+await Customer.create({
+  name: 'Acme Dev',
+  email: 'billing@acme.dev',
+  organization: 'org_fX9bL5nRd',
+})
+
+// Before hook -- runs before creation is processed
+Customer.creating(customer => {
+  console.log(`About to create customer ${customer.name}`)
+})
+
+// After hook -- runs after the Stripe customer is created
+Customer.created(customer => {
+  console.log(`Customer ${customer.name} created with Stripe ID ${customer.stripeCustomerId}`)
+})
+```
+
+## Cross-Domain Patterns
+
+Customer bridges the gap between CRM and Billing. When a deal closes, the CRM Contact becomes a billing Customer:
+
+```typescript
+import { Deal } from '@headlessly/crm'
+
+Deal.won((deal, $) => {
+  const contact = await $.Contact.get(deal.contact)
+  await $.Customer.create({
+    name: contact.name,
+    email: contact.email,
+    organization: deal.organization,
+    contact: contact.$id,
+  })
+})
+```
+
+Customer also connects downstream to Support -- when a customer submits a ticket, their billing context (plan, subscription status, payment history) is immediately available:
+
+```typescript
+import { Customer } from '@headlessly/billing'
+
+const customer = await Customer.get('customer_fX9bL5nRd', {
+  include: ['subscriptions', 'invoices', 'payments'],
+})
+```
+
+## Query Examples
+
+### SDK
+
+```typescript
+import { Customer } from '@headlessly/billing'
+
+// Find all customers
+const customers = await Customer.find()
+
+// Get a specific customer
+const customer = await Customer.get('customer_fX9bL5nRd')
+
+// Find customers by currency
+const euroCustomers = await Customer.find({ currency: 'eur' })
+
+// Find customer by Stripe ID
+const customer = await Customer.find({ stripeCustomerId: 'cus_PxN7kRmT' })
+```
+
+### MCP
+
+```json title="headless.ly/mcp#search"
+{ "type": "Customer", "filter": { "currency": "usd" } }
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Customer", "id": "customer_fX9bL5nRd", "include": ["subscriptions"] }
+```
+
+```ts title="headless.ly/mcp#do"
+const customers = await $.Customer.find({ currency: 'usd' })
+```
+
+### REST
+
+```bash
+GET https://headless.ly/~acme/customers?currency=usd
+```
+
+```bash
+GET https://headless.ly/~acme/customers/customer_fX9bL5nRd
+```
+
+```bash
+POST https://headless.ly/~acme/customers
+Content-Type: application/json
+
+{ "name": "Acme Dev", "email": "billing@acme.dev" }
+```
+
+## Event-Driven Patterns
+
+React to customer lifecycle events across domains:
+
+```typescript
+import { Customer } from '@headlessly/billing'
+
+// When a customer is created, set up their default subscription
+Customer.created((customer, $) => {
+  await $.Subscription.create({
+    customer: customer.$id,
+    plan: 'plan_Nw8rTxJv',
+    status: 'Trialing',
+    currentPeriodStart: new Date(),
+    currentPeriodEnd: new Date(Date.now() + 14 * 86400000),
+    startedAt: new Date(),
+  })
+})
+
+// Track customer creation as an analytics event
+Customer.created((customer, $) => {
+  $.Event.create({
+    type: 'billing.customer_created',
+    data: { name: customer.name, organization: customer.organization },
+  })
+})
+```
+
+## Stripe Sync
+
+Customer is the root of the Stripe billing graph. Every write to a Customer in headless.ly is mirrored to Stripe, and every Stripe webhook (`customer.created`, `customer.updated`, `customer.deleted`) is processed back into the headless.ly event log. The `stripeCustomerId` field is the bidirectional link.

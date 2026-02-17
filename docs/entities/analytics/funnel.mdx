@@ -1,0 +1,196 @@
+---
+title: Funnel
+description: Multi-step conversion flows -- visitor to signup to activation to paid subscription.
+---
+
+## Schema
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Funnel = Noun('Funnel', {
+  name: 'string!',
+  description: 'string',
+  steps: 'json',
+  organization: '-> Organization',
+  conversionRate: 'number',
+  analyze: 'Analyzed',
+  activate: 'Activated',
+})
+```
+
+## Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Funnel name (e.g. `Signup to Paid`, `Lead to Close`) |
+| `description` | string | No | Human-readable description of what this funnel measures |
+| `steps` | json | No | Ordered array of funnel steps, each with a name and matching event |
+| `organization` | -> Organization | No | Tenant this funnel belongs to |
+| `conversionRate` | number | No | Overall conversion rate from first step to last (0-100) |
+
+## Relationships
+
+| Field | Direction | Target | Description |
+|-------|-----------|--------|-------------|
+| `organization` | -> | Organization | Tenant this funnel belongs to |
+
+## Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `create` | `Created` | Define a new funnel with steps |
+| `update` | `Updated` | Modify funnel steps or configuration |
+| `delete` | `Deleted` | Remove a funnel |
+| `analyze` | `Analyzed` | Recompute conversion rates across all steps |
+| `activate` | `Activated` | Enable the funnel for live tracking |
+
+### Verb Lifecycle
+
+```typescript
+import { Funnel } from '@headlessly/analytics'
+
+// BEFORE hook -- validate steps before analysis
+Funnel.analyzing(funnel => {
+  const steps = JSON.parse(funnel.steps)
+  if (steps.length < 2) {
+    throw new Error('Funnel must have at least two steps')
+  }
+})
+
+// Execute
+await Funnel.analyze('funnel_Nw8rTxJv')
+
+// AFTER hook -- react to updated conversion data
+Funnel.analyzed(funnel => {
+  console.log(`${funnel.name}: ${funnel.conversionRate}% overall conversion`)
+})
+```
+
+## Status State Machine
+
+Funnels do not have a formal status enum, but the `activate` verb transitions a funnel from a draft configuration to live tracking:
+
+```
+(created) ──── activate() ────> Activated
+                                    │
+                       analyze() ◄──┘ (can be run repeatedly)
+```
+
+- **Created**: Funnel is defined with steps but not yet tracking
+- **Activated**: Funnel is live -- incoming events are matched against steps
+- **Analyzed**: Conversion rates are recomputed (non-destructive, can run repeatedly)
+
+## Funnel Steps
+
+The `steps` field is a JSON array defining the ordered stages of conversion. Each step matches an event name:
+
+```json
+[
+  { "name": "Visit", "event": "page_view" },
+  { "name": "Signup", "event": "user_created" },
+  { "name": "Activate", "event": "first_action" },
+  { "name": "Subscribe", "event": "subscription_created" }
+]
+```
+
+Step-to-step conversion is computed by matching events within a session or user identity. The `conversionRate` field reflects the overall first-to-last-step rate.
+
+## Cross-Domain Patterns
+
+Funnels bridge marketing acquisition and billing conversion:
+
+```typescript
+import { Campaign } from '@headlessly/marketing'
+
+Campaign.launched((campaign, $) => {
+  $.Funnel.create({
+    name: `${campaign.name} Conversion`,
+    description: `Tracks conversion from ${campaign.type} campaign to subscription`,
+    steps: JSON.stringify([
+      { name: 'Landing Page', event: 'page_view' },
+      { name: 'Form Submit', event: 'form_submitted' },
+      { name: 'Lead Created', event: 'lead_created' },
+      { name: 'Deal Won', event: 'deal_won' },
+    ]),
+  })
+})
+```
+
+- **Marketing**: Campaign-specific funnels track acquisition effectiveness from first touch to conversion
+- **CRM**: Sales funnels model the pipeline from lead to qualified to deal closed
+- **Billing**: Subscription funnels measure the path from trial to paid to retained
+- **Events**: Funnel steps match against Event names -- the Event entity is the underlying data source
+- **Goals**: Funnel conversion rates can be tracked as Goal targets
+
+## Query Examples
+
+### SDK
+
+```typescript
+import { Funnel } from '@headlessly/analytics'
+
+// Find all funnels
+const funnels = await Funnel.find({})
+
+// Get a specific funnel
+const funnel = await Funnel.get('funnel_Nw8rTxJv')
+
+// Create a signup funnel
+await Funnel.create({
+  name: 'Signup to Paid',
+  steps: JSON.stringify([
+    { name: 'Visit', event: 'page_view' },
+    { name: 'Signup', event: 'user_created' },
+    { name: 'Activate', event: 'first_action' },
+    { name: 'Subscribe', event: 'subscription_created' },
+  ]),
+})
+
+// Analyze conversion rates
+await Funnel.analyze('funnel_Nw8rTxJv')
+
+// Activate for live tracking
+await Funnel.activate('funnel_Nw8rTxJv')
+```
+
+### MCP
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Funnel",
+  "filter": {},
+  "sort": { "conversionRate": "desc" },
+  "limit": 10
+}
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Funnel", "id": "funnel_Nw8rTxJv" }
+```
+
+```ts title="headless.ly/mcp#do"
+const funnels = await $.Funnel.find({})
+await $.Funnel.analyze('funnel_Nw8rTxJv')
+```
+
+### REST
+
+```bash
+# List funnels
+curl https://analytics.headless.ly/~acme/funnels
+
+# Get a specific funnel
+curl https://analytics.headless.ly/~acme/funnels/funnel_Nw8rTxJv
+
+# Create a funnel
+curl -X POST https://analytics.headless.ly/~acme/funnels \
+  -H 'Content-Type: application/json' \
+  -d '{"name": "Signup to Paid", "steps": [{"name": "Visit", "event": "page_view"}, {"name": "Subscribe", "event": "subscription_created"}]}'
+
+# Analyze a funnel
+curl -X POST https://analytics.headless.ly/~acme/funnels/funnel_Nw8rTxJv/analyze
+
+# Activate a funnel
+curl -X POST https://analytics.headless.ly/~acme/funnels/funnel_Nw8rTxJv/activate
+```

@@ -13,10 +13,10 @@ export const Experiment = Noun('Experiment', {
   endAt: 'datetime',
   targetAudience: 'string',
   trafficAllocation: 'number',
-  variants: 'string',
+  variants: 'json',
   metrics: 'string',
   primaryMetric: 'string',
-  results: 'string',
+  results: 'json',
   winner: 'string',
   confidence: 'number',
   sampleSize: 'number',
@@ -25,6 +25,7 @@ export const Experiment = Noun('Experiment', {
   start: 'Started',
   conclude: 'Concluded',
   pause: 'Paused',
+  stop: 'Stopped',
 })
 
 export const FeatureFlag = Noun('FeatureFlag', {
@@ -35,8 +36,8 @@ export const FeatureFlag = Noun('FeatureFlag', {
   experiment: '-> Experiment',
   type: 'Boolean | String | Number | JSON',
   defaultValue: 'string',
-  variants: 'string',
-  targetingRules: 'string',
+  variants: 'json',
+  targetingRules: 'json',
   status: 'Draft | Active | Enabled | Disabled | Paused | RolledOut | Archived',
   rolloutPercentage: 'number',
   evaluations: 'number',

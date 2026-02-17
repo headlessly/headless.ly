@@ -1,0 +1,183 @@
+---
+title: Event
+description: Immutable tracked actions -- pageviews, API calls, sign-ups, webhooks, and every interaction across the system.
+---
+
+## Schema
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Event = Noun('Event', {
+  name: 'string!',
+  type: 'string!',
+  data: 'json',
+  source: 'Browser | Node | API | Snippet',
+  sessionId: 'string',
+  userId: 'string',
+  anonymousId: 'string',
+  organization: '-> Organization',
+  timestamp: 'datetime!',
+  url: 'string',
+  path: 'string',
+  referrer: 'string',
+  properties: 'json',
+  update: null,
+  delete: null,
+})
+```
+
+## Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Event name (e.g. `page_view`, `signup`, `deal_won`) |
+| `type` | string | Yes | Event classification (e.g. `track`, `identify`, `page`) |
+| `data` | json | No | Arbitrary event payload |
+| `source` | enum | No | Origin: `Browser`, `Node`, `API`, or `Snippet` |
+| `sessionId` | string | No | Browser or agent session identifier |
+| `userId` | string | No | Authenticated user ID |
+| `anonymousId` | string | No | Anonymous tracking ID (pre-auth) |
+| `organization` | -> Organization | No | Tenant the event belongs to |
+| `timestamp` | datetime | Yes | When the event occurred |
+| `url` | string | No | Full page URL (for browser events) |
+| `path` | string | No | URL path component |
+| `referrer` | string | No | Referring URL |
+| `properties` | json | No | Structured event properties |
+
+## Relationships
+
+| Field | Direction | Target | Description |
+|-------|-----------|--------|-------------|
+| `organization` | -> | Organization | Tenant this event belongs to |
+
+## Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `create` | `Created` | Append a new event to the immutable log |
+
+Event is **immutable** -- `update: null` and `delete: null` opt out of those CRUD verbs. Once created, an event can never be modified or removed. This is the foundation of trust: every state is reconstructable via time travel.
+
+### Verb Lifecycle
+
+```typescript
+import { Event } from '@headlessly/analytics'
+
+// BEFORE hook -- validate or enrich before persistence
+Event.creating(event => {
+  if (!event.timestamp) {
+    event.timestamp = new Date().toISOString()
+  }
+})
+
+// Execute
+await Event.create({
+  name: 'page_view',
+  type: 'track',
+  source: 'Browser',
+  url: 'https://acme.dev/pricing',
+  path: '/pricing',
+  timestamp: new Date().toISOString(),
+})
+
+// AFTER hook -- forward to external services
+Event.created(event => {
+  console.log(`[${event.source}] ${event.name} at ${event.timestamp}`)
+})
+```
+
+## Immutability
+
+Event has no status state machine. Events are append-only records in an immutable log. This design enables:
+
+- **Time travel**: Reconstruct any state at any point in time by replaying events
+- **Audit trails**: Complete, tamper-proof history of every action
+- **Event sourcing**: Downstream systems (Metric, Funnel, Goal) derive state from the event stream
+- **External forwarding**: Events are forwarded to GA, Sentry, PostHog, and stored in the Iceberg R2 lakehouse
+
+## Cross-Domain Patterns
+
+Event is the raw signal that feeds every other analytics entity. Every verb on every entity in the system emits an event:
+
+```typescript
+import { Event } from '@headlessly/analytics'
+import { Contact } from '@headlessly/crm'
+
+// React to CRM events
+Contact.qualified((contact, $) => {
+  $.Event.create({
+    name: 'contact_qualified',
+    type: 'track',
+    source: 'API',
+    userId: contact.$createdBy,
+    properties: JSON.stringify({
+      contactId: contact.$id,
+      stage: contact.stage,
+    }),
+    timestamp: new Date().toISOString(),
+  })
+})
+```
+
+- **CRM**: Contact, Lead, and Deal lifecycle events tracked as analytics events
+- **Billing**: Stripe webhooks (subscription created, invoice paid, payment failed) captured as events
+- **Marketing**: Campaign interactions (email opened, link clicked, form submitted) recorded as events
+- **Support**: Ticket creation, resolution, and satisfaction responses logged as events
+- **Funnels**: Funnel step completion is determined by matching event names
+
+## Query Examples
+
+### SDK
+
+```typescript
+import { Event } from '@headlessly/analytics'
+
+// Find recent page views
+const views = await Event.find({
+  name: 'page_view',
+  source: 'Browser',
+})
+
+// Get a specific event
+const event = await Event.get('event_fX9bL5nRd')
+
+// Find all events in a session
+const session = await Event.find({
+  sessionId: 'sess_kT7rQmNx',
+})
+```
+
+### MCP
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Event",
+  "filter": { "name": "page_view", "source": "Browser" },
+  "sort": { "timestamp": "desc" },
+  "limit": 50
+}
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Event", "id": "event_fX9bL5nRd" }
+```
+
+```ts title="headless.ly/mcp#do"
+const events = await $.Event.find({ name: 'signup', source: 'Browser' })
+```
+
+### REST
+
+```bash
+# List events by name
+curl https://analytics.headless.ly/~acme/events?name=page_view&source=Browser
+
+# Get a specific event
+curl https://analytics.headless.ly/~acme/events/event_fX9bL5nRd
+
+# Create an event
+curl -X POST https://analytics.headless.ly/~acme/events \
+  -H 'Content-Type: application/json' \
+  -d '{"name": "page_view", "type": "track", "source": "Browser", "timestamp": "2025-01-15T10:30:00Z"}'
+```

@@ -1,0 +1,184 @@
+---
+title: Asset
+description: Managed media files -- images, videos, documents, and audio with metadata and processing.
+---
+
+## Schema
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Asset = Noun('Asset', {
+  name: 'string!',
+  filename: 'string!',
+  url: 'string!',
+  type: 'Image | Video | Document | Audio | Archive | Other',
+  mimeType: 'string!',
+  extension: 'string',
+  size: 'number!',
+  width: 'number',
+  height: 'number',
+  alt: 'string',
+  caption: 'string',
+  duration: 'number',
+  thumbnail: 'string',
+  tags: 'string',
+  uploadedBy: '-> Contact',
+  source: 'string',
+  license: 'string',
+  process: 'Processed',
+})
+```
+
+## Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Display name of the asset |
+| `filename` | string | Yes | Original filename including extension |
+| `url` | string | Yes | Public URL to access the asset |
+| `type` | enum | No | Image, Video, Document, Audio, Archive, or Other |
+| `mimeType` | string | Yes | MIME type (e.g., `image/webp`, `video/mp4`) |
+| `extension` | string | No | File extension without dot (e.g., `webp`, `mp4`) |
+| `size` | number | Yes | File size in bytes |
+| `width` | number | No | Width in pixels (images and videos) |
+| `height` | number | No | Height in pixels (images and videos) |
+| `alt` | string | No | Alternative text for accessibility |
+| `caption` | string | No | Human-readable caption or description |
+| `duration` | number | No | Duration in seconds (audio and video) |
+| `thumbnail` | string | No | URL to a generated thumbnail image |
+| `tags` | string | No | Comma-separated tags for categorization |
+| `uploadedBy` | -> Contact | No | Person who uploaded the asset |
+| `source` | string | No | Original source or attribution |
+| `license` | string | No | License type (e.g., CC-BY-4.0, MIT) |
+
+## Relationships
+
+| Field | Direction | Target | Description |
+|-------|-----------|--------|-------------|
+| `uploadedBy` | -> | Contact | The person who uploaded this asset |
+
+## Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `create` | `Created` | Upload and register a new asset |
+| `update` | `Updated` | Update asset metadata |
+| `delete` | `Deleted` | Soft-delete the asset |
+| `process` | `Processed` | Trigger post-upload processing (thumbnails, optimization, transcoding) |
+
+### Verb Lifecycle
+
+```typescript
+import { Asset } from '@headlessly/content'
+
+// BEFORE hook -- validate before processing
+Asset.processing(asset => {
+  if (asset.type === 'Image' && asset.size > 10_000_000) {
+    throw new Error('Image too large for processing (max 10MB)')
+  }
+})
+
+// Execute
+await Asset.process('asset_qW3mLpFd')
+
+// AFTER hook -- update references after processing
+Asset.processed((asset, $) => {
+  console.log(`Asset processed: ${asset.name} (${asset.width}x${asset.height})`)
+  if (asset.thumbnail) {
+    $.Event.create({
+      type: 'asset.thumbnail.generated',
+      properties: { assetId: asset.$id, thumbnail: asset.thumbnail },
+    })
+  }
+})
+```
+
+## Cross-Domain Patterns
+
+Asset is the media layer referenced across the entire content graph:
+
+- **Content**: Assets serve as featured images, inline media, and downloadable attachments for Content entities.
+- **CRM**: Contact avatars and organization logos can be managed assets.
+- **Marketing**: Campaign imagery and form attachments reference assets.
+- **Analytics**: Asset download and view events feed into engagement metrics.
+
+```typescript
+import { Asset } from '@headlessly/content'
+
+Asset.created((asset, $) => {
+  // Auto-process images on upload
+  if (asset.type === 'Image') {
+    $.Asset.process(asset.$id)
+  }
+})
+```
+
+## Query Examples
+
+### SDK
+
+```typescript
+import { Asset } from '@headlessly/content'
+
+// Find all images
+const images = await Asset.find({ type: 'Image' })
+
+// Get a specific asset
+const asset = await Asset.get('asset_qW3mLpFd')
+
+// Upload and register an asset
+await Asset.create({
+  name: 'Product Screenshot',
+  filename: 'product-screenshot.webp',
+  url: 'https://cdn.acme.dev/product-screenshot.webp',
+  type: 'Image',
+  mimeType: 'image/webp',
+  size: 185_000,
+  width: 1440,
+  height: 900,
+  alt: 'Product dashboard showing real-time metrics',
+  uploadedBy: 'contact_fX9bL5nRd',
+})
+
+// Process an asset
+await Asset.process('asset_qW3mLpFd')
+```
+
+### MCP
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Asset",
+  "filter": { "type": "Image" },
+  "sort": { "$createdAt": "desc" },
+  "limit": 50
+}
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Asset", "id": "asset_qW3mLpFd" }
+```
+
+```ts title="headless.ly/mcp#do"
+const images = await $.Asset.find({ type: 'Image' })
+await $.Asset.process('asset_qW3mLpFd')
+```
+
+### REST
+
+```bash
+# List all images
+curl https://headless.ly/~acme/assets?type=Image
+
+# Get a specific asset
+curl https://headless.ly/~acme/assets/asset_qW3mLpFd
+
+# Register an asset
+curl -X POST https://headless.ly/~acme/assets \
+  -H 'Content-Type: application/json' \
+  -d '{"name": "Product Screenshot", "filename": "screenshot.webp", "url": "https://cdn.acme.dev/screenshot.webp", "type": "Image", "mimeType": "image/webp", "size": 185000}'
+
+# Process an asset
+curl -X POST https://headless.ly/~acme/assets/asset_qW3mLpFd/process
+```

@@ -1,0 +1,241 @@
+---
+title: Workflow
+description: Event-triggered automation with multi-step execution, retry policies, and error handling.
+---
+
+## Schema
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Workflow = Noun('Workflow', {
+  name: 'string!',
+  description: 'string',
+  organization: '-> Organization',
+  triggerEvent: 'string!',
+  steps: 'string',
+  retryPolicy: 'string',
+  errorHandling: 'Stop | Continue | Fallback',
+  timeout: 'number',
+  status: 'Draft | Active | Activated | Paused | Triggered | Archived',
+  version: 'number',
+  lastRunAt: 'datetime',
+  runCount: 'number',
+  successCount: 'number',
+  failureCount: 'number',
+  activate: 'Activated',
+  pause: 'Paused',
+  trigger: 'Triggered',
+  archive: 'Archived',
+})
+```
+
+## Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Display name of the workflow |
+| `description` | string | No | What this workflow does and when it runs |
+| `organization` | -> Organization | No | Organization that owns this workflow |
+| `triggerEvent` | string | Yes | The event that triggers this workflow (e.g. `Deal.won`, `Contact.created`) |
+| `steps` | string | No | JSON-encoded array of workflow steps to execute |
+| `retryPolicy` | string | No | Retry configuration (max attempts, backoff strategy) |
+| `errorHandling` | enum | No | Stop, Continue, or Fallback |
+| `timeout` | number | No | Maximum execution time in milliseconds |
+| `status` | enum | No | Draft, Active, Activated, Paused, Triggered, or Archived |
+| `version` | number | No | Version number, incremented on each update |
+| `lastRunAt` | datetime | No | Timestamp of the most recent execution |
+| `runCount` | number | No | Total number of executions |
+| `successCount` | number | No | Number of successful executions |
+| `failureCount` | number | No | Number of failed executions |
+
+## Relationships
+
+| Field | Direction | Target | Description |
+|-------|-----------|--------|-------------|
+| `organization` | -> | Organization | The organization that owns this workflow |
+
+## Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `create` | `Created` | Create a new workflow |
+| `update` | `Updated` | Update workflow configuration |
+| `delete` | `Deleted` | Delete a workflow |
+| `activate` | `Activated` | Set the workflow to active, ready to be triggered |
+| `pause` | `Paused` | Temporarily suspend the workflow |
+| `trigger` | `Triggered` | Manually trigger the workflow outside its normal event |
+| `archive` | `Archived` | Archive the workflow for historical reference |
+
+### Verb Lifecycle
+
+```typescript
+import { Workflow } from '@headlessly/platform'
+
+// BEFORE hook -- validate before activation
+Workflow.activating(workflow => {
+  if (!workflow.triggerEvent) {
+    throw new Error('Trigger event must be defined before activation')
+  }
+  if (!workflow.steps) {
+    throw new Error('At least one step is required')
+  }
+})
+
+// Execute -- activate the workflow
+await Workflow.activate('workflow_nV4xKpQm')
+
+// AFTER hook -- log activation
+Workflow.activated((workflow, $) => {
+  $.Event.create({
+    type: 'workflow.activated',
+    data: {
+      workflow: workflow.$id,
+      triggerEvent: workflow.triggerEvent,
+      version: workflow.version,
+    },
+  })
+})
+```
+
+## Status State Machine
+
+```
+Draft --> Activated --> Triggered
+              |             |
+              v             v
+           Paused --> Activated
+              |
+              v
+          Archived
+```
+
+- **Draft**: Workflow is being configured, not yet active
+- **Active**: Ready to listen for trigger events
+- **Activated**: Set to active and listening for the trigger event
+- **Paused**: Temporarily suspended, events are ignored
+- **Triggered**: Currently executing (transient state)
+- **Archived**: Historical record, permanently disabled
+
+## Cross-Domain Patterns
+
+Workflow is the orchestration layer that ties every domain together through event-driven automation:
+
+- **CRM**: Trigger workflows on `Contact.qualified`, `Deal.won`, `Lead.converted` to automate sales processes
+- **Billing**: Trigger on `Subscription.created` or `Payment.failed` for billing automation
+- **Support**: Trigger on `Ticket.created` for auto-assignment and escalation
+- **Marketing**: Trigger on `Form.submitted` or `Campaign.completed` for follow-up sequences
+- **Experimentation**: Feature flags can gate individual workflow steps
+- **Analytics**: Every workflow execution emits Events for monitoring success rates
+
+```typescript
+import { Workflow } from '@headlessly/platform'
+
+// React to workflow failures
+Workflow.triggered((workflow, $) => {
+  if (workflow.failureCount > 0) {
+    const failureRate = workflow.failureCount / workflow.runCount
+    if (failureRate > 0.1) {
+      $.Event.create({
+        type: 'workflow.high_failure_rate',
+        data: {
+          workflow: workflow.$id,
+          failureRate,
+          runCount: workflow.runCount,
+        },
+      })
+    }
+  }
+})
+
+// Common pattern: Deal won triggers customer onboarding
+Workflow.create({
+  name: 'Customer Onboarding',
+  triggerEvent: 'Deal.won',
+  steps: [
+    { action: 'Customer.create', mapping: { name: 'deal.name', contact: 'deal.contact' } },
+    { action: 'Subscription.create', mapping: { plan: 'deal.plan', customer: 'step.0.$id' } },
+    { action: 'Project.create', mapping: { name: '"Onboarding: " + deal.name' } },
+    { action: 'Activity.create', mapping: { subject: '"Welcome call with " + deal.contact.name', type: 'Call' } },
+  ],
+  errorHandling: 'Fallback',
+  timeout: 30_000,
+})
+```
+
+## Query Examples
+
+### SDK
+
+```typescript
+import { Workflow } from '@headlessly/platform'
+
+// Find all active workflows
+const active = await Workflow.find({ status: 'Activated' })
+
+// Get a specific workflow
+const workflow = await Workflow.get('workflow_nV4xKpQm')
+
+// Create and activate a workflow
+const newWorkflow = await Workflow.create({
+  name: 'Lead Assignment',
+  triggerEvent: 'Lead.created',
+  steps: [
+    { action: 'Contact.assign', mapping: { assignee: 'round-robin' } },
+    { action: 'Activity.create', mapping: { subject: '"Follow up: " + lead.name', type: 'Task' } },
+  ],
+  errorHandling: 'Continue',
+})
+await Workflow.activate(newWorkflow.$id)
+
+// Check workflow health
+const workflows = await Workflow.find({ status: 'Activated' })
+for (const wf of workflows) {
+  const successRate = wf.runCount > 0 ? wf.successCount / wf.runCount : 1
+  console.log(`${wf.name}: ${(successRate * 100).toFixed(1)}% success rate`)
+}
+```
+
+### MCP
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Workflow",
+  "filter": { "status": "Activated" },
+  "sort": { "lastRunAt": "desc" },
+  "limit": 20
+}
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Workflow", "id": "workflow_nV4xKpQm" }
+```
+
+```ts title="headless.ly/mcp#do"
+const workflows = await $.Workflow.find({ status: 'Activated' })
+await $.Workflow.trigger('workflow_nV4xKpQm')
+```
+
+### REST
+
+```bash
+# List active workflows
+curl https://automate.headless.ly/~acme/workflows?status=Activated
+
+# Get a specific workflow
+curl https://automate.headless.ly/~acme/workflows/workflow_nV4xKpQm
+
+# Create a workflow
+curl -X POST https://automate.headless.ly/~acme/workflows \
+  -H 'Content-Type: application/json' \
+  -d '{"name": "Lead Assignment", "triggerEvent": "Lead.created", "errorHandling": "Continue"}'
+
+# Activate a workflow
+curl -X POST https://automate.headless.ly/~acme/workflows/workflow_nV4xKpQm/activate
+
+# Manually trigger a workflow
+curl -X POST https://automate.headless.ly/~acme/workflows/workflow_nV4xKpQm/trigger
+
+# Pause a workflow
+curl -X POST https://automate.headless.ly/~acme/workflows/workflow_nV4xKpQm/pause
+```

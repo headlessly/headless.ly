@@ -80,7 +80,7 @@ import { Noun } from 'digital-objects'
 export const Deal = Noun('Deal', {
   name: 'string!',
   value: 'number!',
-  stage: 'Discovery | Proposal | Negotiation | Closed | Lost',
+  stage: 'Prospecting | Qualification | Proposal | Negotiation | Closed | Won | Lost',
   contact: '-> Contact.deals',
 
   advance: 'Advanced',
@@ -208,6 +208,15 @@ This means handlers have access to the full entity graph within the DO but canno
 
 All custom verbs across the 35 core entities:
 
+### Identity
+
+| Entity | Verb | Event | Description |
+|--------|------|-------|-------------|
+| User | `invite` | `Invited` | Send an invite |
+| User | `suspend` | `Suspended` | Suspend a user |
+| User | `activate` | `Activated` | Activate a user |
+| ApiKey | `revoke` | `Revoked` | Revoke an API key |
+
 ### CRM
 
 | Entity | Verb | Event | Description |
@@ -223,14 +232,19 @@ All custom verbs across the 35 core entities:
 | Deal | `close` | `Closed` | Close as won |
 | Deal | `lose` | `Lost` | Close as lost |
 | Deal | `reopen` | `Reopened` | Reopen a closed deal |
+| Lead | `convert` | `Converted` | Convert lead to a deal |
+| Lead | `lose` | `Lost` | Mark lead as lost |
+| Deal | `win` | `Won` | Mark deal as won |
 | Activity | `log` | `Logged` | Log an activity |
 | Activity | `complete` | `Completed` | Mark activity complete |
+| Activity | `cancel` | `Cancelled` | Cancel an activity |
 
 ### Projects
 
 | Entity | Verb | Event | Description |
 |--------|------|-------|-------------|
 | Project | `archive` | `Archived` | Archive a project |
+| Project | `complete` | `Completed` | Complete a project |
 | Project | `activate` | `Activated` | Activate a project |
 | Issue | `assign` | `Assigned` | Assign to team member |
 | Issue | `close` | `Closed` | Close the issue |
@@ -252,8 +266,12 @@ All custom verbs across the 35 core entities:
 |--------|------|-------|-------------|
 | Subscription | `activate` | `Activated` | Activate subscription |
 | Subscription | `pause` | `Paused` | Pause subscription |
-| Subscription | `cancel` | `Canceled` | Cancel subscription |
+| Subscription | `cancel` | `Cancelled` | Cancel subscription |
+| Subscription | `reactivate` | `Reactivated` | Restart a cancelled subscription |
+| Subscription | `upgrade` | `Upgraded` | Move to a higher-value plan |
+| Subscription | `downgrade` | `Downgraded` | Move to a lower-value plan |
 | Subscription | `renew` | `Renewed` | Renew subscription |
+| Invoice | `pay` | `Paid` | Mark invoice as paid |
 | Invoice | `finalize` | `Finalized` | Finalize for payment |
 | Invoice | `void` | `Voided` | Void an invoice |
 | Payment | `capture` | `Captured` | Capture payment |
@@ -275,8 +293,13 @@ All custom verbs across the 35 core entities:
 |--------|------|-------|-------------|
 | Metric | `snapshot` | `Snapshotted` | Record a metric snapshot |
 | Funnel | `activate` | `Activated` | Activate a funnel |
+| Metric | `record` | `Recorded` | Record a metric value |
+| Metric | `reset` | `Reset` | Reset a metric |
+| Funnel | `analyze` | `Analyzed` | Analyze funnel data |
 | Goal | `achieve` | `Achieved` | Mark goal as achieved |
+| Goal | `complete` | `Completed` | Complete a goal |
 | Goal | `miss` | `Missed` | Mark goal as missed |
+| Goal | `reset` | `Reset` | Reset goal progress |
 
 ### Marketing
 
@@ -294,6 +317,7 @@ All custom verbs across the 35 core entities:
 | Entity | Verb | Event | Description |
 |--------|------|-------|-------------|
 | Experiment | `start` | `Started` | Start an experiment |
+| Experiment | `pause` | `Paused` | Pause an experiment |
 | Experiment | `stop` | `Stopped` | Stop an experiment |
 | Experiment | `conclude` | `Concluded` | Conclude with results |
 | FeatureFlag | `enable` | `Enabled` | Enable a feature flag |
@@ -305,10 +329,31 @@ All custom verbs across the 35 core entities:
 | Entity | Verb | Event | Description |
 |--------|------|-------|-------------|
 | Workflow | `activate` | `Activated` | Activate a workflow |
-| Workflow | `deactivate` | `Deactivated` | Deactivate a workflow |
+| Workflow | `pause` | `Paused` | Pause a workflow |
 | Workflow | `trigger` | `Triggered` | Trigger workflow execution |
+| Workflow | `archive` | `Archived` | Archive a workflow |
 | Integration | `connect` | `Connected` | Connect an integration |
 | Integration | `disconnect` | `Disconnected` | Disconnect an integration |
+| Integration | `sync` | `Synced` | Sync integration data |
+| Agent | `do` | `Done` | Execute an action |
+| Agent | `ask` | `Asked` | Ask for information |
+| Agent | `decide` | `Decided` | Make a decision |
+| Agent | `approve` | `Approved` | Approve an action |
+| Agent | `notify` | `Notified` | Send a notification |
+| Agent | `delegate` | `Delegated` | Delegate to another agent |
+| Agent | `escalate` | `Escalated` | Escalate to a human |
+| Agent | `learn` | `Learned` | Learn from interaction |
+| Agent | `reflect` | `Reflected` | Reflect on outcomes |
+| Agent | `invoke` | `Invoked` | Invoke agent execution |
 | Agent | `deploy` | `Deployed` | Deploy an agent |
 | Agent | `pause` | `Paused` | Pause an agent |
-| Agent | `invoke` | `Invoked` | Invoke agent execution |
+| Agent | `stop` | `Stopped` | Stop an agent |
+| Agent | `retire` | `Retired` | Retire an agent |
+
+### Communication
+
+| Entity | Verb | Event | Description |
+|--------|------|-------|-------------|
+| Message | `send` | `Sent` | Send a message |
+| Message | `deliver` | `Delivered` | Mark as delivered |
+| Message | `read` | `Read` | Mark as read |

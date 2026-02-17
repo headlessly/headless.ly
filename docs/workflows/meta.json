@@ -1,0 +1,6 @@
+{
+  "title": "Workflows",
+  "description": "Cross-domain workflow tutorials showing how entities connect across the full business lifecycle.",
+  "root": true,
+  "pages": ["lead-to-revenue", "support-lifecycle", "campaign-to-conversion", "content-pipeline", "agent-autonomy", "experiment-to-rollout"]
+}

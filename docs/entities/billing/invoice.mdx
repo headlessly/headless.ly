@@ -1,0 +1,298 @@
+---
+title: Invoice
+description: Bills generated from subscriptions -- track amounts, line items, and payment status.
+---
+
+## Schema
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Invoice = Noun('Invoice', {
+  number: 'string!##',
+  organization: '-> Organization',
+  customer: '-> Customer.invoices',
+  subscription: '-> Subscription',
+  subtotal: 'number!',
+  tax: 'number',
+  discount: 'number',
+  total: 'number!',
+  amountPaid: 'number',
+  amountDue: 'number!',
+  currency: 'string',
+  status: 'Draft | Open | Paid | Voided | Uncollectible',
+  periodStart: 'datetime',
+  periodEnd: 'datetime',
+  issuedAt: 'datetime',
+  dueAt: 'datetime',
+  paidAt: 'datetime',
+  voidedAt: 'datetime',
+  lineItems: 'json',
+  receiptUrl: 'string',
+  pdfUrl: 'string',
+  hostedUrl: 'string',
+  stripeInvoiceId: 'string##',
+  pay: 'Paid',
+  void: 'Voided',
+  finalize: 'Finalized',
+})
+```
+
+## Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `number` | string | Yes | Invoice number (unique, indexed) -- human-readable sequential identifier |
+| `subtotal` | number | Yes | Amount before tax and discounts (in smallest currency unit) |
+| `tax` | number | No | Tax amount applied |
+| `discount` | number | No | Discount amount applied |
+| `total` | number | Yes | Final amount after tax and discounts |
+| `amountPaid` | number | No | Amount already paid toward this invoice |
+| `amountDue` | number | Yes | Remaining amount to be collected |
+| `currency` | string | No | ISO 4217 currency code (e.g. `usd`) |
+| `status` | enum | No | Invoice state: `Draft`, `Open`, `Paid`, `Voided`, or `Uncollectible` |
+| `periodStart` | datetime | No | Start of the billing period this invoice covers |
+| `periodEnd` | datetime | No | End of the billing period this invoice covers |
+| `issuedAt` | datetime | No | When the invoice was finalized and sent |
+| `dueAt` | datetime | No | Payment due date |
+| `paidAt` | datetime | No | When payment was received |
+| `voidedAt` | datetime | No | When the invoice was voided |
+| `lineItems` | json | No | Itemized charges (serialized array of line item objects) |
+| `receiptUrl` | string | No | URL to the Stripe-hosted receipt |
+| `pdfUrl` | string | No | URL to the PDF version of the invoice |
+| `hostedUrl` | string | No | URL to the Stripe-hosted invoice page |
+| `stripeInvoiceId` | string | No | Stripe Invoice ID (unique, indexed) |
+
+## Relationships
+
+| Field | Direction | Target | Description |
+|-------|-----------|--------|-------------|
+| `organization` | `->` | Organization | The organization billed |
+| `customer` | `->` | Customer.invoices | The billing customer |
+| `subscription` | `->` | Subscription | The subscription that generated this invoice |
+
+## Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `create` | `Created` | Create a new invoice |
+| `update` | `Updated` | Update invoice fields |
+| `delete` | `Deleted` | Soft-delete the invoice |
+| `pay` | `Paid` | Mark the invoice as paid |
+| `void` | `Voided` | Void the invoice (no longer collectible) |
+| `finalize` | `Finalized` | Finalize a draft invoice and send it |
+
+### Verb Lifecycle
+
+Every verb follows the full conjugation pattern -- execute, before hook, after hook:
+
+```typescript
+import { Invoice } from '@headlessly/billing'
+
+// Execute
+await Invoice.pay('invoice_mR4nVkTw')
+
+// Before hook -- runs before payment is processed
+Invoice.paying(invoice => {
+  console.log(`About to mark invoice ${invoice.number} as paid`)
+})
+
+// After hook -- runs after payment is confirmed
+Invoice.paid(invoice => {
+  console.log(`Invoice ${invoice.number} paid at ${invoice.paidAt}`)
+})
+```
+
+## Status State Machine
+
+```
+  create()           finalize()            pay()
+(none) ──────→ Draft ──────────→ Open ──────────→ Paid
+                                   │
+                         void()    │   (collection fails)
+                                   ▼
+                         Voided  Uncollectible
+```
+
+Valid transitions:
+
+| From | Verb | To |
+|------|------|----|
+| -- | `create` | `Draft` |
+| `Draft` | `finalize` | `Open` |
+| `Open` | `pay` | `Paid` |
+| `Open` | `void` | `Voided` |
+| `Open` | (system) | `Uncollectible` |
+
+- **Draft**: Invoice is being prepared. Line items can still be added or modified.
+- **Open**: Invoice has been finalized and sent to the customer. Awaiting payment.
+- **Paid**: Payment has been received in full.
+- **Voided**: Invoice has been cancelled. No payment is expected.
+- **Uncollectible**: Payment attempts have been exhausted. The invoice is written off.
+
+## Invoice Amounts
+
+All amounts are in the smallest currency unit (cents for USD). The relationship between amount fields:
+
+```
+subtotal                    = sum of line items
+tax                         = calculated tax
+discount                    = applied discounts
+total                       = subtotal + tax - discount
+amountPaid                  = payments received so far
+amountDue                   = total - amountPaid
+```
+
+## Cross-Domain Patterns
+
+Invoices connect billing to analytics and support:
+
+```typescript
+import { Invoice } from '@headlessly/billing'
+
+// When an invoice is paid, update revenue metrics
+Invoice.paid((invoice, $) => {
+  $.Metric.record('revenue', {
+    amount: invoice.total,
+    currency: invoice.currency,
+    customer: invoice.customer,
+  })
+})
+
+// When an invoice becomes uncollectible, create a support ticket
+Invoice.updated((invoice, $) => {
+  if (invoice.status === 'Uncollectible') {
+    const customer = await $.Customer.get(invoice.customer)
+    await $.Ticket.create({
+      subject: `Uncollectible invoice ${invoice.number}`,
+      description: `Invoice ${invoice.number} for ${invoice.total} ${invoice.currency} is uncollectible`,
+      priority: 'High',
+      contact: customer.contact,
+    })
+  }
+})
+```
+
+## Query Examples
+
+### SDK
+
+```typescript
+import { Invoice } from '@headlessly/billing'
+
+// Find all open invoices
+const open = await Invoice.find({ status: 'Open' })
+
+// Get a specific invoice
+const invoice = await Invoice.get('invoice_mR4nVkTw')
+
+// Find overdue invoices
+const overdue = await Invoice.find({
+  status: 'Open',
+  dueAt: { $lt: new Date() },
+})
+
+// Find invoices for a customer
+const customerInvoices = await Invoice.find({
+  customer: 'customer_fX9bL5nRd',
+})
+
+// Sum paid invoices for revenue reporting
+const paid = await Invoice.find({
+  status: 'Paid',
+  paidAt: { $gte: new Date('2025-01-01') },
+})
+```
+
+### MCP
+
+```json title="headless.ly/mcp#search"
+{ "type": "Invoice", "filter": { "status": "Open" } }
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Invoice", "id": "invoice_mR4nVkTw" }
+```
+
+```ts title="headless.ly/mcp#do"
+const overdue = await $.Invoice.find({
+  status: 'Open',
+  dueAt: { $lt: new Date() },
+})
+for (const invoice of overdue) {
+  await $.Message.create({
+    type: 'Email',
+    to: invoice.customer,
+    subject: `Payment reminder: Invoice ${invoice.number}`,
+  })
+}
+```
+
+### REST
+
+```bash
+GET https://headless.ly/~acme/invoices?status=Open
+```
+
+```bash
+GET https://headless.ly/~acme/invoices/invoice_mR4nVkTw
+```
+
+```bash
+POST https://headless.ly/~acme/invoices/invoice_mR4nVkTw/pay
+```
+
+```bash
+POST https://headless.ly/~acme/invoices/invoice_mR4nVkTw/void
+```
+
+## Event-Driven Patterns
+
+React to invoice lifecycle events:
+
+```typescript
+import { Invoice } from '@headlessly/billing'
+
+// Track revenue when invoices are paid
+Invoice.paid((invoice, $) => {
+  $.Event.create({
+    type: 'billing.invoice_paid',
+    data: {
+      number: invoice.number,
+      total: invoice.total,
+      currency: invoice.currency,
+      customer: invoice.customer,
+      subscription: invoice.subscription,
+    },
+  })
+})
+
+// Alert on voided invoices
+Invoice.voided((invoice, $) => {
+  $.Event.create({
+    type: 'billing.invoice_voided',
+    data: {
+      number: invoice.number,
+      total: invoice.total,
+      reason: 'voided',
+    },
+  })
+})
+
+// Send payment reminders for upcoming due dates
+Invoice.finalized((invoice, $) => {
+  $.Event.create({
+    type: 'billing.invoice_sent',
+    data: {
+      number: invoice.number,
+      amountDue: invoice.amountDue,
+      dueAt: invoice.dueAt,
+      hostedUrl: invoice.hostedUrl,
+    },
+  })
+})
+```
+
+## Stripe Sync
+
+Invoices are created by Stripe when a subscription renews. The `stripeInvoiceId` field links back to the Stripe Invoice. Stripe webhooks (`invoice.created`, `invoice.finalized`, `invoice.paid`, `invoice.payment_failed`, `invoice.voided`, `invoice.marked_uncollectible`) flow into the headless.ly event log, keeping the status machine in sync.

@@ -1,0 +1,181 @@
+---
+title: Metric
+description: Business measurements -- MRR, DAU, churn rate, NPS, and any quantifiable KPI derived from events or external sources.
+---
+
+## Schema
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Metric = Noun('Metric', {
+  name: 'string!',
+  value: 'number!',
+  type: 'Counter | Gauge | Histogram | Summary',
+  unit: 'string',
+  dimensions: 'string',
+  organization: '-> Organization',
+  timestamp: 'datetime',
+  record: 'Recorded',
+  reset: 'Reset',
+  snapshot: 'Snapshotted',
+})
+```
+
+## Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Metric name (e.g. `mrr`, `dau`, `churn_rate`, `nps`) |
+| `value` | number | Yes | Current metric value |
+| `type` | enum | No | Metric type: `Counter`, `Gauge`, `Histogram`, or `Summary` |
+| `unit` | string | No | Unit of measurement (e.g. `USD`, `users`, `percent`, `ms`) |
+| `dimensions` | string | No | Dimension labels for slicing (e.g. `plan:pro,region:us`) |
+| `organization` | -> Organization | No | Tenant this metric belongs to |
+| `timestamp` | datetime | No | When this measurement was taken |
+
+## Relationships
+
+| Field | Direction | Target | Description |
+|-------|-----------|--------|-------------|
+| `organization` | -> | Organization | Tenant this metric belongs to |
+
+## Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `create` | `Created` | Define a new metric |
+| `update` | `Updated` | Update metric fields |
+| `delete` | `Deleted` | Remove a metric |
+| `record` | `Recorded` | Record a new value for this metric |
+| `reset` | `Reset` | Reset the metric value to zero or baseline |
+| `snapshot` | `Snapshotted` | Capture a point-in-time snapshot for historical tracking |
+
+### Verb Lifecycle
+
+```typescript
+import { Metric } from '@headlessly/analytics'
+
+// BEFORE hook -- validate before recording
+Metric.recording(metric => {
+  if (metric.value < 0 && metric.type === 'Counter') {
+    throw new Error('Counter metrics cannot have negative values')
+  }
+})
+
+// Execute
+await Metric.record('metric_k7TmPvQx')
+
+// AFTER hook -- react to new recording
+Metric.recorded(metric => {
+  console.log(`${metric.name}: ${metric.value} ${metric.unit}`)
+})
+```
+
+## Metric Types
+
+- **Counter**: Monotonically increasing value. Total sign-ups, total revenue, total API calls. Only goes up (or resets to zero).
+- **Gauge**: Point-in-time measurement that can go up or down. Current MRR, active users, queue depth.
+- **Histogram**: Distribution of values in configurable buckets. API response times, deal sizes, session durations.
+- **Summary**: Statistical summary with quantiles. P50/P95/P99 latency, median deal value.
+
+## Cross-Domain Patterns
+
+Metrics aggregate data from every corner of the system:
+
+```typescript
+import { Subscription } from '@headlessly/billing'
+
+// Update MRR metric when subscriptions change
+Subscription.created((sub, $) => {
+  const mrr = await $.Metric.find({ name: 'mrr' })
+  if (mrr.length) {
+    $.Metric.record(mrr[0].$id)
+  }
+})
+
+Subscription.cancelled((sub, $) => {
+  const churn = await $.Metric.find({ name: 'churn_rate' })
+  if (churn.length) {
+    $.Metric.record(churn[0].$id)
+  }
+})
+```
+
+- **Billing**: MRR, ARR, churn rate, NRR, LTV derived from Stripe subscription and invoice data
+- **CRM**: Pipeline velocity, deal conversion rate, average deal value computed from CRM entities
+- **Support**: Average response time, resolution time, CSAT scores aggregated from tickets
+- **Marketing**: Campaign ROI, cost per lead, conversion rates computed from campaigns and leads
+- **Goals**: Goals reference metrics as their measurement source -- `Goal.metric` points to a Metric
+
+## Query Examples
+
+### SDK
+
+```typescript
+import { Metric } from '@headlessly/analytics'
+
+// Find all financial metrics
+const financial = await Metric.find({
+  name: { $in: ['mrr', 'arr', 'churn_rate', 'nrr', 'ltv'] },
+})
+
+// Get a specific metric
+const mrr = await Metric.get('metric_k7TmPvQx')
+
+// Create a new metric
+await Metric.create({
+  name: 'dau',
+  value: 0,
+  type: 'Gauge',
+  unit: 'users',
+})
+
+// Record a new value
+await Metric.record('metric_k7TmPvQx')
+
+// Snapshot for historical tracking
+await Metric.snapshot('metric_k7TmPvQx')
+```
+
+### MCP
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Metric",
+  "filter": { "type": "Gauge" },
+  "sort": { "timestamp": "desc" },
+  "limit": 20
+}
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Metric", "id": "metric_k7TmPvQx" }
+```
+
+```ts title="headless.ly/mcp#do"
+const metrics = await $.Metric.find({ type: 'Gauge' })
+await $.Metric.record('metric_k7TmPvQx')
+await $.Metric.snapshot('metric_k7TmPvQx')
+```
+
+### REST
+
+```bash
+# List metrics
+curl https://analytics.headless.ly/~acme/metrics?type=Gauge
+
+# Get a specific metric
+curl https://analytics.headless.ly/~acme/metrics/metric_k7TmPvQx
+
+# Create a metric
+curl -X POST https://analytics.headless.ly/~acme/metrics \
+  -H 'Content-Type: application/json' \
+  -d '{"name": "dau", "value": 0, "type": "Gauge", "unit": "users"}'
+
+# Record a new value
+curl -X POST https://analytics.headless.ly/~acme/metrics/metric_k7TmPvQx/record
+
+# Snapshot
+curl -X POST https://analytics.headless.ly/~acme/metrics/metric_k7TmPvQx/snapshot
+```

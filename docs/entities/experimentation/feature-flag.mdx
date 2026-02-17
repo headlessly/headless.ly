@@ -1,0 +1,228 @@
+---
+title: FeatureFlag
+description: Progressive rollouts, targeting rules, and kill switches for controlled feature releases.
+---
+
+## Schema
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const FeatureFlag = Noun('FeatureFlag', {
+  key: 'string!##',
+  name: 'string!',
+  description: 'string',
+  organization: '-> Organization',
+  experiment: '-> Experiment',
+  type: 'Boolean | String | Number | JSON',
+  defaultValue: 'string',
+  variants: 'json',
+  targetingRules: 'json',
+  status: 'Draft | Active | Enabled | Disabled | Paused | RolledOut | Archived',
+  rolloutPercentage: 'number',
+  evaluations: 'number',
+  lastEvaluatedAt: 'datetime',
+  rollout: 'RolledOut',
+  enable: 'Enabled',
+  disable: 'Disabled',
+})
+```
+
+## Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `key` | string (unique, indexed) | Yes | Machine-readable flag key (e.g. `onboarding-v2`, `dark-mode`) |
+| `name` | string | Yes | Human-readable display name |
+| `description` | string | No | What this flag controls and why it exists |
+| `organization` | -> Organization | No | Organization that owns this flag |
+| `experiment` | -> Experiment | No | Experiment this flag is associated with |
+| `type` | enum | No | Value type: Boolean, String, Number, or JSON |
+| `defaultValue` | string | No | Default value when no targeting rules match |
+| `variants` | json | No | Array of possible values for multivariate flags |
+| `targetingRules` | json | No | Rules that determine which users see which variant |
+| `status` | enum | No | Draft, Active, Enabled, Disabled, Paused, RolledOut, or Archived |
+| `rolloutPercentage` | number | No | Percentage of traffic receiving the feature (0-100) |
+| `evaluations` | number | No | Total number of flag evaluations |
+| `lastEvaluatedAt` | datetime | No | Timestamp of the most recent evaluation |
+
+## Relationships
+
+| Field | Direction | Target | Description |
+|-------|-----------|--------|-------------|
+| `organization` | -> | Organization | The organization that owns this flag |
+| `experiment` | -> | Experiment | The experiment this flag is part of (if any) |
+
+## Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `create` | `Created` | Create a new feature flag |
+| `update` | `Updated` | Update flag configuration |
+| `delete` | `Deleted` | Delete a feature flag |
+| `rollout` | `RolledOut` | Set rollout to 100% and mark as fully rolled out |
+| `enable` | `Enabled` | Enable the flag for evaluation |
+| `disable` | `Disabled` | Disable the flag, returning default value for all evaluations |
+
+### Verb Lifecycle
+
+```typescript
+import { FeatureFlag } from '@headlessly/experiments'
+
+// BEFORE hook -- validate before enabling
+FeatureFlag.enabling(flag => {
+  if (!flag.defaultValue) {
+    throw new Error('Default value must be set before enabling')
+  }
+})
+
+// Execute -- enable the flag
+await FeatureFlag.enable('featureFlag_jK8sTxJv')
+
+// AFTER hook -- track the change
+FeatureFlag.enabled((flag, $) => {
+  $.Event.create({
+    type: 'feature_flag.enabled',
+    data: {
+      key: flag.key,
+      rolloutPercentage: flag.rolloutPercentage,
+    },
+  })
+})
+```
+
+## Status State Machine
+
+```
+Draft --> Active --> Enabled --> RolledOut --> Archived
+                       |
+                       v
+                    Disabled --> Archived
+                       |
+                       v
+                     Paused --> Enabled
+```
+
+- **Draft**: Flag created but not yet configured for use
+- **Active**: Configured and ready for evaluation
+- **Enabled**: Actively being evaluated against targeting rules
+- **Disabled**: Temporarily turned off, all evaluations return the default value
+- **Paused**: Evaluation suspended, typically during an incident
+- **RolledOut**: Fully rolled out to 100% of traffic, experiment concluded
+- **Archived**: Historical record, no longer evaluated
+
+## Cross-Domain Patterns
+
+FeatureFlag is the control mechanism that gates features across every domain:
+
+- **Experimentation**: Flags belong to Experiments. When an experiment concludes, the winning flag variant is rolled out to 100%.
+- **Analytics**: Every flag evaluation emits an Event. Conversion metrics can be segmented by flag variant.
+- **Platform**: Workflow steps can be gated by feature flags. Agents check flags before executing actions.
+- **Marketing**: Campaign features can be progressively rolled out via flags. Form variants use flags for A/B testing.
+- **CRM**: Contact-level flag targeting enables personalized feature access based on organization tier, lead score, or stage.
+
+```typescript
+import { FeatureFlag } from '@headlessly/experiments'
+
+// When a flag is fully rolled out, clean up
+FeatureFlag.rolledOut((flag, $) => {
+  // Conclude the parent experiment if one exists
+  if (flag.experiment) {
+    $.Experiment.conclude(flag.experiment)
+  }
+
+  // Log the rollout as a metric
+  $.Metric.create({
+    name: `Flag rolled out: ${flag.key}`,
+    type: 'Milestone',
+    value: flag.evaluations,
+  })
+})
+
+// Kill switch pattern -- disable immediately on incident
+FeatureFlag.disabled((flag, $) => {
+  $.Event.create({
+    type: 'feature_flag.killed',
+    data: {
+      key: flag.key,
+      evaluationsAtKill: flag.evaluations,
+    },
+  })
+})
+```
+
+## Query Examples
+
+### SDK
+
+```typescript
+import { FeatureFlag } from '@headlessly/experiments'
+
+// Find all enabled flags
+const enabled = await FeatureFlag.find({ status: 'Enabled' })
+
+// Get a specific flag
+const flag = await FeatureFlag.get('featureFlag_jK8sTxJv')
+
+// Create a progressive rollout flag
+await FeatureFlag.create({
+  key: 'new-dashboard',
+  name: 'New Dashboard UI',
+  type: 'Boolean',
+  defaultValue: 'false',
+  rolloutPercentage: 10,
+  targetingRules: [
+    { attribute: 'org.tier', operator: 'in', values: ['Enterprise', 'Business'] },
+  ],
+})
+
+// Gradually increase rollout
+await FeatureFlag.update('featureFlag_jK8sTxJv', { rolloutPercentage: 50 })
+
+// Full rollout
+await FeatureFlag.rollout('featureFlag_jK8sTxJv')
+```
+
+### MCP
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "FeatureFlag",
+  "filter": { "status": "Enabled" },
+  "sort": { "evaluations": "desc" },
+  "limit": 50
+}
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "FeatureFlag", "id": "featureFlag_jK8sTxJv" }
+```
+
+```ts title="headless.ly/mcp#do"
+const flags = await $.FeatureFlag.find({ status: 'Enabled' })
+await $.FeatureFlag.disable('featureFlag_jK8sTxJv')
+```
+
+### REST
+
+```bash
+# List enabled flags
+curl https://experiment.headless.ly/~acme/feature-flags?status=Enabled
+
+# Get a specific flag
+curl https://experiment.headless.ly/~acme/feature-flags/featureFlag_jK8sTxJv
+
+# Create a feature flag
+curl -X POST https://experiment.headless.ly/~acme/feature-flags \
+  -H 'Content-Type: application/json' \
+  -d '{"key": "new-dashboard", "name": "New Dashboard UI", "type": "Boolean", "defaultValue": "false"}'
+
+# Enable a flag
+curl -X POST https://experiment.headless.ly/~acme/feature-flags/featureFlag_jK8sTxJv/enable
+
+# Disable a flag (kill switch)
+curl -X POST https://experiment.headless.ly/~acme/feature-flags/featureFlag_jK8sTxJv/disable
+
+# Full rollout
+curl -X POST https://experiment.headless.ly/~acme/feature-flags/featureFlag_jK8sTxJv/rollout
+```

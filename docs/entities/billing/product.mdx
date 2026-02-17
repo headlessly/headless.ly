@@ -1,0 +1,226 @@
+---
+title: Product
+description: What you sell -- software, services, addons, and bundles backed by Stripe Products.
+---
+
+## Schema
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Product = Noun('Product', {
+  name: 'string!',
+  slug: 'string##',
+  description: 'string',
+  tagline: 'string',
+  type: 'Software | Service | Addon | Bundle',
+  icon: 'string',
+  image: 'string',
+  features: 'string',
+  highlights: 'string',
+  status: 'Draft | Active | Archived',
+  visibility: 'Public | Private | Hidden',
+  featured: 'boolean',
+  plans: '<- Plan.product[]',
+  stripeProductId: 'string##',
+})
+```
+
+## Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Product display name |
+| `slug` | string | No | URL-safe identifier (unique, indexed) |
+| `description` | string | No | Full product description |
+| `tagline` | string | No | Short marketing tagline |
+| `type` | enum | No | Product category: `Software`, `Service`, `Addon`, or `Bundle` |
+| `icon` | string | No | Icon identifier or URL |
+| `image` | string | No | Product image URL |
+| `features` | string | No | Feature list (serialized) |
+| `highlights` | string | No | Key selling points (serialized) |
+| `status` | enum | No | Lifecycle state: `Draft`, `Active`, or `Archived` |
+| `visibility` | enum | No | Access control: `Public`, `Private`, or `Hidden` |
+| `featured` | boolean | No | Whether to highlight in catalogs and pricing pages |
+| `stripeProductId` | string | No | Stripe Product ID (unique, indexed) |
+
+## Relationships
+
+| Field | Direction | Target | Description |
+|-------|-----------|--------|-------------|
+| `plans` | `<-` | Plan.product[] | All pricing plans for this product |
+
+## Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `create` | `Created` | Create a new product (also creates in Stripe) |
+| `update` | `Updated` | Update product fields (syncs to Stripe) |
+| `delete` | `Deleted` | Soft-delete the product |
+
+### Verb Lifecycle
+
+Every verb follows the full conjugation pattern -- execute, before hook, after hook:
+
+```typescript
+import { Product } from '@headlessly/billing'
+
+// Execute
+await Product.create({
+  name: 'Headlessly Pro',
+  slug: 'pro',
+  type: 'Software',
+  status: 'Active',
+  visibility: 'Public',
+  tagline: 'Everything you need to run your startup',
+})
+
+// Before hook -- runs before creation
+Product.creating(product => {
+  console.log(`About to create product ${product.name}`)
+})
+
+// After hook -- runs after Stripe product is created
+Product.created(product => {
+  console.log(`Product ${product.name} live with Stripe ID ${product.stripeProductId}`)
+})
+```
+
+## Status State Machine
+
+```
+  create()
+(none) ──────→ Draft
+                 │
+       update()  │
+                 ▼
+              Active
+                 │
+       update()  │
+                 ▼
+             Archived
+```
+
+Valid transitions:
+
+| From | Verb | To |
+|------|------|----|
+| -- | `create` | `Draft` |
+| `Draft` | `update` | `Active` |
+| `Active` | `update` | `Archived` |
+| `Archived` | `update` | `Active` |
+
+Archived products are hidden from new subscriptions but remain visible on existing ones. Products are never hard-deleted -- they are archived to preserve billing history.
+
+## Product Types
+
+| Type | Description |
+|------|-------------|
+| `Software` | SaaS product with recurring billing |
+| `Service` | Professional services, consulting, implementation |
+| `Addon` | Feature or capacity addon to a base product |
+| `Bundle` | Package of multiple products at a combined price |
+
+## Cross-Domain Patterns
+
+Products connect to Content for marketing pages and to Analytics for revenue tracking:
+
+```typescript
+import { Product } from '@headlessly/billing'
+
+// When a product goes active, create a landing page
+Product.updated((product, $) => {
+  if (product.status === 'Active' && product.visibility === 'Public') {
+    await $.Content.create({
+      title: product.name,
+      slug: `products/${product.slug}`,
+      type: 'Page',
+      status: 'Published',
+    })
+  }
+})
+```
+
+## Query Examples
+
+### SDK
+
+```typescript
+import { Product } from '@headlessly/billing'
+
+// Find all active public products
+const products = await Product.find({ status: 'Active', visibility: 'Public' })
+
+// Get a specific product with its plans
+const product = await Product.get('product_k7TmPvQx', { include: ['plans'] })
+
+// Find featured products
+const featured = await Product.find({ featured: true, status: 'Active' })
+
+// Find by slug
+const pro = await Product.find({ slug: 'pro' })
+```
+
+### MCP
+
+```json title="headless.ly/mcp#search"
+{ "type": "Product", "filter": { "status": "Active", "visibility": "Public" } }
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Product", "id": "product_k7TmPvQx", "include": ["plans"] }
+```
+
+```ts title="headless.ly/mcp#do"
+const products = await $.Product.find({ status: 'Active' })
+```
+
+### REST
+
+```bash
+GET https://headless.ly/~acme/products?status=Active&visibility=Public
+```
+
+```bash
+GET https://headless.ly/~acme/products/product_k7TmPvQx
+```
+
+```bash
+POST https://headless.ly/~acme/products
+Content-Type: application/json
+
+{ "name": "Headlessly Pro", "type": "Software", "status": "Active" }
+```
+
+## Event-Driven Patterns
+
+React to product lifecycle events:
+
+```typescript
+import { Product } from '@headlessly/billing'
+
+// Track product launches
+Product.created((product, $) => {
+  $.Event.create({
+    type: 'billing.product_created',
+    data: { name: product.name, type: product.type },
+  })
+})
+
+// When a product is archived, notify active subscribers
+Product.updated((product, $) => {
+  if (product.status === 'Archived') {
+    const plans = await $.Plan.find({ product: product.$id })
+    for (const plan of plans) {
+      const subs = await $.Subscription.find({ plan: plan.$id, status: 'Active' })
+      for (const sub of subs) {
+        await $.Message.create({
+          type: 'Email',
+          to: sub.customer,
+          subject: `${product.name} is being retired`,
+        })
+      }
+    }
+  }
+})
+```

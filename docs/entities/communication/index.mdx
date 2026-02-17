@@ -1,0 +1,79 @@
+---
+title: Communication
+description: Message -- multi-channel messaging across email, SMS, chat, and push notifications.
+icon: MessageSquare
+---
+
+One entity handles all communication channels -- email, SMS, chat, and push notifications -- through a single typed primitive. Messages connect senders and recipients to CRM contacts, giving every conversation full account context.
+
+```typescript
+import { Message } from '@headlessly/sdk'
+
+const msg = await Message.create({
+  body: 'Welcome to Acme! Your account is ready.',
+  channel: 'Email',
+  sender: 'contact_k7TmPvQx',
+  recipient: 'contact_fX9bL5nRd',
+})
+
+await Message.send({ id: msg.$id })
+```
+
+## Entities
+
+| Entity | Description | Custom Verbs |
+|--------|-------------|-------------|
+| [Message](/entities/communication/message) | Multi-channel messages with delivery tracking | `send`, `deliver`, `read` |
+
+## Cross-Domain Connections
+
+Messages are the connective tissue between contacts, campaigns, tickets, and agents:
+
+```typescript
+import { Message } from '@headlessly/sdk'
+
+Message.sent((message, $) => {
+  $.Activity.create({
+    subject: `${message.channel} sent to ${message.recipient}`,
+    type: 'Email',
+    contact: message.recipient,
+    status: 'Completed',
+  })
+})
+
+Message.failed((message, $) => {
+  $.Ticket.create({
+    subject: `Message delivery failed: ${message.channel}`,
+    priority: 'High',
+    channel: message.channel,
+    requester: message.sender,
+  })
+})
+```
+
+- **CRM**: Every message links sender and recipient to Contacts. Activities log communication history.
+- **Marketing**: Campaigns trigger message sends across channels. Message events feed into Funnel analytics.
+- **Support**: Ticket notifications and responses flow through Messages. Failed deliveries can auto-create Tickets.
+- **Analytics**: Message events (sent, delivered, read, failed) feed into Metrics for delivery rates and engagement tracking.
+- **Platform**: Agents send automated messages on behalf of the organization. Workflows trigger messages based on events.
+
+## Package
+
+Message is available via the unified SDK:
+
+```bash
+npm install @headlessly/sdk
+```
+
+```typescript
+import { Message } from '@headlessly/sdk'
+```
+
+Or via the `$` context:
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+await $.Message.create({ body: 'Hello!', channel: 'Chat', recipient: 'contact_fX9bL5nRd' })
+await $.Message.send({ id: 'message_tW5nKpQm' })
+```

@@ -1,0 +1,213 @@
+---
+title: Query System
+description: MongoDB-style query operators, filtering, sorting, and pagination across the entity graph.
+icon: Search
+---
+
+## Filter Operators
+
+headless.ly uses MongoDB-style query operators for filtering entities. These operators work identically across the SDK, MCP, REST API, and CLI.
+
+| Operator | Description | Example |
+|----------|------------|---------|
+| `$eq` | Equal (default) | `{ stage: { $eq: 'Lead' } }` |
+| `$ne` | Not equal | `{ stage: { $ne: 'Churned' } }` |
+| `$gt` | Greater than | `{ value: { $gt: 10000 } }` |
+| `$gte` | Greater than or equal | `{ leadScore: { $gte: 80 } }` |
+| `$lt` | Less than | `{ value: { $lt: 50000 } }` |
+| `$lte` | Less than or equal | `{ value: { $lte: 100000 } }` |
+| `$in` | In array | `{ source: { $in: ['website', 'referral'] } }` |
+| `$nin` | Not in array | `{ stage: { $nin: ['Churned', 'Lost'] } }` |
+| `$exists` | Field exists (non-null) | `{ email: { $exists: true } }` |
+| `$regex` | Regular expression match | `{ name: { $regex: '^A' } }` |
+
+When a value is passed directly (without an operator), `$eq` is implied:
+
+```typescript
+// These are equivalent
+await Contact.find({ stage: 'Lead' })
+await Contact.find({ stage: { $eq: 'Lead' } })
+```
+
+## SDK Queries
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+// Simple filter
+const leads = await Contact.find({ stage: 'Lead' })
+
+// Complex filters with operators
+const qualified = await Contact.find({
+  stage: 'Qualified',
+  leadScore: { $gte: 80 },
+  email: { $exists: true },
+  source: { $in: ['website', 'referral'] },
+})
+
+// Sort and paginate
+const recent = await Contact.find(
+  { stage: 'Lead' },
+  { sort: { $createdAt: -1 }, limit: 10, offset: 0 }
+)
+
+// Get a single matching entity
+const alice = await Contact.findOne({ email: 'alice@startup.io' })
+
+// Count matching entities
+const leadCount = await Contact.count({ stage: 'Lead' })
+```
+
+## Sort Syntax
+
+Sort accepts an object where keys are field names and values are `1` (ascending) or `-1` (descending):
+
+```typescript
+import { Deal } from '@headlessly/crm'
+
+// Sort by value descending
+const topDeals = await Deal.find(
+  { stage: 'Negotiation' },
+  { sort: { value: -1 } }
+)
+
+// Sort by multiple fields
+const sorted = await Deal.find(
+  {},
+  { sort: { stage: 1, value: -1 } }
+)
+```
+
+Sort by meta-fields works the same way:
+
+```typescript
+// Most recently created
+const newest = await Contact.find({}, { sort: { $createdAt: -1 }, limit: 10 })
+
+// Most recently updated
+const active = await Contact.find({}, { sort: { $updatedAt: -1 }, limit: 10 })
+```
+
+## Pagination
+
+Use `limit` and `offset` for cursor-free pagination:
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+// Page 1 (first 20 results)
+const page1 = await Contact.find({ stage: 'Lead' }, { limit: 20, offset: 0 })
+
+// Page 2 (next 20 results)
+const page2 = await Contact.find({ stage: 'Lead' }, { limit: 20, offset: 20 })
+
+// Get total count for pagination UI
+const total = await Contact.count({ stage: 'Lead' })
+```
+
+## Include Patterns
+
+Fetch related entities in a single query using `include`:
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+const contact = await Contact.get('contact_fX9bL5nRd', {
+  include: ['deals', 'tickets', 'organization']
+})
+
+// Related entities are populated
+contact.deals          // Deal[]
+contact.tickets        // Ticket[]
+contact.organization   // Organization
+```
+
+Include works with `find` as well:
+
+```typescript
+const leads = await Contact.find(
+  { stage: 'Lead' },
+  { include: ['organization'], limit: 10 }
+)
+```
+
+## MCP Queries
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Contact",
+  "filter": { "stage": "Lead", "email": { "$exists": true } },
+  "sort": { "$createdAt": -1 },
+  "limit": 10
+}
+```
+
+```json title="headless.ly/mcp#fetch"
+{
+  "type": "Contact",
+  "id": "contact_fX9bL5nRd",
+  "include": ["deals", "organization"]
+}
+```
+
+## REST Queries
+
+Query parameters map directly to filter operators:
+
+```bash
+# Simple equality
+GET https://crm.headless.ly/~acme/Contact?stage=Lead
+
+# MongoDB-style filter as JSON
+GET https://crm.headless.ly/~acme/Contact?filter={"leadScore":{"$gte":80}}&sort=-value&limit=10
+
+# Pagination
+GET https://crm.headless.ly/~acme/Contact?stage=Lead&limit=20&offset=40
+```
+
+## CLI Queries
+
+```bash
+# Simple filter
+npx @headlessly/cli query Contact --stage Lead
+
+# With sort and limit
+npx @headlessly/cli query Deal --stage Negotiation --sort -value --limit 10
+
+# Complex filter
+npx @headlessly/cli query Contact --filter '{"leadScore":{"$gte":80}}'
+```
+
+## Cross-Domain Queries
+
+Use `$` from `@headlessly/sdk` to query across domains in a single context:
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+// Find contacts who have open deals above 50k
+const contacts = await $.Contact.find({
+  stage: 'Qualified',
+})
+
+// For each contact, fetch their deals
+for (const contact of contacts) {
+  const deals = await $.Deal.find({
+    contact: contact.$id,
+    value: { $gte: 50000 },
+    stage: { $nin: ['Lost', 'Won'] },
+  })
+}
+```
+
+With promise pipelining, chained queries resolve in a single round trip:
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+// One network round trip for the entire chain
+const openDeals = await $.Contact
+  .find({ stage: 'Qualified' })
+  .map(contact => contact.deals)
+  .filter(deal => deal.stage === 'Negotiation')
+```

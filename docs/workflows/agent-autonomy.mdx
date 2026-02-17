@@ -1,0 +1,223 @@
+---
+title: Agent Autonomy
+description: Deploy an AI agent, let it operate the business graph, learn from outcomes, and reflect.
+---
+
+The agent autonomy workflow is what makes headless.ly agent-first. An [Agent](/entities/platform/agent) connects to the same typed graph that humans use, operates the same verbs, and learns from outcomes. There is no separate "AI API" -- agents are first-class operators of the business.
+
+## Full Flow
+
+```typescript
+import { Agent, Workflow } from '@headlessly/platform'
+import { Contact, Deal } from '@headlessly/crm'
+
+// 1. Deploy an agent
+const agent = await Agent.create({
+  name: 'Revenue Agent',
+  capabilities: ['crm', 'billing'],
+  model: 'claude-opus-4-6',
+  instructions: 'Qualify leads with score >= 80 and create deals',
+})
+await Agent.deploy({ id: agent.$id })
+
+// 2. Agent operates the graph (same verbs as humans)
+Agent.deployed(async (agent, $) => {
+  const leads = await $.Contact.find({
+    stage: 'Lead',
+    score: { $gte: 80 },
+  })
+  for (const lead of leads) {
+    await $.Contact.qualify({ id: lead.$id })
+    await $.Deal.create({
+      name: `${lead.name} Opportunity`,
+      contact: lead.$id,
+      value: lead.estimatedValue,
+      stage: 'Prospecting',
+    })
+  }
+})
+
+// 3. Learn from outcomes
+Deal.won(async (deal, $) => {
+  await $.Agent.learn({
+    id: 'agent_gK5xNmTv',
+    outcome: 'positive',
+    context: { deal: deal.$id, value: deal.value },
+  })
+})
+
+Deal.lost(async (deal, $) => {
+  await $.Agent.learn({
+    id: 'agent_gK5xNmTv',
+    outcome: 'negative',
+    context: { deal: deal.$id, reason: deal.lostReason },
+  })
+})
+```
+
+## Step-by-Step Breakdown
+
+### Step 1: Create and Deploy an Agent
+
+An [Agent](/entities/platform/agent) is a first-class entity in the graph. It has capabilities, a model, and instructions -- just like a team member has a role and responsibilities.
+
+```typescript
+import { Agent } from '@headlessly/platform'
+
+const agent = await Agent.create({
+  name: 'Revenue Agent',
+  capabilities: ['crm', 'billing'],
+  model: 'claude-opus-4-6',
+  instructions: 'Qualify leads with score >= 80 and create deals',
+})
+// agent.$id => 'agent_gK5xNmTv'
+
+await Agent.deploy({ id: agent.$id })
+// agent.status => 'Deployed'
+```
+
+### Step 2: Agent Operates the Graph
+
+The deployed agent uses the same SDK verbs as any human user. `Contact.find`, `Contact.qualify`, `Deal.create` -- the interface is identical.
+
+```typescript
+Agent.deployed(async (agent, $) => {
+  const leads = await $.Contact.find({
+    stage: 'Lead',
+    score: { $gte: 80 },
+  })
+  for (const lead of leads) {
+    await $.Contact.qualify({ id: lead.$id })
+    await $.Deal.create({
+      name: `${lead.name} Opportunity`,
+      contact: lead.$id,
+      value: lead.estimatedValue,
+      stage: 'Prospecting',
+    })
+  }
+})
+```
+
+### Step 3: Create a Workflow
+
+A [Workflow](/entities/platform/workflow) defines a repeatable process the agent executes on a schedule or trigger.
+
+```typescript
+import { Workflow } from '@headlessly/platform'
+
+const workflow = await Workflow.create({
+  name: 'Lead Qualification Pipeline',
+  agent: 'agent_gK5xNmTv',
+  trigger: { type: 'schedule', cron: '0 */4 * * *' },
+  steps: [
+    { action: 'Contact.find', filter: { stage: 'Lead', score: { $gte: 80 } } },
+    { action: 'Contact.qualify', forEach: 'results' },
+    { action: 'Deal.create', forEach: 'results' },
+  ],
+})
+// workflow.$id => 'workflow_hR6yPqNx'
+```
+
+### Step 4: Learn from Outcomes
+
+The agent improves over time by observing deal outcomes. `Agent.learn` records what worked and what did not.
+
+```typescript
+Deal.won(async (deal, $) => {
+  await $.Agent.learn({
+    id: 'agent_gK5xNmTv',
+    outcome: 'positive',
+    context: { deal: deal.$id, value: deal.value },
+  })
+})
+
+Deal.lost(async (deal, $) => {
+  await $.Agent.learn({
+    id: 'agent_gK5xNmTv',
+    outcome: 'negative',
+    context: { deal: deal.$id, reason: deal.lostReason },
+  })
+})
+```
+
+### Step 5: Reflect and Adjust
+
+Reflection allows the agent to analyze its own performance and adjust its strategy.
+
+```typescript
+await Agent.reflect({ id: 'agent_gK5xNmTv' })
+// Returns: { totalDeals: 47, winRate: 0.72, avgDealValue: 18500, topPattern: 'leads from campaigns convert 2x' }
+```
+
+## Event Flow
+
+| Step | Event | Payload |
+|------|-------|---------|
+| Agent created | `agent.created` | `{ $id: 'agent_gK5xNmTv', capabilities: ['crm', 'billing'] }` |
+| Agent deployed | `agent.deployed` | `{ status: 'Deployed' }` |
+| Contact qualified | `contact.qualified` | `{ qualifiedBy: 'agent_gK5xNmTv' }` |
+| Deal created | `deal.created` | `{ createdBy: 'agent_gK5xNmTv' }` |
+| Agent learned | `agent.learned` | `{ outcome: 'positive', deal: 'deal_k7TmPvQx' }` |
+| Agent reflected | `agent.reflected` | `{ winRate: 0.72 }` |
+
+Notice the `qualifiedBy` and `createdBy` fields -- every mutation records the actor, whether human or agent. The audit trail is identical.
+
+## MCP Example
+
+Agents connect via MCP and use the same three primitives:
+
+```json
+{
+  "tool": "search",
+  "input": { "type": "Contact", "filter": { "stage": "Lead", "score": { "$gte": 80 } } }
+}
+```
+
+```json
+{
+  "tool": "do",
+  "input": "Qualify all leads with score >= 80 and create deals for each"
+}
+```
+
+```json
+{
+  "tool": "fetch",
+  "input": { "id": "agent_gK5xNmTv", "include": ["performance", "learnings"] }
+}
+```
+
+## Automation Pattern
+
+The full autonomous loop -- deploy, operate, learn, reflect, repeat:
+
+```typescript
+// Deploy once
+await Agent.deploy({ id: 'agent_gK5xNmTv' })
+
+// Operate on schedule via workflow
+await Workflow.create({
+  name: 'Revenue Pipeline',
+  agent: 'agent_gK5xNmTv',
+  trigger: { type: 'schedule', cron: '0 */4 * * *' },
+  steps: [
+    { action: 'Contact.find', filter: { stage: 'Lead', score: { $gte: 80 } } },
+    { action: 'Contact.qualify', forEach: 'results' },
+    { action: 'Deal.create', forEach: 'results' },
+  ],
+})
+
+// Learn from every outcome
+Deal.won((deal, $) => $.Agent.learn({ id: deal.$createdBy, outcome: 'positive', context: { deal: deal.$id } }))
+Deal.lost((deal, $) => $.Agent.learn({ id: deal.$createdBy, outcome: 'negative', context: { deal: deal.$id } }))
+
+// Reflect weekly
+await Workflow.create({
+  name: 'Agent Reflection',
+  agent: 'agent_gK5xNmTv',
+  trigger: { type: 'schedule', cron: '0 9 * * MON' },
+  steps: [{ action: 'Agent.reflect' }],
+})
+```
+
+This is the core principle of headless.ly: agents are not consumers of a separate API. They are operators of the same business graph, using the same verbs, producing the same events, tracked by the same audit trail. Human-optional, agent-native.

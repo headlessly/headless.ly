@@ -1,0 +1,158 @@
+---
+title: User
+description: Authenticated humans -- founders, team members, and collaborators.
+---
+
+## Schema
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const User = Noun('User', {
+  name: 'string!',
+  email: 'string!##',
+  avatar: 'string',
+  role: 'Admin | Member | Viewer',
+  status: 'Active | Suspended | Invited',
+  invite: 'Invited',
+  suspend: 'Suspended',
+  activate: 'Activated',
+})
+```
+
+## Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Full display name |
+| `email` | string | Yes | Email address (unique, indexed) |
+| `avatar` | string | No | URL to profile image |
+| `role` | enum | No | Permission level: `Admin`, `Member`, or `Viewer` |
+| `status` | enum | No | Account state: `Active`, `Suspended`, or `Invited` |
+
+## Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `create` | `Created` | Create a new user |
+| `update` | `Updated` | Update user fields |
+| `delete` | `Deleted` | Soft-delete the user |
+| `invite` | `Invited` | Send an invite to join the organization |
+| `suspend` | `Suspended` | Temporarily disable access |
+| `activate` | `Activated` | Activate a user account |
+
+### Verb Lifecycle
+
+Every verb follows the full conjugation pattern -- execute, before hook, after hook:
+
+```typescript
+import { User } from '@headlessly/sdk'
+
+// Execute
+await User.invite('user_fX9bL5nRd')
+
+// Before hook -- runs before the invite is processed
+User.inviting(user => {
+  console.log(`About to invite ${user.name}`)
+})
+
+// After hook -- runs after the invite completes
+User.invited(user => {
+  console.log(`${user.name} was invited at ${user.$updatedAt}`)
+})
+```
+
+## Status State Machine
+
+```
+          invite()
+(none) ──────────→ Invited
+                      │
+            activate()│
+                      ▼
+                   Active ←──── activate()
+                      │              ▲
+            suspend() │              │
+                      ▼              │
+                  Suspended ─────────┘
+```
+
+Valid transitions:
+
+| From | Verb | To |
+|------|------|----|
+| -- | `invite` | `Invited` |
+| `Invited` | `activate` | `Active` |
+| `Active` | `suspend` | `Suspended` |
+| `Suspended` | `activate` | `Active` |
+
+## Query Examples
+
+### SDK
+
+```typescript
+import { User } from '@headlessly/sdk'
+
+// Find all admins
+const admins = await User.find({ role: 'Admin' })
+
+// Get a specific user
+const user = await User.get('user_fX9bL5nRd')
+
+// Find suspended users
+const suspended = await User.find({ status: 'Suspended' })
+```
+
+### MCP
+
+```json title="headless.ly/mcp#search"
+{ "type": "User", "filter": { "role": "Admin" } }
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "User", "id": "user_fX9bL5nRd" }
+```
+
+```ts title="headless.ly/mcp#do"
+const admins = await $.User.find({ role: 'Admin' })
+await $.User.suspend('user_fX9bL5nRd')
+```
+
+### REST
+
+```bash
+GET https://headless.ly/~acme/users?role=Admin
+```
+
+```bash
+GET https://headless.ly/~acme/users/user_fX9bL5nRd
+```
+
+```bash
+POST https://headless.ly/~acme/users/user_fX9bL5nRd/suspend
+```
+
+## Event-Driven Patterns
+
+React to user lifecycle events across domains:
+
+```typescript
+import { User } from '@headlessly/sdk'
+
+// When a user is invited, create a welcome activity
+User.invited((user, $) => {
+  $.Activity.create({
+    subject: `Welcome ${user.name}`,
+    type: 'Task',
+    description: 'Send onboarding materials',
+  })
+})
+
+// When a user is suspended, revoke their API keys
+User.suspended((user, $) => {
+  const keys = await $.ApiKey.find({ createdBy: user.$id, status: 'Active' })
+  for (const key of keys) {
+    await $.ApiKey.revoke(key.$id)
+  }
+})
+```

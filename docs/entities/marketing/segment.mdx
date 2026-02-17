@@ -1,0 +1,186 @@
+---
+title: Segment
+description: Audience groups with dynamic or static membership criteria for targeted marketing and personalization.
+---
+
+## Schema
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Segment = Noun('Segment', {
+  name: 'string!',
+  description: 'string',
+  criteria: 'string',
+  organization: '-> Organization',
+  memberCount: 'number',
+  isDynamic: 'boolean',
+  refresh: 'Refreshed',
+})
+```
+
+## Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Segment name (e.g. `Active Trial Users`, `Enterprise Prospects`) |
+| `description` | string | No | Human-readable description of who belongs in this segment |
+| `criteria` | string | No | Filter criteria defining segment membership (JSON or query string) |
+| `organization` | -> Organization | No | Tenant this segment belongs to |
+| `memberCount` | number | No | Current number of members matching the criteria |
+| `isDynamic` | boolean | No | Whether membership is recomputed automatically (`true`) or manually managed (`false`) |
+
+## Relationships
+
+| Field | Direction | Target | Description |
+|-------|-----------|--------|-------------|
+| `organization` | -> | Organization | Tenant this segment belongs to |
+
+## Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `create` | `Created` | Define a new segment with criteria |
+| `update` | `Updated` | Modify segment criteria or metadata |
+| `delete` | `Deleted` | Remove a segment |
+| `refresh` | `Refreshed` | Recompute membership by re-evaluating criteria against current data |
+
+### Verb Lifecycle
+
+```typescript
+import { Segment } from '@headlessly/marketing'
+
+// BEFORE hook -- validate criteria before refresh
+Segment.refreshing(segment => {
+  if (!segment.criteria) {
+    throw new Error('Segment criteria required for refresh')
+  }
+})
+
+// Execute
+await Segment.refresh('segment_mR4nVkTw')
+
+// AFTER hook -- react to updated membership
+Segment.refreshed(segment => {
+  console.log(`${segment.name}: ${segment.memberCount} members`)
+})
+```
+
+## Dynamic vs Static Segments
+
+Segments come in two flavors:
+
+- **Dynamic** (`isDynamic: true`): Membership is defined by criteria and recomputed on each `refresh`. Members automatically enter and leave as their data changes. Use for real-time targeting like "users who logged in this week" or "contacts with open deals over $10K".
+
+- **Static** (`isDynamic: false`): Membership is manually curated. Use for hand-picked lists like "beta testers" or "VIP customers". The `refresh` verb is a no-op for static segments.
+
+```typescript
+import { Segment } from '@headlessly/marketing'
+
+// Dynamic segment -- recomputed on refresh
+await Segment.create({
+  name: 'High-Value Prospects',
+  description: 'Contacts with deals over $10K in Negotiation stage',
+  criteria: JSON.stringify({
+    type: 'Contact',
+    filter: {
+      'deals.value': { $gte: 10000 },
+      'deals.stage': 'Negotiation',
+    },
+  }),
+  isDynamic: true,
+})
+
+// Static segment -- manually managed
+await Segment.create({
+  name: 'Beta Testers',
+  description: 'Hand-picked users for early feature access',
+  isDynamic: false,
+})
+```
+
+## Cross-Domain Patterns
+
+Segments bridge audience definition to campaign execution:
+
+```typescript
+import { Campaign } from '@headlessly/marketing'
+
+// Launch a campaign targeted at a segment
+Campaign.launching(async (campaign, $) => {
+  const segment = await $.Segment.find({ name: 'High-Value Prospects' })
+  if (segment.length) {
+    await $.Segment.refresh(segment[0].$id)
+    console.log(`Targeting ${segment[0].memberCount} contacts`)
+  }
+})
+```
+
+- **CRM**: Segment criteria filter Contacts, Leads, and Organizations. Segments answer "who should we target?" while CRM answers "who are they?"
+- **Analytics**: Segment membership changes create Events. Segment size tracked as Metrics over time.
+- **Campaigns**: Campaigns target specific segments. A segment refresh before launch ensures accurate targeting.
+- **Billing**: Segments can filter by subscription status, plan tier, or revenue -- e.g. "customers on the free plan for 30+ days".
+- **Experiments**: Feature flags and experiments can target specific segments for controlled rollouts.
+
+## Query Examples
+
+### SDK
+
+```typescript
+import { Segment } from '@headlessly/marketing'
+
+// Find all dynamic segments
+const dynamic = await Segment.find({ isDynamic: true })
+
+// Get a specific segment
+const segment = await Segment.get('segment_mR4nVkTw')
+
+// Create a segment
+await Segment.create({
+  name: 'Trial Users',
+  description: 'Users currently on a trial plan',
+  criteria: JSON.stringify({ plan: 'trial', status: 'Active' }),
+  isDynamic: true,
+})
+
+// Refresh membership
+await Segment.refresh('segment_mR4nVkTw')
+```
+
+### MCP
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Segment",
+  "filter": { "isDynamic": true },
+  "sort": { "memberCount": "desc" },
+  "limit": 20
+}
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Segment", "id": "segment_mR4nVkTw" }
+```
+
+```ts title="headless.ly/mcp#do"
+const segments = await $.Segment.find({ isDynamic: true })
+await $.Segment.refresh('segment_mR4nVkTw')
+```
+
+### REST
+
+```bash
+# List dynamic segments
+curl https://marketing.headless.ly/~acme/segments?isDynamic=true
+
+# Get a specific segment
+curl https://marketing.headless.ly/~acme/segments/segment_mR4nVkTw
+
+# Create a segment
+curl -X POST https://marketing.headless.ly/~acme/segments \
+  -H 'Content-Type: application/json' \
+  -d '{"name": "Trial Users", "criteria": "{\"plan\":\"trial\"}", "isDynamic": true}'
+
+# Refresh membership
+curl -X POST https://marketing.headless.ly/~acme/segments/segment_mR4nVkTw/refresh
+```

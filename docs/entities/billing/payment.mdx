@@ -1,0 +1,304 @@
+---
+title: Payment
+description: Money movement -- charges, successful payments, failures, and refunds.
+---
+
+## Schema
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Payment = Noun('Payment', {
+  amount: 'number!',
+  currency: 'string',
+  status: 'Pending | Succeeded | Failed | Refunded',
+  method: 'string',
+  customer: '-> Customer.payments',
+  invoice: '-> Invoice',
+  stripePaymentId: 'string##',
+  refund: 'Refunded',
+  capture: 'Captured',
+})
+```
+
+## Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `amount` | number | Yes | Payment amount in the smallest currency unit (e.g. cents -- 4900 = $49.00) |
+| `currency` | string | No | ISO 4217 currency code (e.g. `usd`, `eur`) |
+| `status` | enum | No | Payment state: `Pending`, `Succeeded`, `Failed`, or `Refunded` |
+| `method` | string | No | Payment method description (e.g. `card_visa_4242`, `bank_transfer`) |
+| `stripePaymentId` | string | No | Stripe PaymentIntent or Charge ID (unique, indexed) |
+
+## Relationships
+
+| Field | Direction | Target | Description |
+|-------|-----------|--------|-------------|
+| `customer` | `->` | Customer.payments | The customer who made this payment |
+| `invoice` | `->` | Invoice | The invoice this payment settles |
+
+## Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `create` | `Created` | Record a new payment |
+| `update` | `Updated` | Update payment fields |
+| `delete` | `Deleted` | Soft-delete the payment |
+| `refund` | `Refunded` | Refund the payment amount back to the customer |
+| `capture` | `Captured` | Capture a previously authorized payment |
+
+### Verb Lifecycle
+
+Every verb follows the full conjugation pattern -- execute, before hook, after hook:
+
+```typescript
+import { Payment } from '@headlessly/billing'
+
+// Execute
+await Payment.refund('payment_qR7sHjLp')
+
+// Before hook -- runs before the refund is processed
+Payment.refunding(payment => {
+  console.log(`About to refund ${payment.amount} ${payment.currency} for payment ${payment.$id}`)
+})
+
+// After hook -- runs after the Stripe refund is created
+Payment.refunded(payment => {
+  console.log(`Payment ${payment.$id} refunded`)
+})
+```
+
+## Status State Machine
+
+```
+  create()                (charge succeeds)
+(none) ──────→ Pending ──────────────────→ Succeeded
+                  │                            │
+                  │  (charge fails)   refund() │
+                  ▼                            ▼
+               Failed                      Refunded
+```
+
+Valid transitions:
+
+| From | Verb | To |
+|------|------|----|
+| -- | `create` | `Pending` |
+| `Pending` | (system) | `Succeeded` |
+| `Pending` | (system) | `Failed` |
+| `Pending` | `capture` | `Succeeded` |
+| `Succeeded` | `refund` | `Refunded` |
+
+- **Pending**: Payment has been initiated but not yet confirmed by the payment processor.
+- **Succeeded**: Payment was successfully collected. Funds are captured.
+- **Failed**: Payment attempt was declined or errored. The invoice remains open.
+- **Refunded**: A successful payment was reversed. Funds returned to the customer.
+
+## Payment Flow
+
+Payments are typically created automatically by Stripe when an invoice is finalized and charged. The flow:
+
+```
+Subscription renews
+    → Stripe creates Invoice
+    → Stripe charges the payment method
+    → Payment webhook arrives (Pending → Succeeded or Failed)
+    → headless.ly records the Payment entity
+    → Invoice status updates (Open → Paid or remains Open)
+```
+
+For manual or one-off payments:
+
+```typescript
+import { Payment } from '@headlessly/billing'
+
+const payment = await Payment.create({
+  amount: 4900,
+  currency: 'usd',
+  customer: 'customer_fX9bL5nRd',
+  invoice: 'invoice_mR4nVkTw',
+  method: 'card_visa_4242',
+})
+```
+
+## Refund Patterns
+
+### Full Refund
+
+```typescript
+import { Payment } from '@headlessly/billing'
+
+await Payment.refund('payment_qR7sHjLp')
+```
+
+### Refund with Context
+
+```typescript
+import { Payment } from '@headlessly/billing'
+
+// Find payments for a customer and refund the most recent
+const payments = await Payment.find({
+  customer: 'customer_fX9bL5nRd',
+  status: 'Succeeded',
+})
+
+const latest = payments[0]
+await Payment.refund(latest.$id)
+```
+
+## Cross-Domain Patterns
+
+Payments connect billing events to analytics, support, and CRM:
+
+```typescript
+import { Payment } from '@headlessly/billing'
+
+// When a payment fails, create a support ticket and alert the account owner
+Payment.updated((payment, $) => {
+  if (payment.status === 'Failed') {
+    const customer = await $.Customer.get(payment.customer)
+    await $.Ticket.create({
+      subject: `Payment failed for ${customer.name}`,
+      description: `Payment of ${payment.amount} ${payment.currency} failed`,
+      priority: 'High',
+      contact: customer.contact,
+    })
+    await $.Activity.create({
+      subject: `Payment failed: ${payment.amount} ${payment.currency}`,
+      type: 'Task',
+      contact: customer.contact,
+      status: 'Open',
+    })
+  }
+})
+
+// When a payment succeeds, record the revenue event
+Payment.updated((payment, $) => {
+  if (payment.status === 'Succeeded') {
+    $.Metric.record('collected_revenue', {
+      amount: payment.amount,
+      currency: payment.currency,
+      customer: payment.customer,
+    })
+  }
+})
+```
+
+## Query Examples
+
+### SDK
+
+```typescript
+import { Payment } from '@headlessly/billing'
+
+// Find all successful payments
+const payments = await Payment.find({ status: 'Succeeded' })
+
+// Get a specific payment
+const payment = await Payment.get('payment_qR7sHjLp')
+
+// Find payments for a customer
+const customerPayments = await Payment.find({
+  customer: 'customer_fX9bL5nRd',
+})
+
+// Find failed payments in the last 30 days
+const failed = await Payment.find({
+  status: 'Failed',
+  $createdAt: { $gte: new Date(Date.now() - 30 * 86400000) },
+})
+
+// Find refunded payments
+const refunds = await Payment.find({ status: 'Refunded' })
+```
+
+### MCP
+
+```json title="headless.ly/mcp#search"
+{ "type": "Payment", "filter": { "status": "Succeeded", "customer": "customer_fX9bL5nRd" } }
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Payment", "id": "payment_qR7sHjLp" }
+```
+
+```ts title="headless.ly/mcp#do"
+const failed = await $.Payment.find({ status: 'Failed' })
+for (const payment of failed) {
+  const customer = await $.Customer.get(payment.customer)
+  console.log(`Failed: ${customer.name} - ${payment.amount} ${payment.currency}`)
+}
+```
+
+### REST
+
+```bash
+GET https://headless.ly/~acme/payments?status=Succeeded
+```
+
+```bash
+GET https://headless.ly/~acme/payments/payment_qR7sHjLp
+```
+
+```bash
+POST https://headless.ly/~acme/payments/payment_qR7sHjLp/refund
+```
+
+## Event-Driven Patterns
+
+React to payment events for financial reporting and alerting:
+
+```typescript
+import { Payment } from '@headlessly/billing'
+
+// Track all successful payments for MRR calculation
+Payment.updated((payment, $) => {
+  if (payment.status === 'Succeeded') {
+    $.Event.create({
+      type: 'billing.payment_succeeded',
+      data: {
+        amount: payment.amount,
+        currency: payment.currency,
+        customer: payment.customer,
+        invoice: payment.invoice,
+        method: payment.method,
+      },
+    })
+  }
+})
+
+// Monitor refunds for churn analysis
+Payment.refunded((payment, $) => {
+  $.Event.create({
+    type: 'billing.payment_refunded',
+    data: {
+      amount: payment.amount,
+      currency: payment.currency,
+      customer: payment.customer,
+    },
+  })
+  $.Metric.record('refund_volume', {
+    amount: payment.amount,
+    currency: payment.currency,
+  })
+})
+
+// Alert on payment failures for dunning management
+Payment.updated((payment, $) => {
+  if (payment.status === 'Failed') {
+    $.Event.create({
+      type: 'billing.payment_failed',
+      data: {
+        amount: payment.amount,
+        customer: payment.customer,
+        method: payment.method,
+      },
+    })
+  }
+})
+```
+
+## Stripe Sync
+
+Payments map to Stripe PaymentIntents and Charges. The `stripePaymentId` field stores the Stripe identifier. Stripe webhooks (`payment_intent.succeeded`, `payment_intent.payment_failed`, `charge.refunded`) flow into the headless.ly event log, updating the Payment status. Refunds are processed via the Stripe Refunds API and reflected back through webhooks.

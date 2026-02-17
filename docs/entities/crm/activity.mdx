@@ -1,0 +1,227 @@
+---
+title: Activity
+description: Calls, emails, meetings, demos, and follow-ups -- every interaction logged against contacts and deals.
+---
+
+## Schema
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Activity = Noun('Activity', {
+  subject: 'string!',
+  type: 'Call | Email | Meeting | Task | Note | Demo | FollowUp',
+  description: 'string',
+  deal: '-> Deal.activities',
+  contact: '-> Contact.activities',
+  organization: '-> Organization',
+  campaign: '-> Campaign',
+  assignee: '-> Contact',
+  createdBy: '-> Contact',
+  dueAt: 'datetime',
+  startAt: 'datetime',
+  endAt: 'datetime',
+  duration: 'number',
+  allDay: 'boolean',
+  timezone: 'string',
+  status: 'Pending | InProgress | Completed | Cancelled',
+  priority: 'Low | Medium | High | Urgent',
+  completedAt: 'datetime',
+  outcome: 'string',
+  recordingUrl: 'string',
+  meetingLink: 'string',
+  reminderAt: 'datetime',
+  complete: 'Completed',
+  cancel: 'Cancelled',
+  log: 'Logged',
+})
+```
+
+## Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `subject` | string | Yes | Activity subject line or title |
+| `type` | enum | No | Call, Email, Meeting, Task, Note, Demo, or FollowUp |
+| `description` | string | No | Detailed notes or body content |
+| `deal` | -> Deal | No | Deal this activity relates to |
+| `contact` | -> Contact | No | Contact this activity involves |
+| `organization` | -> Organization | No | Organization this activity relates to |
+| `campaign` | -> Campaign | No | Campaign this activity is part of |
+| `assignee` | -> Contact | No | Person responsible for this activity |
+| `createdBy` | -> Contact | No | Person who created this activity |
+| `dueAt` | datetime | No | Deadline for tasks and follow-ups |
+| `startAt` | datetime | No | Start time for meetings and calls |
+| `endAt` | datetime | No | End time for meetings and calls |
+| `duration` | number | No | Duration in minutes |
+| `allDay` | boolean | No | Whether this is an all-day event |
+| `timezone` | string | No | IANA timezone for the activity |
+| `status` | enum | No | Pending, InProgress, Completed, or Cancelled |
+| `priority` | enum | No | Low, Medium, High, or Urgent |
+| `completedAt` | datetime | No | Timestamp when the activity was completed |
+| `outcome` | string | No | Result or notes from the completed activity |
+| `recordingUrl` | string | No | URL to a call or meeting recording |
+| `meetingLink` | string | No | Video meeting URL |
+| `reminderAt` | datetime | No | Timestamp for a reminder notification |
+
+## Relationships
+
+| Field | Direction | Target | Description |
+|-------|-----------|--------|-------------|
+| `deal` | -> | Deal.activities | The deal this activity is part of |
+| `contact` | -> | Contact.activities | The contact this activity involves |
+| `organization` | -> | Organization | The organization this activity relates to |
+| `campaign` | -> | Campaign | Marketing campaign this activity belongs to |
+| `assignee` | -> | Contact | Person assigned to complete this activity |
+| `createdBy` | -> | Contact | Person who logged this activity |
+
+## Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `create` | `Created` | Create a new activity |
+| `update` | `Updated` | Update activity fields |
+| `delete` | `Deleted` | Delete an activity |
+| `complete` | `Completed` | Mark the activity as done with an outcome |
+| `cancel` | `Cancelled` | Cancel a pending or in-progress activity |
+| `log` | `Logged` | Log a past activity (call notes, meeting summary) |
+
+### Verb Lifecycle
+
+```typescript
+import { Activity } from '@headlessly/crm'
+
+// BEFORE hook -- validate completion
+Activity.completing(activity => {
+  if (!activity.outcome) throw new Error('Outcome required when completing an activity')
+})
+
+// Execute -- complete the activity
+await Activity.complete('activity_e5JhLzXc')
+
+// AFTER hook -- schedule follow-up
+Activity.completed((activity, $) => {
+  if (activity.type === 'Demo') {
+    $.Activity.create({
+      subject: `Follow up after demo: ${activity.subject}`,
+      type: 'FollowUp',
+      contact: activity.contact,
+      deal: activity.deal,
+      assignee: activity.assignee,
+      dueAt: new Date(Date.now() + 2 * 86_400_000).toISOString(),
+      status: 'Pending',
+      priority: 'High',
+    })
+  }
+})
+```
+
+## Status State Machine
+
+```
+Pending --> InProgress --> Completed
+   \            \
+    \            \
+     -----------> Cancelled
+```
+
+- **Pending**: Scheduled or created, not yet started
+- **InProgress**: Currently underway (e.g., an ongoing meeting)
+- **Completed**: Finished with an outcome recorded
+- **Cancelled**: Cancelled before completion
+
+## Activity Types
+
+| Type | Use Case | Typical Fields |
+|------|----------|---------------|
+| `Call` | Phone calls, voice chats | `duration`, `recordingUrl`, `outcome` |
+| `Email` | Email correspondence | `description` (email body), `outcome` |
+| `Meeting` | Scheduled meetings | `startAt`, `endAt`, `meetingLink`, `duration` |
+| `Task` | Action items and to-dos | `dueAt`, `priority`, `assignee` |
+| `Note` | Internal notes and observations | `description` |
+| `Demo` | Product demonstrations | `startAt`, `endAt`, `meetingLink`, `outcome` |
+| `FollowUp` | Scheduled follow-up actions | `dueAt`, `priority`, `assignee` |
+
+## Cross-Domain Patterns
+
+Activity is the interaction log that gives context to every other entity:
+
+- **CRM (Deal)**: Activities track every touchpoint on a deal. `Deal.activities` gives a timeline of the entire sales process. Deals without recent activities may trigger rotting alerts.
+- **CRM (Contact)**: `Contact.activities` shows the full interaction history with a person. The `lastEngagement` field on Contact is derived from the most recent activity.
+- **Marketing**: Campaign-linked activities track outreach and engagement. Demo requests from campaigns feed back into attribution.
+- **Support**: Support interactions can be logged as activities to maintain a unified timeline.
+- **Analytics**: Activity events (created, completed, cancelled) feed engagement metrics. Activity counts per deal stage reveal bottlenecks.
+
+```typescript
+import { Activity } from '@headlessly/crm'
+
+// Update the contact's last engagement when an activity is logged
+Activity.logged((activity, $) => {
+  if (activity.contact) {
+    $.Contact.update(activity.contact, {
+      lastEngagement: new Date().toISOString(),
+    })
+  }
+})
+```
+
+## Query Examples
+
+### SDK
+
+```typescript
+import { Activity } from '@headlessly/crm'
+
+// Find overdue tasks
+const overdue = await Activity.find({
+  type: 'Task',
+  status: 'Pending',
+  dueAt: { $lt: new Date().toISOString() },
+})
+
+// Get activities for a specific deal
+const dealActivities = await Activity.find({
+  deal: 'deal_k7TmPvQx',
+  status: 'Completed',
+})
+
+// Log a completed call
+await Activity.log({
+  subject: 'Discovery call with Alice',
+  type: 'Call',
+  contact: 'contact_fX9bL5nRd',
+  deal: 'deal_k7TmPvQx',
+  duration: 30,
+  outcome: 'Interested in enterprise plan, scheduling demo next week',
+  status: 'Completed',
+})
+```
+
+### MCP
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Activity",
+  "filter": { "deal": "deal_k7TmPvQx", "type": "Meeting" },
+  "sort": { "startAt": "desc" },
+  "limit": 10
+}
+```
+
+### REST
+
+```bash
+# List activities for a deal
+curl https://crm.headless.ly/~acme/activities?deal=deal_k7TmPvQx
+
+# Get a specific activity
+curl https://crm.headless.ly/~acme/activities/activity_e5JhLzXc
+
+# Create a meeting activity
+curl -X POST https://crm.headless.ly/~acme/activities \
+  -H 'Content-Type: application/json' \
+  -d '{"subject": "Demo with Acme", "type": "Demo", "contact": "contact_fX9bL5nRd", "deal": "deal_k7TmPvQx", "startAt": "2025-03-15T14:00:00Z", "duration": 45}'
+
+# Complete an activity
+curl -X POST https://crm.headless.ly/~acme/activities/activity_e5JhLzXc/complete
+```

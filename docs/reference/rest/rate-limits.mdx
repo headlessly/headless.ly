@@ -1,0 +1,113 @@
+---
+title: Rate Limits
+description: API rate limits by authentication level with retry patterns.
+---
+
+Rate limits protect the platform and ensure fair usage across tenants. Limits scale with your authentication level — anonymous exploration is restricted, production keys get full throughput.
+
+## Limits by Authentication Level
+
+| Level | Description | Requests / Minute | Burst | Entity Ops / Request |
+|-------|-------------|-------------------|-------|----------------------|
+| L0 | Anonymous | 30 | 10 | N/A (read-only) |
+| L1 | Session token | 100 | 30 | 100 |
+| L2 | API key (`hly_sk_...`) | 1,000 | 100 | 1,000 |
+| L3 | Admin key (`hly_admin_...`) | Unlimited | Unlimited | 10,000 |
+
+**Requests / Minute** is a rolling window. **Burst** is the maximum number of concurrent requests. **Entity Ops / Request** limits the number of entity operations inside a single `do` or batch call.
+
+## Rate Limit Headers
+
+Every API response includes rate limit headers:
+
+```
+X-RateLimit-Limit: 1000
+X-RateLimit-Remaining: 994
+X-RateLimit-Reset: 1706745600
+```
+
+| Header | Type | Description |
+|--------|------|-------------|
+| `X-RateLimit-Limit` | integer | Maximum requests allowed in the current window |
+| `X-RateLimit-Remaining` | integer | Requests remaining in the current window |
+| `X-RateLimit-Reset` | integer | Unix timestamp when the window resets |
+
+## 429 Response
+
+When a rate limit is exceeded, the server returns HTTP `429 Too Many Requests` with a `Retry-After` header:
+
+```
+HTTP/1.1 429 Too Many Requests
+Retry-After: 12
+X-RateLimit-Limit: 1000
+X-RateLimit-Remaining: 0
+X-RateLimit-Reset: 1706745612
+Content-Type: application/json
+
+{
+  "error": "rate_limited",
+  "message": "Rate limit exceeded. Retry after 12 seconds."
+}
+```
+
+## Retry Strategy
+
+Implement exponential backoff with jitter for reliable retry behavior:
+
+```typescript
+async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const response = await fetch(url, options)
+
+    if (response.status !== 429) return response
+
+    const retryAfter = parseInt(response.headers.get('Retry-After') || '1', 10)
+    const jitter = Math.random() * 1000
+    const delay = retryAfter * 1000 + jitter
+
+    await new Promise(resolve => setTimeout(resolve, delay))
+  }
+
+  throw new Error('Max retries exceeded')
+}
+```
+
+Key principles:
+
+- Always respect the `Retry-After` header value
+- Add random jitter (0-1 second) to prevent thundering herd
+- Cap retries at 3-5 attempts
+- Log rate limit events for monitoring
+
+## Batch Requests and Rate Limits
+
+A single [batch request](/docs/reference/rest/batch) counts as one request toward the rate limit, regardless of how many operations it contains. This makes batching the most efficient approach for bulk operations.
+
+```bash
+# 100 individual requests = 100 against the rate limit
+# 1 batch request with 100 operations = 1 against the rate limit
+```
+
+The entity operations limit still applies within a batch: an L2 key can perform up to 1,000 entity operations per batch.
+
+## Upgrading Your Limits
+
+| Current Level | How to Upgrade |
+|---------------|----------------|
+| L0 (Anonymous) | Start a session by connecting to the MCP endpoint |
+| L1 (Session) | Claim your tenant via GitHub commit with `headlessly.yml` |
+| L2 (API Key) | Generated at `https://headless.ly/~{tenant}/settings/api-keys` |
+| L3 (Admin) | Contact support or enable via billing dashboard |
+
+See [Progressive Capability](/docs/reference/mcp/progressive-capability) for the full upgrade path from anonymous exploration to production.
+
+## Per-Endpoint Limits
+
+Most endpoints share the global rate limit. These endpoints have additional specific limits:
+
+| Endpoint | Additional Limit | Reason |
+|----------|-----------------|--------|
+| `POST /~:tenant/batch` | 10 / minute at L1 | Batch operations are compute-intensive |
+| `POST /~:tenant/import/:type` | 5 / minute | Bulk imports run as background jobs |
+| `GET /~:tenant/export/:type` | 10 / minute | Exports scan full entity tables |
+| `GET /~:tenant/events` | 60 / minute | CDC stream consumes connection resources |

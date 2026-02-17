@@ -1,0 +1,183 @@
+---
+title: Pipeline
+description: Sales pipeline configuration with named stages, deal rotting thresholds, and default pipeline selection.
+---
+
+## Schema
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Pipeline = Noun('Pipeline', {
+  name: 'string!',
+  slug: 'string##',
+  description: 'string',
+  isDefault: 'boolean',
+  stages: 'json',
+  dealRotting: 'number',
+})
+```
+
+## Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Pipeline name (e.g., "Enterprise Sales", "Inbound") |
+| `slug` | string (unique, indexed) | No | URL-safe identifier |
+| `description` | string | No | Description of when to use this pipeline |
+| `isDefault` | boolean | No | Whether this is the default pipeline for new deals |
+| `stages` | json | No | Ordered array of stage definitions |
+| `dealRotting` | number | No | Number of days before a stale deal is flagged |
+
+## Relationships
+
+Pipeline has no direct relationships to other entities. Deals reference a pipeline implicitly through their `stage` values, which correspond to the stages defined in the pipeline's `stages` field.
+
+## Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `create` | `Created` | Create a new pipeline |
+| `update` | `Updated` | Update pipeline configuration |
+| `delete` | `Deleted` | Delete a pipeline |
+
+Pipeline has no custom verbs. It is a configuration entity -- it defines the structure that Deals flow through.
+
+## Stage Configuration
+
+The `stages` field holds an ordered JSON array of stage definitions. Each stage has a name, probability, and optional metadata:
+
+```typescript
+import { Pipeline } from '@headlessly/crm'
+
+await Pipeline.create({
+  name: 'Enterprise Sales',
+  slug: 'enterprise-sales',
+  description: 'Pipeline for deals over $50k with longer sales cycles',
+  isDefault: false,
+  stages: [
+    { name: 'Prospecting', probability: 10, order: 1 },
+    { name: 'Discovery', probability: 20, order: 2 },
+    { name: 'Qualification', probability: 40, order: 3 },
+    { name: 'Proposal', probability: 60, order: 4 },
+    { name: 'Negotiation', probability: 80, order: 5 },
+    { name: 'Closed Won', probability: 100, order: 6 },
+    { name: 'Closed Lost', probability: 0, order: 7 },
+  ],
+  dealRotting: 14,
+})
+```
+
+## Deal Rotting
+
+The `dealRotting` field defines the number of days a deal can sit in a stage without activity before it is considered stale. This enables automated follow-up reminders:
+
+```typescript
+import { Pipeline, Deal, Activity } from '@headlessly/crm'
+
+// Find deals that are rotting in the enterprise pipeline
+const pipeline = await Pipeline.findOne({ slug: 'enterprise-sales' })
+const rottingThreshold = new Date(Date.now() - pipeline.dealRotting * 86_400_000)
+
+const staleDeals = await Deal.find({
+  lastActivityAt: { $lt: rottingThreshold.toISOString() },
+  stage: { $nin: ['Won', 'Lost'] },
+})
+
+for (const deal of staleDeals) {
+  await Activity.create({
+    subject: `Stale deal alert: ${deal.name}`,
+    type: 'Task',
+    deal: deal.$id,
+    assignee: deal.owner,
+    priority: 'High',
+    status: 'Pending',
+    dueAt: new Date().toISOString(),
+  })
+}
+```
+
+## Cross-Domain Patterns
+
+Pipeline is a lightweight configuration entity that shapes how Deals move through the CRM:
+
+- **CRM (Deal)**: Pipeline stages define the valid stage values for deals. The `Deal.advance()` verb moves a deal to the next stage in the pipeline sequence. `Deal.probability` can be auto-set based on the stage's configured probability.
+- **Analytics**: Pipeline stages feed conversion funnel metrics. Stage-to-stage drop-off rates, average time in stage, and weighted pipeline value are all derived from pipeline configuration plus deal data.
+- **Platform (Workflow)**: Pipeline transitions can trigger Workflows. For example, a deal entering the Proposal stage could auto-generate a document or notify a stakeholder.
+
+```typescript
+import { Deal } from '@headlessly/crm'
+
+// Auto-set probability when a deal advances
+Deal.advanced((deal, $) => {
+  const stageProbabilities = {
+    Prospecting: 10,
+    Qualification: 30,
+    Proposal: 60,
+    Negotiation: 80,
+  }
+  const probability = stageProbabilities[deal.stage]
+  if (probability !== undefined) {
+    $.Deal.update(deal.$id, { probability })
+  }
+})
+```
+
+## Query Examples
+
+### SDK
+
+```typescript
+import { Pipeline } from '@headlessly/crm'
+
+// Get the default pipeline
+const defaultPipeline = await Pipeline.findOne({ isDefault: true })
+
+// List all pipelines
+const pipelines = await Pipeline.find({})
+
+// Create a fast-track pipeline for smaller deals
+await Pipeline.create({
+  name: 'Inbound Self-Serve',
+  slug: 'inbound-self-serve',
+  description: 'Short pipeline for self-service signups converting to paid',
+  isDefault: false,
+  stages: [
+    { name: 'Trial', probability: 30, order: 1 },
+    { name: 'Activated', probability: 60, order: 2 },
+    { name: 'Converting', probability: 80, order: 3 },
+    { name: 'Won', probability: 100, order: 4 },
+    { name: 'Lost', probability: 0, order: 5 },
+  ],
+  dealRotting: 7,
+})
+```
+
+### MCP
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Pipeline",
+  "filter": { "isDefault": true }
+}
+```
+
+### REST
+
+```bash
+# List all pipelines
+curl https://crm.headless.ly/~acme/pipelines
+
+# Get a specific pipeline
+curl https://crm.headless.ly/~acme/pipelines/pipeline_mR4nVkTw
+
+# Create a pipeline
+curl -X POST https://crm.headless.ly/~acme/pipelines \
+  -H 'Content-Type: application/json' \
+  -d '{"name": "Enterprise Sales", "isDefault": true, "stages": [{"name": "Prospecting", "probability": 10, "order": 1}], "dealRotting": 14}'
+
+# Update the deal rotting threshold
+curl -X PUT https://crm.headless.ly/~acme/pipelines/pipeline_mR4nVkTw \
+  -H 'Content-Type: application/json' \
+  -d '{"dealRotting": 21}'
+```

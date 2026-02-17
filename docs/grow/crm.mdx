@@ -34,7 +34,7 @@ await Deal.create({
   value: 48_000,
   contact: contact.$id,
   organization: org.$id,
-  stage: 'Discovery',
+  stage: 'Prospecting',
 })
 ```
 
@@ -87,7 +87,7 @@ Contact.qualified((contact, $) => {
     name: `${contact.name} - Inbound`,
     value: 12_000,
     contact: contact.$id,
-    stage: 'Discovery',
+    stage: 'Prospecting',
   })
 })
 ```
@@ -108,7 +108,7 @@ Organization.enriched(org => {
 
 ## Deal Pipeline
 
-Deals move through stages: `Discovery`, `Proposal`, `Negotiation`, `Closed`, `Lost`. Each transition is a verb:
+Deals move through stages: `Prospecting`, `Qualification`, `Proposal`, `Negotiation`, `Closed`, `Won`, `Lost`. Each transition is a verb:
 
 ```typescript
 import { Deal } from '@headlessly/crm'

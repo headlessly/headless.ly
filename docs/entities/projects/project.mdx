@@ -1,0 +1,202 @@
+---
+title: Project
+description: Container for organized work -- features, releases, onboarding, and delivery tracking.
+---
+
+## Schema
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Project = Noun('Project', {
+  name: 'string!',
+  slug: 'string##',
+  description: 'string',
+  organization: '-> Organization',
+  status: 'Active | Archived | Completed',
+  visibility: 'Public | Private',
+  owner: '-> Contact',
+  startDate: 'date',
+  targetDate: 'date',
+  issues: '<- Issue.project[]',
+  tags: 'string',
+  archive: 'Archived',
+  complete: 'Completed',
+  activate: 'Activated',
+})
+```
+
+## Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Display name of the project |
+| `slug` | string (unique, indexed) | No | URL-safe identifier |
+| `description` | string | No | Brief description of the project scope |
+| `organization` | -> Organization | No | Owning organization |
+| `status` | enum | No | Active, Archived, or Completed |
+| `visibility` | enum | No | Public or Private |
+| `owner` | -> Contact | No | Primary responsible person |
+| `startDate` | date | No | When work begins |
+| `targetDate` | date | No | Target completion date |
+| `issues` | <- Issue[] | No | All issues in this project |
+| `tags` | string | No | Comma-separated tags for categorization |
+
+## Relationships
+
+| Field | Direction | Target | Description |
+|-------|-----------|--------|-------------|
+| `organization` | -> | Organization | The organization this project belongs to |
+| `owner` | -> | Contact | The person responsible for the project |
+| `issues` | <- | Issue.project[] | All issues filed under this project |
+
+## Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `create` | `Created` | Create a new project |
+| `update` | `Updated` | Update project fields |
+| `delete` | `Deleted` | Soft-delete the project |
+| `archive` | `Archived` | Archive the project for reference |
+| `complete` | `Completed` | Mark the project as done |
+| `activate` | `Activated` | Re-activate an archived or completed project |
+
+### Verb Lifecycle
+
+```typescript
+import { Project } from '@headlessly/projects'
+
+// BEFORE hook -- validate before completion
+Project.completing(project => {
+  const openIssues = project.issues.filter(i => i.status !== 'Done' && i.status !== 'Closed')
+  if (openIssues.length > 0) {
+    throw new Error(`${openIssues.length} issues still open`)
+  }
+})
+
+// Execute
+await Project.complete('project_e5JhLzXc')
+
+// AFTER hook -- react to completion
+Project.completed((project, $) => {
+  $.Activity.create({
+    subject: `Project completed: ${project.name}`,
+    type: 'Task',
+    status: 'Completed',
+  })
+})
+```
+
+## Status State Machine
+
+```
+              create()
+(none) ──────────────→ Active
+                          │
+             archive()    │    complete()
+                ┌─────────┤─────────┐
+                ▼                   ▼
+            Archived          Completed
+                │                   │
+                └─── activate() ────┘
+                          │
+                          ▼
+                       Active
+```
+
+Valid transitions:
+
+| From | Verb | To |
+|------|------|----|
+| -- | `create` | `Active` |
+| `Active` | `archive` | `Archived` |
+| `Active` | `complete` | `Completed` |
+| `Archived` | `activate` | `Active` |
+| `Completed` | `activate` | `Active` |
+
+## Cross-Domain Patterns
+
+Project is the top-level work container that connects to the broader business graph:
+
+- **CRM**: Organizations own projects. Contacts serve as project owners. When an Organization is created, an onboarding project can be auto-created.
+- **Support**: Escalated tickets create issues within projects for engineering follow-up.
+- **Billing**: Project delivery tracking ties to subscription milestones.
+- **Analytics**: Project completion events feed into Metrics and Goals.
+
+```typescript
+import { Project } from '@headlessly/projects'
+
+Project.completed((project, $) => {
+  $.Metric.record({
+    name: 'project.completed',
+    value: 1,
+    dimensions: { organization: project.organization },
+  })
+})
+```
+
+## Query Examples
+
+### SDK
+
+```typescript
+import { Project } from '@headlessly/projects'
+
+// Find all active projects
+const active = await Project.find({ status: 'Active' })
+
+// Get a specific project with its issues
+const project = await Project.get('project_e5JhLzXc', {
+  include: ['issues', 'owner'],
+})
+
+// Create a new project
+await Project.create({
+  name: 'API v3 Migration',
+  slug: 'api-v3-migration',
+  organization: 'org_Nw8rTxJv',
+  owner: 'contact_fX9bL5nRd',
+  status: 'Active',
+  visibility: 'Private',
+  startDate: '2026-03-01',
+  targetDate: '2026-06-01',
+})
+```
+
+### MCP
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Project",
+  "filter": { "status": "Active", "visibility": "Public" },
+  "sort": { "targetDate": "asc" },
+  "limit": 20
+}
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Project", "id": "project_e5JhLzXc", "include": ["issues"] }
+```
+
+```ts title="headless.ly/mcp#do"
+const active = await $.Project.find({ status: 'Active' })
+await $.Project.complete('project_e5JhLzXc')
+```
+
+### REST
+
+```bash
+# List active projects
+curl https://headless.ly/~acme/projects?status=Active
+
+# Get a specific project
+curl https://headless.ly/~acme/projects/project_e5JhLzXc
+
+# Create a project
+curl -X POST https://headless.ly/~acme/projects \
+  -H 'Content-Type: application/json' \
+  -d '{"name": "API v3 Migration", "status": "Active"}'
+
+# Complete a project
+curl -X POST https://headless.ly/~acme/projects/project_e5JhLzXc/complete
+```

@@ -1,0 +1,162 @@
+---
+title: Query Operators
+description: MongoDB-style filter operators for REST API queries.
+---
+
+The REST API uses MongoDB-style query operators for filtering entities. Pass filters as URL-encoded JSON in the `filter` query parameter, or as a JSON body for batch and sync endpoints.
+
+## Comparison Operators
+
+### `$eq` — Equal
+
+Matches values equal to the specified value. Implicit when the value is a literal.
+
+```bash
+# Explicit
+GET /~acme/Contact?filter={"stage":{"$eq":"Lead"}}
+
+# Implicit (equivalent)
+GET /~acme/Contact?filter={"stage":"Lead"}
+```
+
+### `$ne` — Not Equal
+
+Matches values not equal to the specified value.
+
+```bash
+GET /~acme/Contact?filter={"stage":{"$ne":"Churned"}}
+```
+
+### `$gt` / `$gte` — Greater Than
+
+`$gt` matches values strictly greater than. `$gte` matches values greater than or equal to.
+
+```bash
+GET /~acme/Deal?filter={"value":{"$gte":50000}}
+GET /~acme/Event?filter={"createdAt":{"$gt":"2026-01-01T00:00:00Z"}}
+```
+
+### `$lt` / `$lte` — Less Than
+
+`$lt` matches values strictly less than. `$lte` matches values less than or equal to.
+
+```bash
+GET /~acme/Invoice?filter={"dueDate":{"$lte":"2026-02-01T00:00:00Z"}}
+```
+
+### `$in` — In Array
+
+Matches any value in the provided array.
+
+```bash
+GET /~acme/Contact?filter={"stage":{"$in":["Lead","Qualified"]}}
+```
+
+### `$nin` — Not In Array
+
+Matches values not in the provided array.
+
+```bash
+GET /~acme/Deal?filter={"stage":{"$nin":["Closed Lost","Churned"]}}
+```
+
+### `$exists` — Field Existence
+
+Matches entities where the field exists (or does not exist).
+
+```bash
+# Contacts that have an email
+GET /~acme/Contact?filter={"email":{"$exists":true}}
+
+# Contacts missing an organization
+GET /~acme/Contact?filter={"organization":{"$exists":false}}
+```
+
+### `$regex` — Regular Expression
+
+Matches values against a regular expression pattern. Case-sensitive by default.
+
+```bash
+GET /~acme/Contact?filter={"email":{"$regex":"@enterprise\\.com$"}}
+GET /~acme/Organization?filter={"name":{"$regex":"^Tech"}}
+```
+
+## Combining Operators
+
+Multiple operators can be applied to the same field:
+
+```bash
+GET /~acme/Deal?filter={"value":{"$gte":25000,"$lt":100000}}
+```
+
+Multiple fields at the top level are combined with implicit AND:
+
+```bash
+GET /~acme/Contact?filter={"stage":"Lead","email":{"$exists":true}}
+```
+
+## Logical Operators
+
+### `$and` — All Conditions Must Match
+
+```json
+{
+  "$and": [
+    { "stage": { "$in": ["Lead", "Qualified"] } },
+    { "organization": { "$exists": true } },
+    { "createdAt": { "$gte": "2026-01-01T00:00:00Z" } }
+  ]
+}
+```
+
+### `$or` — Any Condition Must Match
+
+```json
+{
+  "$or": [
+    { "stage": "Proposal", "value": { "$gte": 100000 } },
+    { "stage": "Negotiation" }
+  ]
+}
+```
+
+### `$not` — Negate an Expression
+
+```json
+{ "value": { "$not": { "$lt": 1000 } } }
+```
+
+## URL Encoding
+
+Filters must be URL-encoded when passed as query parameters. The JSON object `{"stage":"Lead"}` becomes:
+
+```
+?filter=%7B%22stage%22%3A%22Lead%22%7D
+```
+
+Most HTTP clients handle this automatically. With curl, use `--data-urlencode`:
+
+```bash
+curl -G "https://headless.ly/~acme/Contact" \
+  --data-urlencode 'filter={"stage":"Lead","email":{"$exists":true}}' \
+  -H "Authorization: Bearer hly_sk_your_key"
+```
+
+## Dot Notation for Relationships
+
+Filter on related entity fields using dot notation. Depth limit is 3 levels.
+
+```bash
+GET /~acme/Contact?filter={"organization.industry":"Technology"}
+GET /~acme/Deal?filter={"contact.organization.size":{"$gte":50}}
+```
+
+## Full-Text Search
+
+Use the `$text` key for full-text search across indexed string fields:
+
+```bash
+GET /~acme/Contact?filter={"$text":"alice startup","stage":"Lead"}
+```
+
+Text search is case-insensitive and uses prefix matching. Results are ranked by relevance when no explicit sort is provided.

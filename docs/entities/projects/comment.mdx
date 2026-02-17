@@ -1,0 +1,155 @@
+---
+title: Comment
+description: Threaded discussion on issues -- context, decisions, and resolutions.
+---
+
+## Schema
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Comment = Noun('Comment', {
+  body: 'string!',
+  author: '-> Contact',
+  issue: '-> Issue.comments',
+  resolve: 'Resolved',
+})
+```
+
+## Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `body` | string | Yes | Comment text (Markdown supported) |
+| `author` | -> Contact | No | Person who wrote the comment |
+| `issue` | -> Issue | No | The issue this comment belongs to |
+
+## Relationships
+
+| Field | Direction | Target | Description |
+|-------|-----------|--------|-------------|
+| `author` | -> | Contact | The person who wrote this comment |
+| `issue` | -> | Issue.comments | The issue this comment is attached to |
+
+## Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `create` | `Created` | Add a new comment to an issue |
+| `update` | `Updated` | Edit the comment body |
+| `delete` | `Deleted` | Soft-delete the comment |
+| `resolve` | `Resolved` | Mark the comment thread as resolved |
+
+### Verb Lifecycle
+
+```typescript
+import { Comment } from '@headlessly/projects'
+
+// BEFORE hook -- validate before resolution
+Comment.resolving(comment => {
+  if (!comment.author) {
+    throw new Error('Only authored comments can be resolved')
+  }
+})
+
+// Execute
+await Comment.resolve('comment_mR4nVkTw')
+
+// AFTER hook -- log the resolution
+Comment.resolved((comment, $) => {
+  $.Activity.create({
+    subject: `Comment resolved on ${comment.issue}`,
+    type: 'Task',
+    contact: comment.author,
+    status: 'Completed',
+  })
+})
+```
+
+## Cross-Domain Patterns
+
+Comment provides the discussion layer for project work:
+
+- **CRM**: Comment authors are Contacts -- the same people tracked across the CRM graph.
+- **Support**: When support tickets escalate to issues, the conversation continues as comments.
+- **Analytics**: Comment activity feeds into engagement and velocity metrics.
+
+```typescript
+import { Comment } from '@headlessly/projects'
+
+Comment.created((comment, $) => {
+  $.Event.create({
+    type: 'comment.created',
+    properties: {
+      issue: comment.issue,
+      author: comment.author,
+    },
+  })
+})
+```
+
+## Query Examples
+
+### SDK
+
+```typescript
+import { Comment } from '@headlessly/projects'
+
+// Find all comments on an issue
+const comments = await Comment.find({
+  issue: 'issue_pQ8xNfKm',
+})
+
+// Get a specific comment
+const comment = await Comment.get('comment_mR4nVkTw')
+
+// Add a comment to an issue
+await Comment.create({
+  body: 'Fixed in commit abc123 -- deploying to staging now.',
+  author: 'contact_fX9bL5nRd',
+  issue: 'issue_pQ8xNfKm',
+})
+
+// Resolve a comment thread
+await Comment.resolve('comment_mR4nVkTw')
+```
+
+### MCP
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Comment",
+  "filter": { "issue": "issue_pQ8xNfKm" },
+  "sort": { "$createdAt": "asc" }
+}
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Comment", "id": "comment_mR4nVkTw" }
+```
+
+```ts title="headless.ly/mcp#do"
+await $.Comment.create({
+  body: 'Confirmed fixed in production.',
+  author: 'contact_fX9bL5nRd',
+  issue: 'issue_pQ8xNfKm',
+})
+```
+
+### REST
+
+```bash
+# List comments on an issue
+curl https://headless.ly/~acme/comments?issue=issue_pQ8xNfKm
+
+# Get a specific comment
+curl https://headless.ly/~acme/comments/comment_mR4nVkTw
+
+# Add a comment
+curl -X POST https://headless.ly/~acme/comments \
+  -H 'Content-Type: application/json' \
+  -d '{"body": "Fixed in commit abc123.", "author": "contact_fX9bL5nRd", "issue": "issue_pQ8xNfKm"}'
+
+# Resolve a comment
+curl -X POST https://headless.ly/~acme/comments/comment_mR4nVkTw/resolve
+```

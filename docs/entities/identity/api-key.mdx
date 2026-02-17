@@ -1,0 +1,155 @@
+---
+title: ApiKey
+description: Programmatic access tokens for SDK, CI/CD, and agent authentication.
+---
+
+## Schema
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const ApiKey = Noun('ApiKey', {
+  name: 'string!',
+  keyPrefix: 'string!##',
+  scopes: 'string',
+  status: 'Active | Revoked | Expired',
+  revoke: 'Revoked',
+})
+```
+
+## Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Human-readable label for the key (e.g. "GitHub Actions", "Production Agent") |
+| `keyPrefix` | string | Yes | First 8 characters of the key (unique, indexed) -- used for identification without exposing the full secret |
+| `scopes` | string | No | Comma-separated permission scopes (e.g. `read:all,write:content`) |
+| `status` | enum | No | Key state: `Active`, `Revoked`, or `Expired` |
+
+## Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `create` | `Created` | Generate a new API key |
+| `update` | `Updated` | Update key metadata (name, scopes) |
+| `delete` | `Deleted` | Soft-delete the key |
+| `revoke` | `Revoked` | Permanently disable the key |
+
+### Verb Lifecycle
+
+Every verb follows the full conjugation pattern -- execute, before hook, after hook:
+
+```typescript
+import { ApiKey } from '@headlessly/sdk'
+
+// Execute
+await ApiKey.revoke('apiKey_k7TmPvQx')
+
+// Before hook -- runs before revocation is processed
+ApiKey.revoking(key => {
+  console.log(`About to revoke key ${key.name} (${key.keyPrefix}...)`)
+})
+
+// After hook -- runs after revocation completes
+ApiKey.revoked(key => {
+  console.log(`Key ${key.keyPrefix}... revoked at ${key.$updatedAt}`)
+})
+```
+
+## Status State Machine
+
+```
+  create()
+(none) ──────→ Active
+                  │
+        revoke()  │  (TTL expiry)
+                  ▼
+            Revoked / Expired
+```
+
+Valid transitions:
+
+| From | Verb | To |
+|------|------|----|
+| -- | `create` | `Active` |
+| `Active` | `revoke` | `Revoked` |
+| `Active` | (system) | `Expired` |
+
+Revocation is permanent -- a revoked or expired key cannot be reactivated. Create a new key instead.
+
+## Query Examples
+
+### SDK
+
+```typescript
+import { ApiKey } from '@headlessly/sdk'
+
+// Find all active keys
+const activeKeys = await ApiKey.find({ status: 'Active' })
+
+// Get a specific key by ID
+const key = await ApiKey.get('apiKey_k7TmPvQx')
+
+// Count keys by status
+const revokedCount = await ApiKey.count({ status: 'Revoked' })
+```
+
+### MCP
+
+```json title="headless.ly/mcp#search"
+{ "type": "ApiKey", "filter": { "status": "Active" } }
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "ApiKey", "id": "apiKey_k7TmPvQx" }
+```
+
+```ts title="headless.ly/mcp#do"
+const keys = await $.ApiKey.find({ status: 'Active' })
+await $.ApiKey.revoke('apiKey_k7TmPvQx')
+```
+
+### REST
+
+```bash
+GET https://headless.ly/~acme/api-keys?status=Active
+```
+
+```bash
+GET https://headless.ly/~acme/api-keys/apiKey_k7TmPvQx
+```
+
+```bash
+POST https://headless.ly/~acme/api-keys/apiKey_k7TmPvQx/revoke
+```
+
+## Event-Driven Patterns
+
+React to API key lifecycle events:
+
+```typescript
+import { ApiKey } from '@headlessly/sdk'
+
+// Log all key creation for audit trail
+ApiKey.created((key, $) => {
+  $.Event.create({
+    type: 'security.api_key_created',
+    data: { name: key.name, keyPrefix: key.keyPrefix, scopes: key.scopes },
+  })
+})
+
+// Alert on key revocation
+ApiKey.revoked((key, $) => {
+  $.Event.create({
+    type: 'security.api_key_revoked',
+    data: { name: key.name, keyPrefix: key.keyPrefix },
+  })
+})
+```
+
+## Security Notes
+
+- The full API key secret is only returned once at creation time -- store it securely
+- Use `keyPrefix` to identify keys in logs and dashboards without exposing the secret
+- Scope keys to the minimum permissions needed: `read:crm`, `write:content`, `admin:billing`
+- Rotate keys regularly -- create a new key, update your systems, then revoke the old one

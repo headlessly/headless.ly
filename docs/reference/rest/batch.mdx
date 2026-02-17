@@ -1,0 +1,175 @@
+---
+title: Batch API
+description: Execute multiple operations in a single request with $ref pipelining.
+---
+
+The Batch API executes multiple operations in a single HTTP request. It reduces round-trips and supports `$ref` pipelining for dependent operations where the output of one step feeds into the next.
+
+## Endpoint
+
+```
+POST /~:tenant/batch
+```
+
+## Request Format
+
+The request body is a JSON object with an `operations` array. Each operation specifies a `method`, `path`, and optional `body`.
+
+```json
+{
+  "operations": [
+    {
+      "id": "op1",
+      "method": "POST",
+      "path": "/Contact",
+      "body": { "name": "Alice Chen", "email": "alice@startup.io", "stage": "Lead" }
+    },
+    {
+      "id": "op2",
+      "method": "POST",
+      "path": "/Contact",
+      "body": { "name": "Bob Park", "email": "bob@widget.io", "stage": "Lead" }
+    },
+    {
+      "id": "op3",
+      "method": "GET",
+      "path": "/Contact?filter={\"stage\":\"Lead\"}&limit=10"
+    }
+  ]
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `id` | string | Yes | Unique identifier for this operation within the batch |
+| `method` | string | Yes | HTTP method: `GET`, `POST`, `PUT`, `DELETE` |
+| `path` | string | Yes | Tenant-relative path (omit `/~tenant` prefix) |
+| `body` | object | No | Request body for `POST` and `PUT` operations |
+
+## Response Format
+
+```json
+{
+  "results": [
+    {
+      "id": "op1",
+      "status": 201,
+      "body": { "$id": "contact_fX9bL5nRd", "$type": "Contact", "name": "Alice Chen", "stage": "Lead" }
+    },
+    {
+      "id": "op2",
+      "status": 201,
+      "body": { "$id": "contact_mN7pQwRs", "$type": "Contact", "name": "Bob Park", "stage": "Lead" }
+    },
+    {
+      "id": "op3",
+      "status": 200,
+      "body": { "results": [...], "total": 2, "hasMore": false }
+    }
+  ]
+}
+```
+
+Each result includes the operation `id`, the HTTP `status` code, and the response `body`.
+
+## $ref Pipelining
+
+Use `$ref` to reference the result of a previous operation. This allows dependent operations to execute in sequence without separate HTTP requests.
+
+Reference syntax: `{ "$ref": "op_id", "path": "json.pointer" }`
+
+```json
+{
+  "operations": [
+    {
+      "id": "create_contact",
+      "method": "POST",
+      "path": "/Contact",
+      "body": { "name": "Alice Chen", "email": "alice@startup.io", "stage": "Lead" }
+    },
+    {
+      "id": "create_deal",
+      "method": "POST",
+      "path": "/Deal",
+      "body": {
+        "title": "Startup Inc - Enterprise",
+        "value": 48000,
+        "stage": "Qualified",
+        "contact": { "$ref": "create_contact", "path": "$id" }
+      }
+    },
+    {
+      "id": "qualify",
+      "method": "POST",
+      "path": { "$ref": "create_contact", "path": "concat('/Contact/', $id, '/qualify')" },
+      "body": {}
+    }
+  ]
+}
+```
+
+In this example, `create_deal` uses the `$id` from `create_contact` as its `contact` field. Operations with `$ref` dependencies execute after the referenced operation completes.
+
+## Limits
+
+| Parameter | Value |
+|-----------|-------|
+| Max operations per batch | 100 |
+| Max request body size | 10MB |
+| Timeout per batch | 30 seconds |
+
+Operations without dependencies execute in parallel. Operations with `$ref` dependencies execute sequentially in dependency order.
+
+## Error Handling
+
+Individual operations can fail without failing the entire batch. Check each result's `status` field.
+
+```json
+{
+  "results": [
+    {
+      "id": "op1",
+      "status": 201,
+      "body": { "$id": "contact_fX9bL5nRd", "$type": "Contact", "name": "Alice Chen" }
+    },
+    {
+      "id": "op2",
+      "status": 409,
+      "body": {
+        "error": "conflict",
+        "message": "A Contact with email 'alice@startup.io' already exists.",
+        "field": "email"
+      }
+    }
+  ]
+}
+```
+
+If an operation fails and a subsequent operation references it via `$ref`, the dependent operation is skipped and returns:
+
+```json
+{
+  "id": "op3",
+  "status": 424,
+  "body": {
+    "error": "dependency_failed",
+    "message": "Referenced operation 'op2' failed with status 409."
+  }
+}
+```
+
+## Transactional Batches
+
+Add `"atomic": true` to execute all operations in a single transaction. If any operation fails, all changes are rolled back.
+
+```json
+{
+  "atomic": true,
+  "operations": [
+    { "id": "op1", "method": "POST", "path": "/Contact", "body": { "name": "Alice Chen" } },
+    { "id": "op2", "method": "POST", "path": "/Deal", "body": { "title": "Big Deal", "contact": { "$ref": "op1", "path": "$id" } } }
+  ]
+}
+```
+
+On failure in atomic mode, the response status is `422` and no operations are committed.

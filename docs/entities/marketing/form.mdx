@@ -1,0 +1,231 @@
+---
+title: Form
+description: Lead capture and data collection forms -- sign-ups, contact requests, waitlists, and surveys.
+---
+
+## Schema
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Form = Noun('Form', {
+  name: 'string!',
+  description: 'string',
+  fields: 'string',
+  organization: '-> Organization',
+  status: 'Draft | Active | Published | Archived',
+  submissionCount: 'number',
+  publish: 'Published',
+  archive: 'Archived',
+  submit: 'Submitted',
+})
+```
+
+## Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Form name (e.g. `Contact Us`, `Waitlist Signup`, `Demo Request`) |
+| `description` | string | No | Purpose and context for this form |
+| `fields` | string | No | JSON-encoded field definitions (name, type, required, options) |
+| `organization` | -> Organization | No | Tenant this form belongs to |
+| `status` | enum | No | Lifecycle state: `Draft`, `Active`, `Published`, or `Archived` |
+| `submissionCount` | number | No | Total number of submissions received |
+
+## Relationships
+
+| Field | Direction | Target | Description |
+|-------|-----------|--------|-------------|
+| `organization` | -> | Organization | Tenant this form belongs to |
+
+## Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `create` | `Created` | Create a new form in Draft status |
+| `update` | `Updated` | Update form fields or configuration |
+| `delete` | `Deleted` | Remove a form |
+| `publish` | `Published` | Make the form publicly accessible |
+| `archive` | `Archived` | Archive the form -- stop accepting submissions |
+| `submit` | `Submitted` | Record a form submission |
+
+### Verb Lifecycle
+
+```typescript
+import { Form } from '@headlessly/marketing'
+
+// BEFORE hook -- validate before publishing
+Form.publishing(form => {
+  const fields = JSON.parse(form.fields)
+  if (!fields || fields.length === 0) {
+    throw new Error('Form must have at least one field before publishing')
+  }
+  const hasEmail = fields.some((f: { name: string }) => f.name === 'email')
+  if (!hasEmail) {
+    throw new Error('Form must include an email field')
+  }
+})
+
+// Execute
+await Form.publish('form_qR7sHjLp')
+
+// AFTER hook -- react to publish
+Form.published(form => {
+  console.log(`${form.name} is now live`)
+})
+```
+
+## Status State Machine
+
+```
+         create()
+(none) ──────────> Draft
+                     │
+          publish()  │
+                     v
+                 Published
+                     │
+          ┌──────────┼──────────┐
+          │          │          │
+       submit()     │     archive()
+       (repeat)     │          │
+          │         │          v
+          └─────────┘      Archived
+```
+
+| From | Verb | To |
+|------|------|----|
+| -- | `create` | `Draft` |
+| `Draft` | `publish` | `Published` |
+| `Published` | `submit` | `Published` (status unchanged, `submissionCount` increments) |
+| `Published` | `archive` | `Archived` |
+| `Archived` | `publish` | `Published` (reactivate) |
+
+## Form Fields
+
+The `fields` property is a JSON-encoded array defining the form structure:
+
+```json
+[
+  { "name": "email", "type": "email", "required": true },
+  { "name": "name", "type": "text", "required": true },
+  { "name": "company", "type": "text", "required": false },
+  { "name": "role", "type": "select", "options": ["Founder", "Developer", "PM", "Other"] },
+  { "name": "message", "type": "textarea", "required": false }
+]
+```
+
+Supported field types: `text`, `email`, `number`, `select`, `textarea`, `checkbox`, `date`, `url`, `phone`.
+
+## Cross-Domain Patterns
+
+Form submissions are the primary mechanism for lead capture:
+
+```typescript
+import { Form } from '@headlessly/marketing'
+
+// When a form is submitted, create a lead and track the event
+Form.submitted((form, $) => {
+  $.Lead.create({
+    name: `Submission from ${form.name}`,
+    source: 'form',
+  })
+
+  $.Event.create({
+    name: 'form_submitted',
+    type: 'track',
+    source: 'Browser',
+    properties: JSON.stringify({
+      formId: form.$id,
+      formName: form.name,
+    }),
+    timestamp: new Date().toISOString(),
+  })
+})
+```
+
+- **CRM**: Form submissions create Leads. Contact information from forms populates Contact entities.
+- **Analytics**: Every submission creates an Event. Submission counts tracked as Metrics. Forms feed into Funnel steps.
+- **Campaigns**: Forms are embedded in campaign landing pages. UTM parameters on the form page attribute submissions to campaigns.
+- **Content**: Forms embed in Site pages and Content entities for inline lead capture.
+- **Support**: Contact forms can route to support Tickets instead of or in addition to Leads.
+
+## Query Examples
+
+### SDK
+
+```typescript
+import { Form } from '@headlessly/marketing'
+
+// Find all published forms
+const published = await Form.find({ status: 'Published' })
+
+// Get a specific form
+const form = await Form.get('form_qR7sHjLp')
+
+// Create a contact form
+await Form.create({
+  name: 'Contact Us',
+  description: 'General inquiry form for the marketing site',
+  fields: JSON.stringify([
+    { name: 'email', type: 'email', required: true },
+    { name: 'name', type: 'text', required: true },
+    { name: 'message', type: 'textarea', required: false },
+  ]),
+  status: 'Draft',
+})
+
+// Publish the form
+await Form.publish('form_qR7sHjLp')
+
+// Record a submission
+await Form.submit('form_qR7sHjLp')
+
+// Archive the form
+await Form.archive('form_qR7sHjLp')
+```
+
+### MCP
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Form",
+  "filter": { "status": "Published" },
+  "sort": { "submissionCount": "desc" },
+  "limit": 10
+}
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Form", "id": "form_qR7sHjLp" }
+```
+
+```ts title="headless.ly/mcp#do"
+const forms = await $.Form.find({ status: 'Published' })
+await $.Form.publish('form_qR7sHjLp')
+await $.Form.submit('form_qR7sHjLp')
+```
+
+### REST
+
+```bash
+# List published forms
+curl https://marketing.headless.ly/~acme/forms?status=Published
+
+# Get a specific form
+curl https://marketing.headless.ly/~acme/forms/form_qR7sHjLp
+
+# Create a form
+curl -X POST https://marketing.headless.ly/~acme/forms \
+  -H 'Content-Type: application/json' \
+  -d '{"name": "Contact Us", "fields": "[{\"name\":\"email\",\"type\":\"email\",\"required\":true}]", "status": "Draft"}'
+
+# Publish a form
+curl -X POST https://marketing.headless.ly/~acme/forms/form_qR7sHjLp/publish
+
+# Submit a form
+curl -X POST https://marketing.headless.ly/~acme/forms/form_qR7sHjLp/submit
+
+# Archive a form
+curl -X POST https://marketing.headless.ly/~acme/forms/form_qR7sHjLp/archive
+```

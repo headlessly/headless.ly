@@ -1,0 +1,247 @@
+---
+title: Experiment
+description: A/B tests, multivariate experiments, ML experiments, and prompt experiments with statistical rigor.
+---
+
+## Schema
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Experiment = Noun('Experiment', {
+  name: 'string!',
+  slug: 'string##',
+  description: 'string',
+  hypothesis: 'string',
+  type: 'ABTest | Multivariate | FeatureFlag | MLExperiment | PromptExperiment',
+  status: 'Draft | Started | Running | Paused | Concluded | Completed | Archived',
+  organization: '-> Organization',
+  owner: '-> Contact',
+  startAt: 'datetime',
+  endAt: 'datetime',
+  targetAudience: 'string',
+  trafficAllocation: 'number',
+  variants: 'json',
+  metrics: 'string',
+  primaryMetric: 'string',
+  results: 'json',
+  winner: 'string',
+  confidence: 'number',
+  sampleSize: 'number',
+  conversions: 'number',
+  tags: 'string',
+  start: 'Started',
+  conclude: 'Concluded',
+  pause: 'Paused',
+  stop: 'Stopped',
+})
+```
+
+## Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Display name of the experiment |
+| `slug` | string (unique, indexed) | No | URL-safe identifier |
+| `description` | string | No | Detailed description of what is being tested |
+| `hypothesis` | string | No | The hypothesis being validated |
+| `type` | enum | No | ABTest, Multivariate, FeatureFlag, MLExperiment, or PromptExperiment |
+| `status` | enum | No | Draft, Started, Running, Paused, Concluded, Completed, or Archived |
+| `organization` | -> Organization | No | Organization running this experiment |
+| `owner` | -> Contact | No | Person responsible for the experiment |
+| `startAt` | datetime | No | Scheduled start time |
+| `endAt` | datetime | No | Scheduled end time |
+| `targetAudience` | string | No | Description or segment ID of the target audience |
+| `trafficAllocation` | number | No | Percentage of traffic allocated to the experiment (0-100) |
+| `variants` | json | No | Array of variant definitions with keys, names, and weights |
+| `metrics` | string | No | Comma-separated list of metrics being tracked |
+| `primaryMetric` | string | No | The primary success metric |
+| `results` | json | No | Statistical results per variant |
+| `winner` | string | No | Key of the winning variant |
+| `confidence` | number | No | Statistical confidence level (0-100) |
+| `sampleSize` | number | No | Total number of participants |
+| `conversions` | number | No | Total number of conversions |
+| `tags` | string | No | Comma-separated tags for categorization |
+
+## Relationships
+
+| Field | Direction | Target | Description |
+|-------|-----------|--------|-------------|
+| `organization` | -> | Organization | The organization running this experiment |
+| `owner` | -> | Contact | The person responsible for experiment design and analysis |
+
+## Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `create` | `Created` | Create a new experiment |
+| `update` | `Updated` | Update experiment fields |
+| `delete` | `Deleted` | Delete an experiment |
+| `start` | `Started` | Begin running the experiment and collecting data |
+| `conclude` | `Concluded` | Declare results, set winner, and stop data collection |
+| `pause` | `Paused` | Temporarily pause the experiment |
+| `stop` | `Stopped` | Permanently stop the experiment without concluding |
+
+### Verb Lifecycle
+
+```typescript
+import { Experiment } from '@headlessly/experiments'
+
+// BEFORE hook -- validate prerequisites
+Experiment.starting(experiment => {
+  if (!experiment.variants || experiment.variants.length < 2) {
+    throw new Error('At least two variants required to start')
+  }
+  if (!experiment.primaryMetric) {
+    throw new Error('Primary metric must be defined before starting')
+  }
+})
+
+// Execute -- start the experiment
+await Experiment.start('experiment_hR5nVkTw')
+
+// AFTER hook -- trigger downstream actions
+Experiment.started((experiment, $) => {
+  $.Event.create({
+    type: 'experiment.started',
+    data: {
+      experiment: experiment.$id,
+      variants: experiment.variants.length,
+      trafficAllocation: experiment.trafficAllocation,
+    },
+  })
+})
+```
+
+## Status State Machine
+
+```
+Draft --> Started --> Running --> Concluded --> Completed
+             |           |                         |
+             v           v                         v
+           Paused --> Running                  Archived
+             |
+             v
+          Stopped --> Archived
+```
+
+- **Draft**: Initial state, experiment is being configured
+- **Started**: Experiment has been kicked off, awaiting first data
+- **Running**: Actively collecting data and assigning variants
+- **Paused**: Temporarily halted, can be resumed
+- **Concluded**: Results declared, winner chosen, data collection stopped
+- **Completed**: Fully finalized with documentation and learnings
+- **Stopped**: Permanently halted without conclusion
+- **Archived**: Historical record, no longer active
+
+## Cross-Domain Patterns
+
+Experiment is the analytical core that connects to feature flags, analytics, and marketing:
+
+- **Experimentation**: Each Experiment can own one or more FeatureFlags. Concluding an experiment can trigger a flag rollout.
+- **Analytics**: Experiment variant assignments and conversions emit Events. Funnels can segment by experiment variant. Goals can track experiment outcomes.
+- **Marketing**: Campaign A/B tests use Experiment entities. Segment-based targeting determines experiment audience.
+- **CRM**: Contact-level variant assignment enables personalized experiment analysis. Deal conversion rates can serve as experiment metrics.
+- **Platform**: Agents use PromptExperiment type to optimize system prompts. Workflows trigger experiment lifecycle transitions.
+
+```typescript
+import { Experiment } from '@headlessly/experiments'
+
+// When an experiment is concluded, propagate the results
+Experiment.concluded((experiment, $) => {
+  // Roll out the winning variant
+  if (experiment.winner && experiment.confidence >= 95) {
+    const flags = await $.FeatureFlag.find({ experiment: experiment.$id })
+    for (const flag of flags) {
+      await $.FeatureFlag.rollout(flag.$id)
+    }
+  }
+
+  // Record the outcome as a metric
+  $.Metric.create({
+    name: `Experiment: ${experiment.name}`,
+    type: 'Conversion',
+    value: experiment.confidence,
+  })
+
+  // Notify the experiment owner
+  $.Activity.create({
+    subject: `Experiment concluded: ${experiment.name}`,
+    type: 'Task',
+    contact: experiment.owner,
+    status: 'Pending',
+  })
+})
+```
+
+## Query Examples
+
+### SDK
+
+```typescript
+import { Experiment } from '@headlessly/experiments'
+
+// Find all running A/B tests
+const running = await Experiment.find({
+  status: 'Running',
+  type: 'ABTest',
+})
+
+// Get a specific experiment with full details
+const experiment = await Experiment.get('experiment_hR5nVkTw')
+
+// Create and start a prompt experiment
+const promptTest = await Experiment.create({
+  name: 'Support Agent Tone',
+  type: 'PromptExperiment',
+  hypothesis: 'A warmer tone increases customer satisfaction by 10%',
+  primaryMetric: 'csat_score',
+  trafficAllocation: 30,
+  variants: [
+    { key: 'control', name: 'Professional tone', weight: 50 },
+    { key: 'warm', name: 'Warm and friendly tone', weight: 50 },
+  ],
+})
+await Experiment.start(promptTest.$id)
+```
+
+### MCP
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Experiment",
+  "filter": { "status": "Running", "type": "ABTest" },
+  "sort": { "startAt": "desc" },
+  "limit": 20
+}
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Experiment", "id": "experiment_hR5nVkTw" }
+```
+
+```ts title="headless.ly/mcp#do"
+const experiments = await $.Experiment.find({ status: 'Running' })
+await $.Experiment.conclude('experiment_hR5nVkTw')
+```
+
+### REST
+
+```bash
+# List running experiments
+curl https://experiment.headless.ly/~acme/experiments?status=Running
+
+# Get a specific experiment
+curl https://experiment.headless.ly/~acme/experiments/experiment_hR5nVkTw
+
+# Create an experiment
+curl -X POST https://experiment.headless.ly/~acme/experiments \
+  -H 'Content-Type: application/json' \
+  -d '{"name": "Pricing Page V2", "type": "ABTest", "hypothesis": "New layout increases conversions"}'
+
+# Start an experiment
+curl -X POST https://experiment.headless.ly/~acme/experiments/experiment_hR5nVkTw/start
+
+# Conclude an experiment
+curl -X POST https://experiment.headless.ly/~acme/experiments/experiment_hR5nVkTw/conclude
+```

@@ -1,0 +1,140 @@
+---
+title: Authentication
+description: Progressive identity from anonymous to production — Connect, Operate, Claim.
+icon: Shield
+---
+
+## Identity Standard
+
+Authentication in headless.ly is built on [id.org.ai](https://id.org.ai) -- an open identity standard for the agent era. It is an `.org.ai` primitive, not a proprietary auth system. The `.do` infrastructure, `.studio` UI, and `headless.ly` all build on top of it.
+
+The core design principle: **agents should be able to start working before anyone authenticates**.
+
+## Connect, Operate, Claim
+
+The identity flow has three phases:
+
+```
+Connect → Operate → Claim
+```
+
+1. **Connect** -- An agent connects to MCP with no credentials. It receives an anonymous sandbox with read-only access. No signup, no API key, no OAuth flow.
+
+2. **Operate** -- The agent begins working. It reads schemas, queries public data, and explores the system. At L1 (session), it can write to a temporary sandbox. Data persists for the session but is not permanent.
+
+3. **Claim** -- A human claims the tenant by committing a `.github/workflows/headlessly.yml` file with a claim token. The git commit IS the identity -- GitHub authenticates who pushed. The sandbox becomes a permanent tenant.
+
+This inverts the traditional auth flow. Instead of "authenticate first, then use the product," headless.ly says "use the product first, authenticate when you are ready to commit."
+
+## Capability Tiers
+
+Four progressive tiers, each unlocking more capabilities:
+
+| Tier | Name | Auth Method | Capabilities |
+|------|------|------------|-------------|
+| **L0** | Anonymous | None | Read-only. Browse schemas, query public data, explore the API |
+| **L1** | Session | Session token (auto-assigned) | Read + write to a temporary sandbox. Data expires with the session |
+| **L2** | Claimed | GitHub commit with claim token | Persistent tenant. Full CRUD, custom verbs, event subscriptions |
+| **L3** | Production | API key (`hly_sk_...`) | Billing enabled, Stripe integration, production rate limits, SLA |
+
+### L0: Anonymous
+
+No authentication required. An agent or developer can connect and start exploring immediately:
+
+```json title="headless.ly/mcp#search"
+{ "type": "Contact", "filter": { "stage": "Lead" }, "limit": 5 }
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "schema", "entity": "Contact" }
+```
+
+L0 is read-only. It exists so agents can discover what headless.ly offers without any friction.
+
+### L1: Session
+
+A session token is assigned automatically on the first write attempt. The agent gets a temporary sandbox:
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+// First write auto-creates a session sandbox
+await Contact.create({ name: 'Alice', stage: 'Lead' })
+```
+
+Session data is isolated and temporary. It proves the system works before anyone commits to it.
+
+### L2: Claimed
+
+A human claims the tenant by committing a workflow file to a GitHub repository:
+
+```yaml title=".github/workflows/headlessly.yml"
+name: headlessly
+on:
+  workflow_dispatch:
+env:
+  HEADLESSLY_CLAIM_TOKEN: ${{ secrets.HEADLESSLY_CLAIM_TOKEN }}
+```
+
+The commit itself is the authentication event. GitHub verifies the identity of the committer. The session sandbox is promoted to a persistent tenant with full capabilities.
+
+### L3: Production
+
+Production tenants authenticate with API keys:
+
+```bash
+export HEADLESSLY_API_KEY=hly_sk_tR8kJmNxPwL5vQrYbHdFc
+```
+
+```typescript
+import { Headlessly } from '@headlessly/sdk'
+
+const app = Headlessly({
+  tenant: 'acme',
+  mode: 'remote',
+  apiKey: 'hly_sk_tR8kJmNxPwL5vQrYbHdFc',
+})
+```
+
+L3 unlocks billing integrations (Stripe), production rate limits, and SLA guarantees.
+
+## API Key Format
+
+API keys follow the format `hly_sk_{sqid}`:
+
+| Prefix | Meaning |
+|--------|---------|
+| `hly_` | headless.ly namespace |
+| `sk_` | Secret key (server-side only) |
+| `pk_` | Public key (client-side, limited scope) |
+
+```typescript
+import { ApiKey } from '@headlessly/sdk'
+
+const key = await ApiKey.create({
+  name: 'Production API',
+  scopes: ['read', 'write'],
+})
+console.log(key.$id) // 'apikey_nT5xKpRmVw'
+```
+
+Keys can be revoked instantly:
+
+```typescript
+await ApiKey.revoke('apikey_nT5xKpRmVw')
+```
+
+Revocation takes effect immediately across all edge locations via the Durable Object coordination layer.
+
+## Why This Design
+
+Traditional SaaS products gate everything behind a signup form. This creates friction for both humans and agents:
+
+| Traditional Auth | headless.ly Auth |
+|-----------------|-----------------|
+| Sign up before you can see anything | Explore everything anonymously |
+| OAuth flow before first API call | Write to a sandbox instantly |
+| API key provisioned manually | API key earned through progressive use |
+| Identity = email + password | Identity = GitHub commit |
+
+The progressive model works especially well for AI agents, which cannot fill out signup forms or click verification emails. An agent connects, operates, and the human claims when ready.

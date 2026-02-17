@@ -1,0 +1,176 @@
+---
+title: Error Codes
+description: HTTP error codes, response format, and troubleshooting guide.
+---
+
+All error responses share a consistent JSON format. The `error` field contains a machine-readable code, `message` provides a human-readable explanation, and additional fields vary by error type.
+
+## Error Response Format
+
+```json
+{
+  "error": "not_found",
+  "message": "No Contact with ID 'contact_xYzAbCdE' exists.",
+  "type": "Contact",
+  "id": "contact_xYzAbCdE"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `error` | string | Machine-readable error code |
+| `message` | string | Human-readable explanation |
+| `type` | string | Entity type involved (when applicable) |
+| `id` | string | Entity ID involved (when applicable) |
+| `field` | string | Field that caused the error (for validation errors) |
+| `details` | object[] | Array of sub-errors (for batch and validation) |
+
+## Error Codes
+
+### 400 Bad Request
+
+The request is malformed or contains invalid parameters.
+
+```json
+{
+  "error": "invalid_filter",
+  "message": "Unknown operator '$like' in filter for field 'name'. Supported: $eq, $ne, $gt, $gte, $lt, $lte, $in, $nin, $exists, $regex, $not.",
+  "field": "name"
+}
+```
+
+Common causes: invalid JSON body, unknown filter operator, invalid sort field, `limit` exceeding 100, malformed entity ID format.
+
+### 401 Unauthorized
+
+Missing or invalid authentication credentials.
+
+```json
+{
+  "error": "unauthorized",
+  "message": "Missing or invalid Authorization header. Provide a valid API key: Bearer hly_sk_..."
+}
+```
+
+Ensure the `Authorization` header is set to `Bearer hly_sk_your_key`. API keys are available at `https://headless.ly/~{tenant}/settings/api-keys`.
+
+### 403 Forbidden
+
+The authenticated key does not have permission for this operation.
+
+```json
+{
+  "error": "forbidden",
+  "message": "API key does not have write access. Upgrade to L2+ at /settings/api-keys."
+}
+```
+
+Common causes: L0/L1 key attempting a write operation, cross-tenant access without admin privileges.
+
+### 404 Not Found
+
+The requested entity, type, or tenant does not exist.
+
+```json
+{
+  "error": "not_found",
+  "message": "No Deal with ID 'deal_xYzAbCdE' exists.",
+  "type": "Deal",
+  "id": "deal_xYzAbCdE"
+}
+```
+
+### 409 Conflict
+
+The operation conflicts with the current state — typically a duplicate unique field.
+
+```json
+{
+  "error": "conflict",
+  "message": "A Contact with email 'alice@startup.io' already exists.",
+  "field": "email",
+  "existingId": "contact_fX9bL5nRd"
+}
+```
+
+### 422 Unprocessable Entity
+
+The request body is valid JSON but fails schema validation.
+
+```json
+{
+  "error": "validation_error",
+  "message": "Validation failed for Contact.",
+  "details": [
+    { "field": "name", "message": "Required field 'name' is missing." },
+    { "field": "stage", "message": "Invalid value 'Unknown'. Expected: Lead, Qualified, Customer, Churned, Partner." }
+  ]
+}
+```
+
+### 429 Rate Limited
+
+Too many requests. The response includes headers to guide retry behavior.
+
+```json
+{
+  "error": "rate_limited",
+  "message": "Rate limit exceeded. Retry after 12 seconds."
+}
+```
+
+Headers included:
+
+```
+Retry-After: 12
+X-RateLimit-Limit: 1000
+X-RateLimit-Remaining: 0
+X-RateLimit-Reset: 1706745612
+```
+
+### 500 Internal Server Error
+
+An unexpected error on the server side.
+
+```json
+{
+  "error": "internal_error",
+  "message": "An unexpected error occurred. Request ID: req_aBcDeFgH."
+}
+```
+
+Include the `requestId` when contacting support.
+
+### 502 Bad Gateway
+
+An upstream service (Stripe, GitHub, or a Durable Object) is unreachable.
+
+```json
+{
+  "error": "bad_gateway",
+  "message": "Upstream service 'stripe' is not responding. Retry in a few seconds."
+}
+```
+
+### 503 Service Unavailable
+
+The service is temporarily unavailable, usually during deployment or maintenance.
+
+```json
+{
+  "error": "service_unavailable",
+  "message": "Service is temporarily unavailable. Retry after 5 seconds."
+}
+```
+
+Always includes a `Retry-After` header.
+
+## Troubleshooting
+
+| Symptom | Check |
+|---------|-------|
+| All requests return 401 | Verify `Authorization: Bearer hly_sk_...` header is present |
+| Writes return 403 | Confirm your API key is L2+ (check `/settings/api-keys`) |
+| Filter returns 400 | Ensure the filter JSON is valid and operators are supported |
+| Entity not found after create | Check you are querying the same tenant (`/~{tenant}/`) |
+| 429 during bulk operations | Use the [Batch API](/docs/reference/rest/batch) instead of individual requests |

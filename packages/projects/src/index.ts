@@ -14,6 +14,7 @@ export const Project = Noun('Project', {
   tags: 'string',
   archive: 'Archived',
   complete: 'Completed',
+  activate: 'Activated',
 })
 
 export const Issue = Noun('Issue', {
@@ -38,4 +39,5 @@ export const Comment = Noun('Comment', {
   body: 'string!',
   author: '-> Contact',
   issue: '-> Issue.comments',
+  resolve: 'Resolved',
 })

@@ -1,0 +1,192 @@
+---
+title: Progressive Capability
+description: From anonymous read-only to production billing — the four capability tiers.
+---
+
+headless.ly uses progressive capability tiers so agents can explore before they authenticate. An agent connecting for the first time can discover schemas and search demo data. As it proves value, it upgrades through session, claimed, and production tiers — each unlocking more access.
+
+## The Four Tiers
+
+| Tier | Auth | Tools | Capability |
+|------|------|-------|------------|
+| L0 | None | `search`, `fetch` | Read-only exploration of schemas and demo data |
+| L1 | Session token | `search`, `fetch`, `do` | Sandboxed read/write within a temporary session |
+| L2 | API key (`hly_sk_...`) | `search`, `fetch`, `do` | Full tenant access, persistent data, production mutations |
+| L3 | Admin key (`hly_admin_...`) | `search`, `fetch`, `do` | Cross-tenant operations, schema modification, bulk access |
+
+## L0: Anonymous Exploration
+
+No authentication required. The agent connects to any MCP endpoint and starts discovering.
+
+```json
+{
+  "mcpServers": {
+    "headlessly": { "url": "https://crm.headless.ly/mcp" }
+  }
+}
+```
+
+Available operations at L0:
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Schema" }
+```
+
+```json title="headless.ly/mcp#search"
+{ "type": "Contact", "filter": { "stage": "Lead" }, "limit": 5 }
+```
+
+L0 searches return demo data seeded for the subdomain context. A CRM endpoint returns sample contacts, deals, and organizations. A billing endpoint returns sample subscriptions and invoices.
+
+Calling `do` at L0 returns a structured upgrade prompt:
+
+```json
+{
+  "error": "authentication_required",
+  "message": "The do tool requires L1+ authentication.",
+  "upgrade": "https://headless.ly/~your-tenant/settings/api-keys"
+}
+```
+
+**Limits**: 30 requests per minute, 10 burst. Read-only.
+
+## L1: Session-Based Access
+
+A session token is issued when an agent starts an interactive session. The token is temporary and scoped to a sandboxed environment.
+
+```json
+{
+  "mcpServers": {
+    "headlessly": {
+      "url": "https://crm.headless.ly/mcp",
+      "headers": { "Authorization": "Bearer hly_sess_tR4nXwBp" }
+    }
+  }
+}
+```
+
+At L1, the agent can write data and execute verbs inside the sandbox:
+
+```ts title="headless.ly/mcp#do"
+const contact = await $.Contact.create({
+  name: 'Alice Chen',
+  email: 'alice@startup.io',
+  stage: 'Lead'
+})
+return contact
+```
+
+Session data is ephemeral. It persists for the session duration but is not visible to other sessions and is garbage-collected after expiry.
+
+**Limits**: 100 requests per minute, 30 burst, 100 entity operations per `do` call, 30-second execution timeout, 128MB memory.
+
+## L2: Claimed Tenant
+
+L2 is the production tier. The agent operates on real, persistent data within a claimed tenant. Claiming happens by committing a workflow file to your GitHub repository:
+
+```yaml
+# .github/workflows/headlessly.yml
+name: headlessly
+on: workflow_dispatch
+jobs:
+  claim:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: headlessly/claim@v1
+        with:
+          token: ${{ secrets.HEADLESSLY_CLAIM_TOKEN }}
+```
+
+The commit itself is the identity proof. GitHub authenticates who pushed it. After claiming, generate API keys at `https://headless.ly/~{tenant}/settings/api-keys`.
+
+```json
+{
+  "mcpServers": {
+    "headlessly": {
+      "url": "https://headless.ly/~acme/mcp",
+      "headers": { "Authorization": "Bearer hly_sk_pR7mXwBnKd" }
+    }
+  }
+}
+```
+
+At L2, all data is persistent and visible across sessions. Mutations are recorded in the immutable event log with full audit trail.
+
+```ts title="headless.ly/mcp#do"
+const leads = await $.Contact.find({ stage: 'Lead' })
+for (const lead of leads) {
+  await $.Contact.qualify(lead.$id)
+  await $.Deal.create({
+    contact: lead.$id,
+    value: 25000,
+    stage: 'Qualified'
+  })
+}
+return { qualified: leads.length }
+```
+
+**Limits**: 1,000 requests per minute, 100 burst, 1,000 entity operations per `do` call, 60-second execution timeout, 256MB memory.
+
+## L3: Admin Access
+
+L3 unlocks cross-tenant operations, schema modifications, and bulk data access. Intended for platform operators and CI/CD pipelines.
+
+```json
+{
+  "mcpServers": {
+    "headlessly": {
+      "url": "https://headless.ly/mcp",
+      "headers": { "Authorization": "Bearer hly_admin_qW8eYuHn" }
+    }
+  }
+}
+```
+
+L3-only operations include:
+
+- Cross-tenant search and fetch
+- Schema modification (add fields, create custom entity types)
+- Bulk import/export without per-endpoint throttling
+- Webhook management
+- API key provisioning
+
+**Limits**: Unlimited requests, 10,000 entity operations per `do` call, 120-second execution timeout, 512MB memory.
+
+## Upgrade Path Summary
+
+```
+L0 (connect, no auth)
+  |
+  v  Start a session
+L1 (session token, sandbox)
+  |
+  v  Commit .github/workflows/headlessly.yml
+L2 (API key, production)
+  |
+  v  Enable billing, request admin key
+L3 (admin key, full platform)
+```
+
+Each tier is a strict superset of the previous. An L2 key can do everything L1 can, plus persistent data. An L3 key can do everything L2 can, plus cross-tenant access.
+
+## Detecting Your Current Tier
+
+Fetch the `Status` resource to see your current authentication level:
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Status" }
+```
+
+The response includes an `auth` field:
+
+```json
+{
+  "$type": "Status",
+  "auth": {
+    "level": "L2",
+    "tenant": "acme",
+    "keyPrefix": "hly_sk_pR7m",
+    "scopes": ["read", "write", "verb"]
+  }
+}
+```

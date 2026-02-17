@@ -1,4 +1,4 @@
 {
   "title": "REST API",
-  "pages": ["index", "rpc", "sync", "import-export", "assets"]
+  "pages": ["index", "endpoints", "query-operators", "batch", "webhooks", "rate-limits", "errors", "rpc", "sync", "import-export", "assets"]
 }

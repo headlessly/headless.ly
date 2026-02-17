@@ -1,0 +1,232 @@
+---
+title: Integration
+description: External service connections -- Stripe, GitHub, Slack, and more -- with OAuth, API keys, and webhook support.
+---
+
+## Schema
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Integration = Noun('Integration', {
+  name: 'string!',
+  slug: 'string##',
+  description: 'string',
+  provider: 'string!',
+  providerUrl: 'string',
+  providerLogo: 'string',
+  category: 'Payment | CRM | Marketing | Analytics | Communication | Storage | AI | Other',
+  authType: 'OAuth2 | ApiKey | Basic | Custom',
+  oauthScopes: 'string',
+  configSchema: 'string',
+  status: 'Available | Connected | Disconnected | Synced | ComingSoon | Deprecated',
+  featured: 'boolean',
+  apiBaseUrl: 'string',
+  webhookSupport: 'boolean',
+  connect: 'Connected',
+  disconnect: 'Disconnected',
+  sync: 'Synced',
+})
+```
+
+## Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Display name of the integration |
+| `slug` | string (unique, indexed) | No | URL-safe identifier (e.g. `stripe`, `github`, `slack`) |
+| `description` | string | No | What this integration does and how it connects |
+| `provider` | string | Yes | Provider identifier (e.g. `stripe`, `github`) |
+| `providerUrl` | string | No | URL to the provider's website |
+| `providerLogo` | string | No | URL to the provider's logo |
+| `category` | enum | No | Payment, CRM, Marketing, Analytics, Communication, Storage, AI, or Other |
+| `authType` | enum | No | OAuth2, ApiKey, Basic, or Custom |
+| `oauthScopes` | string | No | Required OAuth scopes for this integration |
+| `configSchema` | string | No | JSON Schema for integration-specific configuration |
+| `status` | enum | No | Available, Connected, Disconnected, Synced, ComingSoon, or Deprecated |
+| `featured` | boolean | No | Whether this integration is featured in the marketplace |
+| `apiBaseUrl` | string | No | Base URL for the provider's API |
+| `webhookSupport` | boolean | No | Whether the provider supports webhooks for real-time sync |
+
+## Relationships
+
+Integration is a standalone entity that connects external providers to the headless.ly graph. It does not have typed relationships to other entities, but it enables data flow between external services and every domain.
+
+## Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `create` | `Created` | Register a new integration |
+| `update` | `Updated` | Update integration configuration |
+| `delete` | `Deleted` | Remove an integration |
+| `connect` | `Connected` | Establish the connection to the external service |
+| `disconnect` | `Disconnected` | Sever the connection to the external service |
+| `sync` | `Synced` | Synchronize data between headless.ly and the external service |
+
+### Verb Lifecycle
+
+```typescript
+import { Integration } from '@headlessly/platform'
+
+// BEFORE hook -- validate credentials before connecting
+Integration.connecting(integration => {
+  if (integration.authType === 'OAuth2' && !integration.oauthScopes) {
+    throw new Error('OAuth scopes must be defined before connecting')
+  }
+})
+
+// Execute -- connect the integration
+await Integration.connect('integration_bT6wMjRs')
+
+// AFTER hook -- trigger initial sync
+Integration.connected((integration, $) => {
+  $.Event.create({
+    type: 'integration.connected',
+    data: {
+      provider: integration.provider,
+      category: integration.category,
+    },
+  })
+  // Kick off initial data sync
+  $.Integration.sync(integration.$id)
+})
+```
+
+## Status State Machine
+
+```
+Available --> Connected --> Synced
+                 |
+                 v
+           Disconnected --> Available
+                                |
+                                v
+                           ComingSoon --> Available
+                                             |
+                                             v
+                                        Deprecated
+```
+
+- **Available**: Integration is ready to be connected
+- **Connected**: Connection established, credentials stored
+- **Disconnected**: Previously connected, now severed
+- **Synced**: Connected and data is in sync
+- **ComingSoon**: Planned integration, not yet available
+- **Deprecated**: Integration is being phased out
+
+## Cross-Domain Patterns
+
+Integration is the bridge between headless.ly and the external world. Each integration category maps to a specific domain:
+
+- **Billing (Payment)**: Stripe integration is the truth source for Product, Plan, Price, Subscription, Invoice, and Payment entities. Financial metrics (MRR, churn, NRR, LTV) derive from real Stripe data.
+- **Projects (CRM)**: GitHub integration syncs Projects, Issues, and Comments bidirectionally. PR merges and issue closes flow back into headless.ly.
+- **Analytics**: Event forwarding to GA, Sentry, and PostHog via integrations. Browser SDK captures events, stores in the lakehouse, and forwards to external tools.
+- **Communication**: Slack, email, and SMS integrations enable Message delivery across channels.
+- **Platform**: Integrations power Workflow steps. An Agent can use integrations to interact with external services.
+
+```typescript
+import { Integration } from '@headlessly/platform'
+
+// When Stripe is connected, sync billing data
+Integration.connected((integration, $) => {
+  if (integration.provider === 'stripe') {
+    // Import existing Stripe data
+    $.Customer.find({}).then(customers => {
+      console.log(`Synced ${customers.length} customers from Stripe`)
+    })
+  }
+})
+
+// React to sync completion
+Integration.synced((integration, $) => {
+  $.Metric.create({
+    name: `${integration.name} Sync`,
+    type: 'System',
+    value: 1,
+  })
+})
+```
+
+## Foundational Integrations
+
+headless.ly ships with three foundational integrations from day one:
+
+| Provider | Category | Entities | Description |
+|----------|----------|----------|-------------|
+| Stripe | Payment | Customer, Product, Plan, Price, Subscription, Invoice, Payment | Truth source for all billing. Real financial metrics, not estimates. |
+| GitHub | CRM | Project, Issue, Comment | Bidirectional sync with repos, issues, and PRs. |
+| Analytics | Analytics | Event | Event forwarding to GA, Sentry, PostHog. Lakehouse grows over time. |
+
+## Query Examples
+
+### SDK
+
+```typescript
+import { Integration } from '@headlessly/platform'
+
+// Find all connected integrations
+const connected = await Integration.find({ status: 'Connected' })
+
+// Get a specific integration
+const stripe = await Integration.get('integration_bT6wMjRs')
+
+// Connect Stripe
+await Integration.create({
+  name: 'Stripe',
+  slug: 'stripe',
+  provider: 'stripe',
+  category: 'Payment',
+  authType: 'ApiKey',
+  apiBaseUrl: 'https://api.stripe.com/v1',
+  webhookSupport: true,
+})
+
+// Sync an integration
+await Integration.sync('integration_bT6wMjRs')
+
+// Disconnect
+await Integration.disconnect('integration_bT6wMjRs')
+```
+
+### MCP
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Integration",
+  "filter": { "status": "Connected", "category": "Payment" },
+  "limit": 10
+}
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Integration", "id": "integration_bT6wMjRs" }
+```
+
+```ts title="headless.ly/mcp#do"
+const integrations = await $.Integration.find({ status: 'Connected' })
+await $.Integration.sync('integration_bT6wMjRs')
+```
+
+### REST
+
+```bash
+# List connected integrations
+curl https://automate.headless.ly/~acme/integrations?status=Connected
+
+# Get a specific integration
+curl https://automate.headless.ly/~acme/integrations/integration_bT6wMjRs
+
+# Create an integration
+curl -X POST https://automate.headless.ly/~acme/integrations \
+  -H 'Content-Type: application/json' \
+  -d '{"name": "Stripe", "provider": "stripe", "category": "Payment", "authType": "ApiKey"}'
+
+# Connect an integration
+curl -X POST https://automate.headless.ly/~acme/integrations/integration_bT6wMjRs/connect
+
+# Sync data
+curl -X POST https://automate.headless.ly/~acme/integrations/integration_bT6wMjRs/sync
+
+# Disconnect
+curl -X POST https://automate.headless.ly/~acme/integrations/integration_bT6wMjRs/disconnect
+```

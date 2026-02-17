@@ -33,6 +33,8 @@ export const Organization = Noun('Organization', {
   npsScore: 'number',
   linkedinUrl: 'string',
   twitterHandle: 'string',
+  enrich: 'Enriched',
+  score: 'Scored',
 })
 
 export const Contact = Noun('Contact', {
@@ -63,6 +65,10 @@ export const Contact = Noun('Contact', {
   marketingConsent: 'string',
   lastEngagement: 'datetime',
   qualify: 'Qualified',
+  capture: 'Captured',
+  assign: 'Assigned',
+  merge: 'Merged',
+  enrich: 'Enriched',
 })
 
 export const Lead = Noun('Lead', {
@@ -115,6 +121,8 @@ export const Deal = Noun('Deal', {
   close: 'Closed',
   win: 'Won',
   lose: 'Lost',
+  advance: 'Advanced',
+  reopen: 'Reopened',
 })
 
 export const Activity = Noun('Activity', {
@@ -131,7 +139,7 @@ export const Activity = Noun('Activity', {
   startAt: 'datetime',
   endAt: 'datetime',
   duration: 'number',
-  allDay: 'string',
+  allDay: 'boolean',
   timezone: 'string',
   status: 'Pending | InProgress | Completed | Cancelled',
   priority: 'Low | Medium | High | Urgent',
@@ -142,13 +150,14 @@ export const Activity = Noun('Activity', {
   reminderAt: 'datetime',
   complete: 'Completed',
   cancel: 'Cancelled',
+  log: 'Logged',
 })
 
 export const Pipeline = Noun('Pipeline', {
   name: 'string!',
   slug: 'string##',
   description: 'string',
-  isDefault: 'string',
-  stages: 'string',
+  isDefault: 'boolean',
+  stages: 'json',
   dealRotting: 'number',
 })

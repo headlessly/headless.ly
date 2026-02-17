@@ -1,0 +1,323 @@
+---
+title: Agent
+description: AI agents with model configuration, tool access, memory, and usage tracking for autonomous operations.
+---
+
+## Schema
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Agent = Noun('Agent', {
+  name: 'string!',
+  slug: 'string##',
+  description: 'string',
+  avatar: 'string',
+  organization: '-> Organization',
+  owner: '-> Contact',
+  model: 'string',
+  systemPrompt: 'string',
+  instructions: 'string',
+  persona: 'string',
+  type: 'Assistant | Autonomous | Workflow | Specialist | Router',
+  status: 'Draft | Active | Deployed | Paused | Stopped | Retired | Archived',
+  visibility: 'Private | Team | Organization | Public',
+  temperature: 'number',
+  maxTokens: 'number',
+  tools: 'json',
+  functions: 'json',
+  knowledgeBases: 'json',
+  memory: 'None | Session | Persistent',
+  memoryWindow: 'number',
+  totalTokens: 'number',
+  totalCost: 'number',
+  averageLatency: 'number',
+  successRate: 'number',
+  rating: 'number',
+  ratingCount: 'number',
+  version: 'number',
+  publishedAt: 'datetime',
+  tags: 'string',
+  do: 'Done',
+  ask: 'Asked',
+  decide: 'Decided',
+  approve: 'Approved',
+  notify: 'Notified',
+  delegate: 'Delegated',
+  escalate: 'Escalated',
+  learn: 'Learned',
+  reflect: 'Reflected',
+  invoke: 'Invoked',
+  deploy: 'Deployed',
+  pause: 'Paused',
+  stop: 'Stopped',
+  retire: 'Retired',
+})
+```
+
+## Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Display name of the agent |
+| `slug` | string (unique, indexed) | No | URL-safe identifier (e.g. `onboarding-agent`, `support-bot`) |
+| `description` | string | No | What this agent does and its area of expertise |
+| `avatar` | string | No | URL to the agent's avatar image |
+| `organization` | -> Organization | No | Organization that owns this agent |
+| `owner` | -> Contact | No | Person responsible for this agent |
+| `model` | string | No | LLM model identifier (e.g. `claude-opus-4-6`, `gpt-4o`) |
+| `systemPrompt` | string | No | System prompt that defines the agent's core behavior |
+| `instructions` | string | No | Additional instructions appended to conversations |
+| `persona` | string | No | Personality and communication style description |
+| `type` | enum | No | Assistant, Autonomous, Workflow, Specialist, or Router |
+| `status` | enum | No | Draft, Active, Deployed, Paused, Stopped, Retired, or Archived |
+| `visibility` | enum | No | Private, Team, Organization, or Public |
+| `temperature` | number | No | LLM temperature setting (0-2) |
+| `maxTokens` | number | No | Maximum tokens per response |
+| `tools` | json | No | Array of MCP tools the agent can use |
+| `functions` | json | No | Custom function definitions the agent can call |
+| `knowledgeBases` | json | No | Array of knowledge base references for RAG |
+| `memory` | enum | No | None, Session, or Persistent |
+| `memoryWindow` | number | No | Number of previous messages to include in context |
+| `totalTokens` | number | No | Cumulative token usage across all invocations |
+| `totalCost` | number | No | Cumulative cost in USD |
+| `averageLatency` | number | No | Average response time in milliseconds |
+| `successRate` | number | No | Percentage of successful invocations (0-100) |
+| `rating` | number | No | Average user rating (0-5) |
+| `ratingCount` | number | No | Number of ratings received |
+| `version` | number | No | Version number, incremented on configuration changes |
+| `publishedAt` | datetime | No | When the agent was first published |
+| `tags` | string | No | Comma-separated tags for categorization |
+
+## Relationships
+
+| Field | Direction | Target | Description |
+|-------|-----------|--------|-------------|
+| `organization` | -> | Organization | The organization that owns this agent |
+| `owner` | -> | Contact | The person responsible for maintaining this agent |
+
+## Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `create` | `Created` | Create a new agent |
+| `update` | `Updated` | Update agent configuration |
+| `delete` | `Deleted` | Delete an agent |
+| `do` | `Done` | Execute a task autonomously |
+| `ask` | `Asked` | Ask the agent a question and receive a response |
+| `decide` | `Decided` | Request the agent to make a decision |
+| `approve` | `Approved` | Agent approves a pending action |
+| `notify` | `Notified` | Send a notification through the agent |
+| `delegate` | `Delegated` | Delegate a task to another agent or human |
+| `escalate` | `Escalated` | Escalate an issue to a human or higher-authority agent |
+| `learn` | `Learned` | Incorporate new knowledge from feedback or data |
+| `reflect` | `Reflected` | Analyze past actions and adjust behavior |
+| `invoke` | `Invoked` | Invoke the agent programmatically from a workflow |
+| `deploy` | `Deployed` | Deploy the agent to production |
+| `pause` | `Paused` | Temporarily suspend the agent |
+| `stop` | `Stopped` | Permanently stop the agent |
+| `retire` | `Retired` | Retire the agent, marking it as end-of-life |
+
+### Verb Lifecycle
+
+```typescript
+import { Agent } from '@headlessly/platform'
+
+// BEFORE hook -- validate before deployment
+Agent.deploying(agent => {
+  if (!agent.systemPrompt) {
+    throw new Error('System prompt required before deployment')
+  }
+  if (!agent.tools || agent.tools.length === 0) {
+    throw new Error('At least one tool must be configured')
+  }
+})
+
+// Execute -- deploy the agent
+await Agent.deploy('agent_mR4nVkTw')
+
+// AFTER hook -- notify and track
+Agent.deployed((agent, $) => {
+  $.Event.create({
+    type: 'agent.deployed',
+    data: {
+      agent: agent.$id,
+      model: agent.model,
+      type: agent.type,
+      version: agent.version,
+    },
+  })
+  $.Activity.create({
+    subject: `Agent deployed: ${agent.name}`,
+    type: 'Task',
+    contact: agent.owner,
+    status: 'Completed',
+  })
+})
+```
+
+## Status State Machine
+
+```
+Draft --> Active --> Deployed --> Paused --> Deployed
+                        |            |
+                        v            v
+                     Stopped     Stopped
+                        |            |
+                        v            v
+                     Retired --> Archived
+```
+
+- **Draft**: Agent is being configured, not yet ready
+- **Active**: Configuration complete, ready for deployment
+- **Deployed**: Running in production, handling requests
+- **Paused**: Temporarily suspended, not handling requests
+- **Stopped**: Permanently halted, configuration preserved
+- **Retired**: End-of-life, replaced by a newer version
+- **Archived**: Historical record, fully decommissioned
+
+## Agent Types
+
+| Type | Description | Use Case |
+|------|-------------|----------|
+| **Assistant** | Interactive agent that responds to questions | Support chatbot, internal help desk |
+| **Autonomous** | Self-directed agent that operates without prompting | Background monitoring, data enrichment |
+| **Workflow** | Triggered by events, executes predefined steps | Lead qualification, onboarding sequences |
+| **Specialist** | Deep expertise in a single domain | Contract review, code analysis, financial modeling |
+| **Router** | Routes requests to the appropriate specialist agent | Triage agent, intent classification |
+
+## Cross-Domain Patterns
+
+Agent is the autonomous operations layer that can interact with every domain:
+
+- **CRM**: Agents qualify leads, enrich contacts, and progress deals autonomously. A sales agent can score leads, draft outreach, and schedule follow-ups.
+- **Billing**: Agents monitor subscription health, flag at-risk accounts, and suggest upsells based on usage patterns.
+- **Support**: Agents handle first-line support, classify tickets, draft responses, and escalate complex issues to humans.
+- **Content**: Agents generate drafts, optimize copy, and manage content calendars.
+- **Marketing**: Agents segment audiences, personalize campaigns, and analyze campaign performance.
+- **Experimentation**: Agents run prompt experiments to optimize their own behavior.
+- **Platform**: Agents can invoke other agents (delegation), trigger workflows, and manage integrations.
+
+```typescript
+import { Agent } from '@headlessly/platform'
+
+// When an agent escalates, create a ticket
+Agent.escalated((agent, $) => {
+  $.Ticket.create({
+    subject: `Escalation from ${agent.name}`,
+    description: 'Agent could not resolve this issue autonomously',
+    priority: 'High',
+    status: 'Open',
+  })
+})
+
+// When an agent learns from feedback, log the improvement
+Agent.learned((agent, $) => {
+  $.Event.create({
+    type: 'agent.learned',
+    data: {
+      agent: agent.$id,
+      successRate: agent.successRate,
+      rating: agent.rating,
+    },
+  })
+})
+
+// Delegation pattern -- router agent delegates to specialists
+Agent.delegated((router, $) => {
+  $.Event.create({
+    type: 'agent.delegated',
+    data: {
+      from: router.$id,
+      reason: 'Routing to domain specialist',
+    },
+  })
+})
+```
+
+## Query Examples
+
+### SDK
+
+```typescript
+import { Agent } from '@headlessly/platform'
+
+// Find all deployed agents
+const deployed = await Agent.find({ status: 'Deployed' })
+
+// Get a specific agent
+const agent = await Agent.get('agent_mR4nVkTw')
+
+// Create a support agent
+const supportAgent = await Agent.create({
+  name: 'Support Agent',
+  slug: 'support-agent',
+  type: 'Specialist',
+  model: 'claude-opus-4-6',
+  systemPrompt: 'You are a customer support agent for headless.ly. Help users with setup, billing, and technical questions.',
+  tools: ['search', 'fetch', 'do'],
+  memory: 'Session',
+  memoryWindow: 20,
+  visibility: 'Organization',
+})
+await Agent.deploy(supportAgent.$id)
+
+// Ask the agent a question
+await Agent.ask('agent_mR4nVkTw', {
+  message: 'How do I set up Stripe integration?',
+})
+
+// Check agent health metrics
+const agents = await Agent.find({ status: 'Deployed' })
+for (const a of agents) {
+  console.log(`${a.name}: ${a.successRate}% success, ${a.averageLatency}ms avg latency, $${a.totalCost} total cost`)
+}
+```
+
+### MCP
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Agent",
+  "filter": { "status": "Deployed", "type": "Specialist" },
+  "sort": { "successRate": "desc" },
+  "limit": 10
+}
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Agent", "id": "agent_mR4nVkTw" }
+```
+
+```ts title="headless.ly/mcp#do"
+const agents = await $.Agent.find({ status: 'Deployed' })
+await $.Agent.invoke('agent_mR4nVkTw')
+await $.Agent.pause('agent_mR4nVkTw')
+```
+
+### REST
+
+```bash
+# List deployed agents
+curl https://automate.headless.ly/~acme/agents?status=Deployed
+
+# Get a specific agent
+curl https://automate.headless.ly/~acme/agents/agent_mR4nVkTw
+
+# Create an agent
+curl -X POST https://automate.headless.ly/~acme/agents \
+  -H 'Content-Type: application/json' \
+  -d '{"name": "Support Agent", "type": "Specialist", "model": "claude-opus-4-6"}'
+
+# Deploy an agent
+curl -X POST https://automate.headless.ly/~acme/agents/agent_mR4nVkTw/deploy
+
+# Invoke an agent
+curl -X POST https://automate.headless.ly/~acme/agents/agent_mR4nVkTw/invoke
+
+# Pause an agent
+curl -X POST https://automate.headless.ly/~acme/agents/agent_mR4nVkTw/pause
+
+# Retire an agent
+curl -X POST https://automate.headless.ly/~acme/agents/agent_mR4nVkTw/retire
+```

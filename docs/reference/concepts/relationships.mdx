@@ -1,0 +1,217 @@
+---
+title: Relationships
+description: Forward references, back-references, and cross-domain traversal in the 35-entity graph.
+icon: GitBranch
+---
+
+## Arrow Syntax
+
+Relationships between entities are declared using arrow syntax in the Noun definition. There are two directions:
+
+| Syntax | Name | Cardinality | Meaning |
+|--------|------|------------|---------|
+| `'-> Target.inverse'` | Forward reference | Many-to-one | This entity points to one Target |
+| `'<- Target.inverse[]'` | Back-reference (collection) | One-to-many | This entity has many Targets |
+| `'<- Target.inverse'` | Back-reference (singular) | One-to-one | This entity has one Target |
+
+## Forward References
+
+A forward reference (`->`) means this entity holds a foreign key pointing to one instance of the target. The string after the dot names the inverse field on the target entity:
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Contact = Noun('Contact', {
+  name: 'string!',
+  email: 'string?#',
+  stage: 'Lead | Qualified | Customer | Churned | Partner',
+
+  // Contact belongs to one Organization
+  // "contacts" is the inverse field on Organization
+  organization: '-> Organization.contacts',
+})
+```
+
+At the database level, this creates an `organization` column on the Contact table that stores the Organization's `$id`. The `.contacts` suffix tells the system to create a back-reference on Organization named `contacts`.
+
+## Back-References
+
+A back-reference (`<-`) means the target entity holds the foreign key. This entity does not store anything -- the relationship is computed by looking up all targets that point back:
+
+```typescript
+export const Organization = Noun('Organization', {
+  name: 'string!',
+  domain: 'string?#',
+
+  // Organization has many Contacts
+  // The foreign key lives on Contact.organization
+  contacts: '<- Contact.organization[]',
+  deals: '<- Deal.organization[]',
+})
+```
+
+The `[]` suffix indicates a collection. Without it, the back-reference is singular (one-to-one):
+
+```typescript
+export const Customer = Noun('Customer', {
+  // Customer has exactly one Contact (not a collection)
+  contact: '<- Contact.customer',
+})
+```
+
+## Bidirectional Traversal
+
+Every relationship is bidirectional. Declaring `organization: '-> Organization.contacts'` on Contact automatically makes `contacts: '<- Contact.organization[]'` available on Organization:
+
+```typescript
+import { Contact } from '@headlessly/crm'
+import { $ } from '@headlessly/sdk'
+
+// Forward: Contact -> Organization
+const contact = await Contact.get('contact_fX9bL5nRd', {
+  include: ['organization']
+})
+console.log(contact.organization.name) // 'Acme Corp'
+
+// Reverse: Organization -> Contacts
+const org = await $.Organization.get('organization_k7TmPvQx', {
+  include: ['contacts']
+})
+console.log(org.contacts.length) // 12
+```
+
+## Cross-Domain Relationships
+
+Relationships work across product domain boundaries. A single entity can reference entities from CRM, Billing, Support, and any other domain:
+
+```typescript
+export const Contact = Noun('Contact', {
+  name: 'string!',
+  email: 'string?#',
+  stage: 'Lead | Qualified | Customer | Churned | Partner',
+
+  organization: '-> Organization.contacts',   // CRM -> CRM
+  deals: '<- Deal.contact[]',                 // CRM <- CRM
+  customer: '<- Customer.contact',            // CRM <- Billing
+  tickets: '<- Ticket.contact[]',             // CRM <- Support
+  messages: '<- Message.contact[]',           // CRM <- Communication
+})
+```
+
+This is how headless.ly eliminates the integration layer. A Contact is not just a CRM record -- it is a node in a graph that connects to subscriptions, invoices, support tickets, and messages without any glue code.
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+// Traverse from CRM through Billing to Payment in one query
+const contact = await $.Contact.get('contact_fX9bL5nRd', {
+  include: ['deals', 'tickets', 'organization']
+})
+```
+
+## Indexed Fields
+
+The `#` modifier on a data property creates an index for fast lookups. The `##` suffix creates a unique index:
+
+```typescript
+export const Contact = Noun('Contact', {
+  name: 'string!',
+  email: 'string?#',    // Indexed (fast lookups by email)
+  phone: 'string?',     // Not indexed
+})
+
+export const User = Noun('User', {
+  email: 'string!##',   // Unique indexed (no two users share an email)
+})
+```
+
+| Modifier | Effect | Use Case |
+|----------|--------|----------|
+| `#` | Indexed | Fields you query often (`email`, `stage`, `status`) |
+| `##` | Unique indexed | Fields that must be globally unique per tenant |
+| (none) | Not indexed | Fields rarely used in filters |
+
+Indexes are implemented as bloom filters and dictionary encoding in Parquet, enabling fast predicate pushdown without full scans.
+
+## Relationship Patterns
+
+### One-to-Many (Most Common)
+
+A parent has many children. The child holds the foreign key:
+
+```typescript
+// Project has many Issues
+export const Project = Noun('Project', {
+  name: 'string!',
+  issues: '<- Issue.project[]',
+})
+
+export const Issue = Noun('Issue', {
+  title: 'string!',
+  project: '-> Project.issues',
+})
+```
+
+### Many-to-One
+
+The inverse of one-to-many. Multiple entities point to one parent:
+
+```typescript
+// Many Deals belong to one Pipeline
+export const Deal = Noun('Deal', {
+  name: 'string!',
+  pipeline: '-> Pipeline.deals',
+})
+```
+
+### One-to-One
+
+A singular back-reference without `[]`:
+
+```typescript
+// Each Customer maps to exactly one Contact
+export const Customer = Noun('Customer', {
+  contact: '<- Contact.customer',
+})
+```
+
+### Cross-Domain Chain
+
+Traverse multiple domains in a single include:
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+// Contact -> Organization -> Deals -> close pipeline
+const contact = await $.Contact.get('contact_fX9bL5nRd', {
+  include: ['organization', 'deals']
+})
+
+// From billing: Subscription -> Plan -> Product
+const sub = await $.Subscription.get('subscription_nT5xKpRm', {
+  include: ['plan']
+})
+```
+
+## The Full Graph
+
+All 35 entities connect through relationships. Key cross-domain edges:
+
+| From | Relationship | To | Direction |
+|------|-------------|-----|-----------|
+| Contact | organization | Organization | `->` |
+| Contact | deals | Deal | `<-[]` |
+| Contact | tickets | Ticket | `<-[]` |
+| Contact | messages | Message | `<-[]` |
+| Customer | contact | Contact | `<-` |
+| Subscription | plan | Plan | `->` |
+| Subscription | customer | Customer | `->` |
+| Invoice | subscription | Subscription | `->` |
+| Deal | contact | Contact | `->` |
+| Deal | organization | Organization | `->` |
+| Issue | project | Project | `->` |
+| Comment | issue | Issue | `->` |
+| Campaign | segment | Segment | `->` |
+| Workflow | agent | Agent | `->` |
+
+Because every relationship is bidirectional, the graph can be traversed from any starting node to reach any connected node.

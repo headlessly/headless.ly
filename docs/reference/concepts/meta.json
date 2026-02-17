@@ -1,4 +1,4 @@
 {
   "title": "Concepts",
-  "pages": ["digital-objects", "verbs", "events", "architecture", "schema", "subdomains"]
+  "pages": ["digital-objects", "verbs", "events", "architecture", "schema", "subdomains", "data-model", "multi-tenancy", "time-travel", "authentication", "query-system", "relationships", "identifiers"]
 }

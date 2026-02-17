@@ -1,0 +1,4 @@
+{
+  "title": "CRM",
+  "pages": ["index", "organization", "contact", "lead", "deal", "activity", "pipeline"]
+}

@@ -1,0 +1,195 @@
+---
+title: Site
+description: Site configuration -- branding, language, visibility, and rendering context for content.
+---
+
+## Schema
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Site = Noun('Site', {
+  name: 'string!',
+  subdomain: 'string##',
+  title: 'string',
+  description: 'string',
+  tagline: 'string',
+  logo: 'string',
+  favicon: 'string',
+  primaryColor: 'string',
+  accentColor: 'string',
+  status: 'Draft | Published | Maintenance',
+  visibility: 'Public | Private | Password',
+  ogImage: 'string',
+  content: '<- Content.site[]',
+  defaultLanguage: 'string',
+  supportedLanguages: 'string',
+  timezone: 'string',
+})
+```
+
+## Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Display name of the site |
+| `subdomain` | string (unique, indexed) | No | Subdomain identifier (e.g., `blog` for `blog.acme.dev`) |
+| `title` | string | No | Site title for browser tabs and SEO |
+| `description` | string | No | Site-level meta description |
+| `tagline` | string | No | Short tagline or motto |
+| `logo` | string | No | URL to the site logo |
+| `favicon` | string | No | URL to the site favicon |
+| `primaryColor` | string | No | Primary brand color (hex, e.g., `#0066FF`) |
+| `accentColor` | string | No | Accent color for highlights and CTAs |
+| `status` | enum | No | Draft, Published, or Maintenance |
+| `visibility` | enum | No | Public, Private, or Password-protected |
+| `ogImage` | string | No | Default Open Graph image for social sharing |
+| `content` | <- Content[] | No | All content published to this site |
+| `defaultLanguage` | string | No | Default language code (e.g., `en`) |
+| `supportedLanguages` | string | No | Comma-separated language codes (e.g., `en,es,fr`) |
+| `timezone` | string | No | IANA timezone for scheduled publishing (e.g., `America/New_York`) |
+
+## Relationships
+
+| Field | Direction | Target | Description |
+|-------|-----------|--------|-------------|
+| `content` | <- | Content.site[] | All content items published to this site |
+
+## Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `create` | `Created` | Create a new site configuration |
+| `update` | `Updated` | Update site settings |
+| `delete` | `Deleted` | Soft-delete the site |
+
+Site does not define custom verbs. Status changes happen through `update`:
+
+```typescript
+import { Site } from '@headlessly/content'
+
+// Put site into maintenance mode
+await Site.update('site_jK8sTxJv', { status: 'Maintenance' })
+
+// Publish the site
+await Site.update('site_jK8sTxJv', { status: 'Published' })
+```
+
+## Status State Machine
+
+```
+              create()
+(none) ──────────────→ Draft
+                         │
+            update()     │
+              ┌──────────┤
+              ▼          ▼
+          Published  Maintenance
+              │          │
+              └──────────┘
+               update() (bidirectional)
+```
+
+Valid transitions:
+
+| From | Verb | To |
+|------|------|----|
+| -- | `create` | `Draft` |
+| `Draft` | `update` | `Published` |
+| `Draft` | `update` | `Maintenance` |
+| `Published` | `update` | `Maintenance` |
+| `Maintenance` | `update` | `Published` |
+| `Published` | `update` | `Draft` |
+
+## Cross-Domain Patterns
+
+Site is the top-level container that determines how content renders and where it lives:
+
+- **Content**: Every Content entity belongs to a Site. The site provides branding, language, and SEO defaults that content inherits.
+- **Analytics**: Site-level metrics aggregate across all content -- total views, unique visitors, popular pages.
+- **Marketing**: Sites serve as landing page destinations for Campaigns and Forms.
+- **CRM**: Organization-scoped sites enable white-label publishing for customers or partners.
+
+```typescript
+import { Site } from '@headlessly/content'
+
+Site.created((site, $) => {
+  // Auto-create a welcome page for new sites
+  $.Content.create({
+    title: 'Welcome',
+    slug: 'welcome',
+    body: `# Welcome to ${site.name}\n\nYour site is ready.`,
+    type: 'Page',
+    site: site.$id,
+    status: 'Draft',
+    visibility: 'Public',
+  })
+})
+```
+
+## Query Examples
+
+### SDK
+
+```typescript
+import { Site } from '@headlessly/content'
+
+// Find all published sites
+const sites = await Site.find({ status: 'Published' })
+
+// Get a specific site with its content
+const site = await Site.get('site_jK8sTxJv', {
+  include: ['content'],
+})
+
+// Create a new site
+await Site.create({
+  name: 'Developer Blog',
+  subdomain: 'dev',
+  title: 'Acme Developer Blog',
+  description: 'Technical articles, tutorials, and updates from the Acme engineering team.',
+  primaryColor: '#0066FF',
+  status: 'Draft',
+  visibility: 'Public',
+  defaultLanguage: 'en',
+  timezone: 'America/New_York',
+})
+```
+
+### MCP
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Site",
+  "filter": { "status": "Published", "visibility": "Public" }
+}
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Site", "id": "site_jK8sTxJv", "include": ["content"] }
+```
+
+```ts title="headless.ly/mcp#do"
+const sites = await $.Site.find({ status: 'Published' })
+await $.Site.update('site_jK8sTxJv', { status: 'Maintenance' })
+```
+
+### REST
+
+```bash
+# List published sites
+curl https://headless.ly/~acme/sites?status=Published
+
+# Get a specific site
+curl https://headless.ly/~acme/sites/site_jK8sTxJv
+
+# Create a site
+curl -X POST https://headless.ly/~acme/sites \
+  -H 'Content-Type: application/json' \
+  -d '{"name": "Developer Blog", "subdomain": "dev", "status": "Draft", "visibility": "Public"}'
+
+# Update site status
+curl -X PUT https://headless.ly/~acme/sites/site_jK8sTxJv \
+  -H 'Content-Type: application/json' \
+  -d '{"status": "Published"}'
+```

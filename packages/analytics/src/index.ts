@@ -3,7 +3,7 @@ import { Noun } from 'digital-objects'
 export const Event = Noun('Event', {
   name: 'string!',
   type: 'string!',
-  data: 'string',
+  data: 'json',
   source: 'Browser | Node | API | Snippet',
   sessionId: 'string',
   userId: 'string',
@@ -13,7 +13,7 @@ export const Event = Noun('Event', {
   url: 'string',
   path: 'string',
   referrer: 'string',
-  properties: 'string',
+  properties: 'json',
   update: null,
   delete: null,
 })
@@ -28,20 +28,23 @@ export const Metric = Noun('Metric', {
   timestamp: 'datetime',
   record: 'Recorded',
   reset: 'Reset',
+  snapshot: 'Snapshotted',
 })
 
 export const Funnel = Noun('Funnel', {
   name: 'string!',
   description: 'string',
-  steps: 'string',
+  steps: 'json',
   organization: '-> Organization',
   conversionRate: 'number',
   analyze: 'Analyzed',
+  activate: 'Activated',
 })
 
 export const Goal = Noun('Goal', {
   name: 'string!',
   description: 'string',
+  metric: '-> Metric',
   target: 'number!',
   current: 'number',
   unit: 'string',

@@ -1,0 +1,256 @@
+---
+title: Price
+description: Amount, currency, and billing interval -- maps directly to Stripe Prices.
+---
+
+## Schema
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Price = Noun('Price', {
+  amount: 'number!',
+  currency: 'string',
+  interval: 'Monthly | Quarterly | Yearly | OneTime',
+  intervalCount: 'number',
+  originalAmount: 'number',
+  discountPercent: 'number',
+  active: 'boolean',
+  plan: '-> Plan.prices',
+  stripeId: 'string##',
+})
+```
+
+## Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `amount` | number | Yes | Price in the smallest currency unit (e.g. cents -- 4900 = $49.00) |
+| `currency` | string | No | ISO 4217 currency code (e.g. `usd`, `eur`, `gbp`). Defaults to `usd` |
+| `interval` | enum | No | Billing frequency: `Monthly`, `Quarterly`, `Yearly`, or `OneTime` |
+| `intervalCount` | number | No | Number of intervals between billings (e.g. 2 with `Monthly` = every 2 months) |
+| `originalAmount` | number | No | Original price before discount (used for strikethrough display) |
+| `discountPercent` | number | No | Discount percentage applied (e.g. 17 for annual discount) |
+| `active` | boolean | No | Whether this price is currently available for new subscriptions |
+| `stripeId` | string | No | Stripe Price ID (unique, indexed) |
+
+## Relationships
+
+| Field | Direction | Target | Description |
+|-------|-----------|--------|-------------|
+| `plan` | `->` | Plan.prices | The plan this price belongs to |
+
+## Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `create` | `Created` | Create a new price (also creates in Stripe) |
+| `update` | `Updated` | Update price fields (syncs to Stripe) |
+| `delete` | `Deleted` | Soft-delete the price |
+
+### Verb Lifecycle
+
+Every verb follows the full conjugation pattern -- execute, before hook, after hook:
+
+```typescript
+import { Price } from '@headlessly/billing'
+
+// Execute
+await Price.create({
+  amount: 4900,
+  currency: 'usd',
+  interval: 'Monthly',
+  plan: 'plan_Nw8rTxJv',
+  active: true,
+})
+
+// Before hook -- validate pricing
+Price.creating(price => {
+  console.log(`Creating price: ${price.amount} ${price.currency}/${price.interval}`)
+})
+
+// After hook -- confirm Stripe sync
+Price.created(price => {
+  console.log(`Price live with Stripe ID ${price.stripeId}`)
+})
+```
+
+## Billing Intervals
+
+| Interval | Description | Common Use |
+|----------|-------------|------------|
+| `Monthly` | Recurring monthly charge | Standard SaaS pricing |
+| `Quarterly` | Recurring every 3 months | Mid-term commitment discount |
+| `Yearly` | Recurring annual charge | Annual commitment discount |
+| `OneTime` | Single purchase, no recurrence | Setup fees, lifetime deals, credits |
+
+Use `intervalCount` to customize beyond the standard intervals. For example, `interval: 'Monthly'` with `intervalCount: 6` bills every 6 months.
+
+## Pricing Patterns
+
+### Monthly and Annual Pricing
+
+The most common pattern -- offer both intervals with a discount for annual commitment:
+
+```typescript
+import { Price } from '@headlessly/billing'
+
+// Monthly price
+await Price.create({
+  amount: 4900,
+  currency: 'usd',
+  interval: 'Monthly',
+  plan: 'plan_Nw8rTxJv',
+  active: true,
+})
+
+// Annual price with 17% discount
+await Price.create({
+  amount: 49000,
+  currency: 'usd',
+  interval: 'Yearly',
+  originalAmount: 58800,
+  discountPercent: 17,
+  plan: 'plan_Nw8rTxJv',
+  active: true,
+})
+```
+
+### Multi-Currency
+
+Support international pricing with separate Price entities per currency:
+
+```typescript
+import { Price } from '@headlessly/billing'
+
+await Price.create({
+  amount: 4900,
+  currency: 'usd',
+  interval: 'Monthly',
+  plan: 'plan_Nw8rTxJv',
+  active: true,
+})
+
+await Price.create({
+  amount: 4500,
+  currency: 'eur',
+  interval: 'Monthly',
+  plan: 'plan_Nw8rTxJv',
+  active: true,
+})
+
+await Price.create({
+  amount: 3900,
+  currency: 'gbp',
+  interval: 'Monthly',
+  plan: 'plan_Nw8rTxJv',
+  active: true,
+})
+```
+
+## Cross-Domain Patterns
+
+Prices feed into analytics for revenue metrics. Amount changes drive upgrade/downgrade calculations:
+
+```typescript
+import { Subscription } from '@headlessly/billing'
+
+// When a subscription upgrades, calculate revenue impact
+Subscription.upgraded((sub, $) => {
+  const newPlan = await $.Plan.get(sub.plan, { include: ['prices'] })
+  const monthlyPrice = newPlan.prices.find(
+    p => p.interval === 'Monthly' && p.active
+  )
+  $.Event.create({
+    type: 'billing.upgrade_revenue',
+    data: { subscription: sub.$id, newMRR: monthlyPrice?.amount },
+  })
+})
+```
+
+## Query Examples
+
+### SDK
+
+```typescript
+import { Price } from '@headlessly/billing'
+
+// Find all active prices for a plan
+const prices = await Price.find({ plan: 'plan_Nw8rTxJv', active: true })
+
+// Get a specific price
+const price = await Price.get('price_pQ8xNfKm')
+
+// Find all monthly prices
+const monthly = await Price.find({ interval: 'Monthly', active: true })
+
+// Find discounted prices
+const discounted = await Price.find({ discountPercent: { $gt: 0 } })
+```
+
+### MCP
+
+```json title="headless.ly/mcp#search"
+{ "type": "Price", "filter": { "plan": "plan_Nw8rTxJv", "active": true } }
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Price", "id": "price_pQ8xNfKm" }
+```
+
+```ts title="headless.ly/mcp#do"
+const prices = await $.Price.find({ plan: 'plan_Nw8rTxJv', active: true })
+const yearly = prices.find(p => p.interval === 'Yearly')
+```
+
+### REST
+
+```bash
+GET https://headless.ly/~acme/prices?plan=plan_Nw8rTxJv&active=true
+```
+
+```bash
+GET https://headless.ly/~acme/prices/price_pQ8xNfKm
+```
+
+```bash
+POST https://headless.ly/~acme/prices
+Content-Type: application/json
+
+{ "amount": 4900, "currency": "usd", "interval": "Monthly", "plan": "plan_Nw8rTxJv" }
+```
+
+## Event-Driven Patterns
+
+React to price changes:
+
+```typescript
+import { Price } from '@headlessly/billing'
+
+// Track price creation for revenue analytics
+Price.created((price, $) => {
+  $.Event.create({
+    type: 'billing.price_created',
+    data: {
+      plan: price.plan,
+      amount: price.amount,
+      currency: price.currency,
+      interval: price.interval,
+    },
+  })
+})
+
+// When a price is deactivated, check for affected subscriptions
+Price.updated((price, $) => {
+  if (!price.active) {
+    $.Event.create({
+      type: 'billing.price_deactivated',
+      data: { priceId: price.$id, stripeId: price.stripeId },
+    })
+  }
+})
+```
+
+## Stripe Sync
+
+Prices map directly to Stripe Price objects. The `stripeId` field stores the Stripe Price ID (`price_...`). Stripe Prices are immutable -- to change pricing, create a new Price and deactivate the old one. This preserves billing history for existing subscribers.

@@ -48,38 +48,38 @@ The complete entity reference, alphabetical. Every entity supports CRUD automati
 
 | # | Entity | Domain | Custom Verbs |
 |---|--------|--------|-------------|
-| 1 | **Activity** | CRM | `complete`, `cancel` |
-| 2 | **Agent** | Platform | `deploy`, `pause`, `retire` |
+| 1 | **Activity** | CRM | `complete`, `cancel`, `log` |
+| 2 | **Agent** | Platform | `deploy`, `pause`, `retire`, `invoke` |
 | 3 | **ApiKey** | Identity | `revoke` |
-| 4 | **Asset** | Content | — |
+| 4 | **Asset** | Content | `process` |
 | 5 | **Campaign** | Marketing | `launch`, `pause`, `complete` |
-| 6 | **Comment** | Projects | — |
-| 7 | **Contact** | CRM | `qualify` |
+| 6 | **Comment** | Projects | `resolve` |
+| 7 | **Contact** | CRM | `qualify`, `capture`, `assign`, `merge`, `enrich` |
 | 8 | **Content** | Content | `publish`, `archive`, `schedule` |
 | 9 | **Customer** | Billing | — |
-| 10 | **Deal** | CRM | `close`, `win`, `lose` |
+| 10 | **Deal** | CRM | `close`, `win`, `lose`, `advance`, `reopen` |
 | 11 | **Event** | Analytics | — |
-| 12 | **Experiment** | Experimentation | `start`, `conclude`, `pause` |
+| 12 | **Experiment** | Experimentation | `start`, `conclude`, `pause`, `stop` |
 | 13 | **FeatureFlag** | Experimentation | `rollout`, `enable`, `disable` |
-| 14 | **Form** | Marketing | `publish`, `archive` |
-| 15 | **Funnel** | Analytics | — |
-| 16 | **Goal** | Analytics | `achieve` |
-| 17 | **Integration** | Platform | `connect`, `disconnect` |
-| 18 | **Invoice** | Billing | `pay`, `void` |
+| 14 | **Form** | Marketing | `publish`, `archive`, `submit` |
+| 15 | **Funnel** | Analytics | `activate` |
+| 16 | **Goal** | Analytics | `achieve`, `complete`, `miss`, `reset` |
+| 17 | **Integration** | Platform | `connect`, `disconnect`, `sync` |
+| 18 | **Invoice** | Billing | `pay`, `void`, `finalize` |
 | 19 | **Issue** | Projects | `assign`, `close`, `reopen` |
 | 20 | **Lead** | CRM | `convert`, `lose` |
 | 21 | **Message** | Communication | `send`, `deliver`, `read` |
-| 22 | **Metric** | Analytics | — |
-| 23 | **Organization** | CRM | — |
-| 24 | **Payment** | Billing | `refund` |
+| 22 | **Metric** | Analytics | `snapshot`, `record`, `reset` |
+| 23 | **Organization** | CRM | `enrich`, `score` |
+| 24 | **Payment** | Billing | `refund`, `capture` |
 | 25 | **Pipeline** | CRM | — |
 | 26 | **Plan** | Billing | — |
 | 27 | **Price** | Billing | — |
 | 28 | **Product** | Billing | — |
-| 29 | **Project** | Projects | `archive`, `complete` |
-| 30 | **Segment** | Marketing | — |
+| 29 | **Project** | Projects | `archive`, `complete`, `activate` |
+| 30 | **Segment** | Marketing | `refresh` |
 | 31 | **Site** | Content | — |
-| 32 | **Subscription** | Billing | `pause`, `cancel`, `reactivate`, `upgrade`, `downgrade` |
+| 32 | **Subscription** | Billing | `pause`, `cancel`, `reactivate`, `upgrade`, `downgrade`, `activate`, `renew` |
 | 33 | **Ticket** | Support | `resolve`, `escalate`, `close`, `reopen` |
 | 34 | **User** | Identity | `invite`, `suspend`, `activate` |
-| 35 | **Workflow** | Platform | `activate`, `pause`, `archive` |
+| 35 | **Workflow** | Platform | `activate`, `pause`, `trigger`, `archive` |

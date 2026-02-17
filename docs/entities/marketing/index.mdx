@@ -1,0 +1,123 @@
+---
+title: Marketing
+description: Campaign, Segment, Form -- campaign management, audience segmentation, and lead capture forms.
+icon: Megaphone
+---
+
+Three entities that power acquisition and growth. Campaigns orchestrate marketing initiatives across channels. Segments define targeted audiences with dynamic or static membership. Forms capture leads and data from prospects.
+
+```typescript
+import { Campaign, Segment, Form } from '@headlessly/marketing'
+
+const segment = await Segment.create({
+  name: 'Active Trial Users',
+  description: 'Users on trial plan with 3+ logins this week',
+  criteria: JSON.stringify({
+    plan: 'trial',
+    logins: { $gte: 3 },
+    period: 'week',
+  }),
+  isDynamic: true,
+})
+
+const campaign = await Campaign.create({
+  name: 'Trial to Pro Upgrade',
+  type: 'Email',
+  status: 'Draft',
+  budget: 5000,
+  currency: 'USD',
+  targetLeads: 200,
+  targetRevenue: 20000,
+  utmSource: 'email',
+  utmMedium: 'campaign',
+  utmCampaign: 'trial-upgrade-q1',
+})
+
+await Campaign.launch(campaign.$id)
+
+const form = await Form.create({
+  name: 'Pro Plan Interest',
+  description: 'Capture interest from trial users for Pro plan features',
+  fields: JSON.stringify([
+    { name: 'email', type: 'email', required: true },
+    { name: 'company', type: 'text', required: false },
+    { name: 'interest', type: 'select', options: ['API Access', 'Team Features', 'Analytics'] },
+  ]),
+  status: 'Draft',
+})
+
+await Form.publish(form.$id)
+```
+
+## The Marketing Graph
+
+```
+Campaign ──< Lead.campaign
+    │
+    └──> Contact (owner)
+    └──> Organization
+
+Segment ──> Organization
+
+Form ──> Organization
+```
+
+Campaigns generate leads through forms and landing pages. Segments define which contacts to target. Forms collect structured data from prospects. All three feed into the CRM pipeline.
+
+## Entities
+
+| Entity | Description | Custom Verbs |
+|--------|-------------|-------------|
+| [Campaign](/entities/marketing/campaign) | Marketing initiatives -- email, social, content, paid, webinar, referral | `launch`, `pause`, `complete` |
+| [Segment](/entities/marketing/segment) | Audience groups with dynamic or static criteria | `refresh` |
+| [Form](/entities/marketing/form) | Lead capture and data collection forms | `publish`, `archive`, `submit` |
+
+## Cross-Domain Connections
+
+Marketing is the acquisition engine that feeds the CRM pipeline:
+
+```typescript
+import { Form } from '@headlessly/marketing'
+
+Form.submitted((form, $) => {
+  const data = JSON.parse(form.fields)
+  $.Lead.create({
+    name: `${data.email} via ${form.name}`,
+    source: 'form',
+    campaign: form.campaign,
+  })
+  $.Event.create({
+    name: 'form_submitted',
+    type: 'track',
+    source: 'Browser',
+    properties: JSON.stringify({ formId: form.$id, formName: form.name }),
+    timestamp: new Date().toISOString(),
+  })
+})
+```
+
+- **CRM**: Campaigns generate Leads. Campaign owner is a Contact. Leads convert to Deals.
+- **Analytics**: Campaign interactions create Events. Campaign ROI tracked as Metrics. Conversion tracked in Funnels.
+- **Billing**: Campaign targetRevenue and actualRevenue tie to subscription and payment data.
+- **Content**: Campaigns link to landing pages and blog posts via Content entities.
+- **Support**: Customer feedback forms create both form submissions and support tickets.
+
+## Package
+
+```bash
+npm install @headlessly/marketing
+```
+
+```typescript
+import { Campaign, Segment, Form } from '@headlessly/marketing'
+```
+
+Or via the unified SDK:
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+await $.Campaign.launch('campaign_e5JhLzXc')
+await $.Segment.refresh('segment_mR4nVkTw')
+await $.Form.publish('form_qR7sHjLp')
+```

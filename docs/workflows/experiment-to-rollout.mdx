@@ -1,0 +1,227 @@
+---
+title: Experiment to Rollout
+description: Run an A/B test, analyze results, progressively roll out the winner via feature flags.
+---
+
+The experiment-to-rollout workflow connects Experimentation and Analytics. An [Experiment](/entities/experiments/experiment) tests a hypothesis, [Metrics](/entities/analytics/metric) track results, and [FeatureFlags](/entities/experiments/feature-flag) manage progressive rollout of the winning variant.
+
+## Full Flow
+
+```typescript
+import { Experiment, FeatureFlag } from '@headlessly/experiments'
+import { Event, Metric } from '@headlessly/analytics'
+
+// 1. Create experiment
+const experiment = await Experiment.create({
+  name: 'Onboarding Flow V2',
+  hypothesis: 'Simplified onboarding increases activation by 15%',
+  variants: [
+    { key: 'control', weight: 50 },
+    { key: 'simplified', weight: 50 },
+  ],
+  metric: 'activation_rate',
+  targetSampleSize: 1000,
+})
+
+// 2. Start the experiment
+await Experiment.start({ id: experiment.$id })
+
+// 3. Track variant events
+await Event.create({
+  type: 'onboarding.completed',
+  properties: {
+    experiment: experiment.$id,
+    variant: 'simplified',
+    duration: 45,
+  },
+})
+
+// 4. Conclude when significant
+await Experiment.conclude({
+  id: experiment.$id,
+  winner: 'simplified',
+  confidence: 0.97,
+  lift: 0.18,
+})
+
+// 5. Progressive rollout via feature flag
+Experiment.concluded(async (experiment, $) => {
+  const flag = await $.FeatureFlag.create({
+    key: 'onboarding-v2',
+    description: experiment.name,
+    variant: experiment.winner,
+    rolloutPercent: 10,
+  })
+  await $.FeatureFlag.enable({ id: flag.$id })
+})
+```
+
+## Step-by-Step Breakdown
+
+### Step 1: Create the Experiment
+
+An [Experiment](/entities/experiments/experiment) defines variants, the target metric, and the sample size needed for statistical significance.
+
+```typescript
+import { Experiment } from '@headlessly/experiments'
+
+const experiment = await Experiment.create({
+  name: 'Onboarding Flow V2',
+  hypothesis: 'Simplified onboarding increases activation by 15%',
+  variants: [
+    { key: 'control', weight: 50 },
+    { key: 'simplified', weight: 50 },
+  ],
+  metric: 'activation_rate',
+  targetSampleSize: 1000,
+})
+// experiment.$id => 'experiment_xN4yKpTm'
+```
+
+### Step 2: Start the Experiment
+
+Starting activates variant assignment. Users hitting the experiment are bucketed into a variant.
+
+```typescript
+await Experiment.start({ id: 'experiment_xN4yKpTm' })
+// experiment.status => 'Running'
+```
+
+### Step 3: Track Events per Variant
+
+[Events](/entities/analytics/event) record user actions and tag them with the experiment and variant for analysis.
+
+```typescript
+import { Event } from '@headlessly/analytics'
+
+await Event.create({
+  type: 'onboarding.completed',
+  properties: {
+    experiment: 'experiment_xN4yKpTm',
+    variant: 'simplified',
+    duration: 45,
+  },
+})
+```
+
+### Step 4: Conclude the Experiment
+
+When enough data is collected, conclude the experiment with the winning variant, confidence level, and observed lift.
+
+```typescript
+await Experiment.conclude({
+  id: 'experiment_xN4yKpTm',
+  winner: 'simplified',
+  confidence: 0.97,
+  lift: 0.18,
+})
+// experiment.status => 'Concluded'
+```
+
+### Step 5: Create and Enable Feature Flag
+
+The `Experiment.concluded` after-hook creates a [FeatureFlag](/entities/experiments/feature-flag) for progressive rollout of the winning variant.
+
+```typescript
+import { FeatureFlag } from '@headlessly/experiments'
+
+Experiment.concluded(async (experiment, $) => {
+  const flag = await $.FeatureFlag.create({
+    key: 'onboarding-v2',
+    description: experiment.name,
+    variant: experiment.winner,
+    rolloutPercent: 10,
+  })
+  await $.FeatureFlag.enable({ id: flag.$id })
+})
+// flag.$id => 'featureflag_mR7vPxQn'
+```
+
+### Step 6: Progressive Rollout
+
+Gradually increase the rollout percentage as confidence grows.
+
+```typescript
+// Week 1: 10%
+await FeatureFlag.rollout({ id: 'featureflag_mR7vPxQn', percent: 10 })
+
+// Week 2: 50%
+await FeatureFlag.rollout({ id: 'featureflag_mR7vPxQn', percent: 50 })
+
+// Week 3: 100%
+await FeatureFlag.rollout({ id: 'featureflag_mR7vPxQn', percent: 100 })
+```
+
+## Event Flow
+
+| Step | Event | Payload |
+|------|-------|---------|
+| Experiment created | `experiment.created` | `{ $id: 'experiment_xN4yKpTm', variants: 2 }` |
+| Experiment started | `experiment.started` | `{ status: 'Running' }` |
+| Variant event | `event.created` | `{ type: 'onboarding.completed', variant: 'simplified' }` |
+| Experiment concluded | `experiment.concluded` | `{ winner: 'simplified', confidence: 0.97 }` |
+| Flag created | `featureflag.created` | `{ key: 'onboarding-v2', rolloutPercent: 10 }` |
+| Flag enabled | `featureflag.enabled` | `{ $id: 'featureflag_mR7vPxQn' }` |
+| Rollout increased | `featureflag.rolledout` | `{ percent: 50 }` |
+
+## MCP Example
+
+An agent can manage the full experiment lifecycle:
+
+```json
+{
+  "tool": "do",
+  "input": "Create an experiment called 'Onboarding Flow V2' testing whether simplified onboarding increases activation by 15%, with 50/50 variant split and 1000 sample size target"
+}
+```
+
+```json
+{
+  "tool": "search",
+  "input": { "type": "Experiment", "filter": { "status": "Running" } }
+}
+```
+
+```json
+{
+  "tool": "do",
+  "input": "Conclude experiment_xN4yKpTm with 'simplified' as winner at 97% confidence and 18% lift, then create a feature flag and roll out to 10%"
+}
+```
+
+## Automation Pattern
+
+Automate the full experiment-to-rollout pipeline with a staged rollout schedule:
+
+```typescript
+Experiment.concluded(async (experiment, $) => {
+  if (experiment.confidence < 0.95) return // Only roll out high-confidence winners
+
+  const flag = await $.FeatureFlag.create({
+    key: experiment.name.toLowerCase().replace(/\s+/g, '-'),
+    description: `Winner from ${experiment.name}: ${experiment.winner} (${(experiment.lift * 100).toFixed(0)}% lift)`,
+    variant: experiment.winner,
+    rolloutPercent: 0,
+  })
+  await $.FeatureFlag.enable({ id: flag.$id })
+
+  // Schedule progressive rollout
+  await $.Workflow.create({
+    name: `Rollout: ${flag.key}`,
+    trigger: { type: 'schedule', cron: '0 9 * * MON' },
+    steps: [
+      { action: 'FeatureFlag.rollout', id: flag.$id, percent: 10, delay: '0w' },
+      { action: 'FeatureFlag.rollout', id: flag.$id, percent: 50, delay: '1w' },
+      { action: 'FeatureFlag.rollout', id: flag.$id, percent: 100, delay: '2w' },
+    ],
+  })
+
+  await $.Metric.record({
+    name: 'experiments.concluded',
+    value: 1,
+    dimensions: { winner: experiment.winner, lift: experiment.lift },
+  })
+})
+```
+
+Experimentation and Analytics share the same graph. Experiments produce events, events feed metrics, metrics inform conclusions, conclusions trigger feature flags, and feature flags roll out progressively -- all connected through verb conjugation and after-hooks. No separate experimentation platform, no manual flag management.

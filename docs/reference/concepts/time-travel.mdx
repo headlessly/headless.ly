@@ -1,0 +1,199 @@
+---
+title: Time Travel
+description: Event sourcing, version history, rollback, and state reconstruction.
+icon: Clock
+---
+
+## Immutability Principle
+
+Nothing is ever truly deleted in headless.ly. Every mutation -- create, update, delete, custom verb -- appends an event to an immutable, ordered log. The current state of any entity is a projection of its event history.
+
+This means:
+
+- Every past state is reconstructable
+- Every change has an audit trail
+- Rollback is always possible
+- "Delete" appends a `Deleted` event rather than erasing data
+
+## Version History
+
+Every entity carries a `$version` field that auto-increments on each mutation:
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+const contact = await Contact.create({ name: 'Alice', stage: 'Lead' })
+console.log(contact.$version) // 1
+
+await Contact.update(contact.$id, { stage: 'Qualified' })
+const updated = await Contact.get(contact.$id)
+console.log(updated.$version) // 2
+```
+
+Versions are monotonically increasing integers scoped to each entity. They provide a total ordering of mutations, independent of wall-clock time.
+
+## Query Event History
+
+Every mutation is stored as an event. Query the full history of any entity:
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+const history = await $.events.list({
+  entity: 'contact_fX9bL5nRd',
+  limit: 50,
+})
+```
+
+```json
+[
+  {
+    "id": "evt_tR8kJmNxP",
+    "type": "Contact.Created",
+    "target": "contact_fX9bL5nRd",
+    "actor": "agent_mR4nVkTw",
+    "timestamp": "2026-01-15T12:00:00Z",
+    "version": 1,
+    "data": { "name": "Alice", "email": "alice@startup.io", "stage": "Lead" }
+  },
+  {
+    "id": "evt_wL5pQrYvH",
+    "type": "Contact.Qualified",
+    "target": "contact_fX9bL5nRd",
+    "actor": "agent_mR4nVkTw",
+    "timestamp": "2026-01-16T09:30:00Z",
+    "version": 2,
+    "data": { "stage": "Lead -> Qualified" }
+  }
+]
+```
+
+Events are append-only. They cannot be modified or removed after being written.
+
+## State Reconstruction
+
+Retrieve the state of any entity at any point in time using the `asOf` parameter:
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+// Get the contact as it existed on January 15th
+const historical = await Contact.get('contact_fX9bL5nRd', {
+  asOf: '2026-01-15T10:00:00Z',
+})
+
+// Query all leads as of a past date
+const pastLeads = await Contact.find(
+  { stage: 'Lead' },
+  { asOf: '2026-01-15T10:00:00Z' }
+)
+```
+
+```json title="headless.ly/mcp#fetch"
+{
+  "type": "Contact",
+  "id": "contact_fX9bL5nRd",
+  "asOf": "2026-01-15T10:00:00Z"
+}
+```
+
+Time travel queries replay events from the immutable log up to the specified timestamp, reconstructing the entity state at that moment. This is computed on-demand within the tenant's Durable Object.
+
+## Rollback
+
+Restore an entity to a previous state. Rollback does not delete events -- it appends a new event that sets the entity back to its historical state:
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+// Rollback to a specific point in time
+await Contact.rollback('contact_fX9bL5nRd', {
+  asOf: '2026-01-15T15:00:00Z',
+})
+```
+
+After rollback, the entity's `$version` increments (it does not revert). The event log now contains the full history including the rollback event:
+
+```json
+[
+  { "type": "Contact.Created",   "version": 1, "timestamp": "2026-01-15T12:00:00Z" },
+  { "type": "Contact.Qualified", "version": 2, "timestamp": "2026-01-16T09:30:00Z" },
+  { "type": "Contact.Updated",   "version": 3, "timestamp": "2026-01-17T14:00:00Z",
+    "data": { "rollbackTo": "2026-01-15T15:00:00Z" } }
+]
+```
+
+The rollback itself is an auditable event. You can see who rolled back, when, and to what point.
+
+## Query Events by Type
+
+Find all events of a specific type across entities:
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+// All qualification events in January
+const qualifications = await $.events.list({
+  type: 'Contact.Qualified',
+  after: '2026-01-01T00:00:00Z',
+  before: '2026-02-01T00:00:00Z',
+})
+
+// All events by a specific actor
+const agentActions = await $.events.list({
+  actor: 'agent_mR4nVkTw',
+})
+
+// All events for an entity type
+const dealEvents = await $.events.list({
+  type: 'Deal.*',
+  limit: 100,
+})
+```
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Event",
+  "filter": {
+    "type": "Contact.Qualified",
+    "timestamp": { "$gte": "2026-01-01T00:00:00Z" }
+  }
+}
+```
+
+## How It Works
+
+Time travel is powered by the event-sourced architecture:
+
+```
+Write Path (every mutation)
+  1. BEFORE hooks run (validation)
+  2. Event appended to immutable log
+  3. Materialized state updated in SQLite
+  4. AFTER hooks run (side effects)
+  5. Event flushed to Iceberg R2 lakehouse
+
+Time Travel Query
+  1. Read events from log up to asOf timestamp
+  2. Replay events in order to reconstruct state
+  3. Return the projected entity
+
+Rollback
+  1. Reconstruct state at target timestamp
+  2. Append a new Update event with the reconstructed state
+  3. Materialized state updated to match
+```
+
+The materialized state in SQLite serves fast reads for the current version. The event log in Iceberg R2 serves historical queries and long-term analytics.
+
+## Use Cases
+
+| Scenario | How Time Travel Helps |
+|----------|----------------------|
+| **Accidental update** | Rollback to the state before the bad write |
+| **Compliance audit** | Reconstruct who changed what, when, for any entity |
+| **Debugging** | Replay the exact sequence of events that led to a state |
+| **Analytics** | Query historical snapshots without impacting the live system |
+| **Undo** | Any user or agent action can be reversed by rolling back |
+
+Because every state is reconstructable from events, there is no data loss scenario short of deleting the event log itself -- which is stored on durable, replicated Cloudflare R2 storage.

@@ -10,6 +10,7 @@ export const Customer = Noun('Customer', {
   payments: '<- Payment.customer[]',
   paymentMethod: 'string',
   currency: 'string',
+  contact: '-> Contact',
   taxExempt: 'string',
 })
 
@@ -25,7 +26,7 @@ export const Product = Noun('Product', {
   highlights: 'string',
   status: 'Draft | Active | Archived',
   visibility: 'Public | Private | Hidden',
-  featured: 'string',
+  featured: 'boolean',
   plans: '<- Plan.product[]',
   stripeProductId: 'string##',
 })
@@ -40,9 +41,9 @@ export const Plan = Noun('Plan', {
   features: 'string',
   limits: 'string',
   status: 'Draft | Active | Grandfathered | Archived',
-  isDefault: 'string',
-  isFree: 'string',
-  isEnterprise: 'string',
+  isDefault: 'boolean',
+  isFree: 'boolean',
+  isEnterprise: 'boolean',
   badge: 'string',
   order: 'number',
 })
@@ -54,7 +55,7 @@ export const Price = Noun('Price', {
   intervalCount: 'number',
   originalAmount: 'number',
   discountPercent: 'number',
-  active: 'string',
+  active: 'boolean',
   plan: '-> Plan.prices',
   stripeId: 'string##',
 })
@@ -66,7 +67,7 @@ export const Subscription = Noun('Subscription', {
   plan: '-> Plan',
   currentPeriodStart: 'datetime!',
   currentPeriodEnd: 'datetime!',
-  cancelAtPeriodEnd: 'string',
+  cancelAtPeriodEnd: 'boolean',
   trialStart: 'datetime',
   trialEnd: 'datetime',
   startedAt: 'datetime!',
@@ -86,6 +87,8 @@ export const Subscription = Noun('Subscription', {
   reactivate: 'Reactivated',
   upgrade: 'Upgraded',
   downgrade: 'Downgraded',
+  activate: 'Activated',
+  renew: 'Renewed',
 })
 
 export const Invoice = Noun('Invoice', {
@@ -107,13 +110,14 @@ export const Invoice = Noun('Invoice', {
   dueAt: 'datetime',
   paidAt: 'datetime',
   voidedAt: 'datetime',
-  lineItems: 'string',
+  lineItems: 'json',
   receiptUrl: 'string',
   pdfUrl: 'string',
   hostedUrl: 'string',
   stripeInvoiceId: 'string##',
   pay: 'Paid',
   void: 'Voided',
+  finalize: 'Finalized',
 })
 
 export const Payment = Noun('Payment', {
@@ -125,4 +129,5 @@ export const Payment = Noun('Payment', {
   invoice: '-> Invoice',
   stripePaymentId: 'string##',
   refund: 'Refunded',
+  capture: 'Captured',
 })

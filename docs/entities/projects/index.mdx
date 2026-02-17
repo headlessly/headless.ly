@@ -1,0 +1,97 @@
+---
+title: Projects
+description: Project, Issue, Comment -- GitHub-backed issue tracking and work management as a typed graph.
+icon: FolderKanban
+---
+
+Three entities form a connected graph for tracking work -- from high-level projects down to individual issues and threaded discussion. Projects contain issues, issues contain comments, and every mutation syncs bidirectionally with GitHub.
+
+```typescript
+import { Project, Issue, Comment } from '@headlessly/projects'
+
+const project = await Project.create({
+  name: 'Launch v2',
+  slug: 'launch-v2',
+  status: 'Active',
+  visibility: 'Private',
+})
+
+const issue = await Issue.create({
+  title: 'Implement webhook handler',
+  project: project.$id,
+  type: 'Feature',
+  priority: 'High',
+  status: 'Open',
+})
+
+await Issue.assign(issue.$id, { assignee: 'contact_fX9bL5nRd' })
+
+await Comment.create({
+  body: 'Started on the webhook handler -- PR incoming.',
+  author: 'contact_fX9bL5nRd',
+  issue: issue.$id,
+})
+
+await Issue.close(issue.$id)
+await Project.complete(project.$id)
+```
+
+## The Work Graph
+
+```
+Organization ──< Project ──< Issue ──< Comment
+                    │           │
+                    │           ├── assignee ──> Contact
+                    │           └── reporter ──> Contact
+                    └── owner ──> Contact
+```
+
+Every arrow is a typed relationship defined in the Noun schema. Back-references are automatic -- `Project.issues` is the inverse of `Issue.project`.
+
+## Entities
+
+| Entity | Description | Custom Verbs |
+|--------|-------------|-------------|
+| [Project](/entities/projects/project) | Container for organized work with status and visibility | `archive`, `complete`, `activate` |
+| [Issue](/entities/projects/issue) | Unit of work -- bugs, features, tasks, epics | `assign`, `close`, `reopen` |
+| [Comment](/entities/projects/comment) | Threaded discussion on issues | `resolve` |
+
+## Cross-Domain Connections
+
+Projects integrates with the rest of the business graph:
+
+```typescript
+import { Organization } from '@headlessly/crm'
+
+Organization.created((org, $) => {
+  $.Project.create({
+    name: `${org.name} Onboarding`,
+    organization: org.$id,
+    status: 'Active',
+  })
+})
+```
+
+- **CRM**: Organizations map to projects for delivery tracking. Contacts serve as owners, assignees, and reporters.
+- **Support**: Tickets can reference issues for bug tracking. Resolved issues trigger ticket updates.
+- **Analytics**: Every verb emits events that feed into Metric and Goal tracking.
+- **Content**: Documentation projects track content creation workflows.
+
+## Package
+
+```bash
+npm install @headlessly/projects
+```
+
+```typescript
+import { Project, Issue, Comment } from '@headlessly/projects'
+```
+
+Or via the unified SDK:
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+await $.Project.find({ status: 'Active' })
+await $.Issue.find({ priority: 'Urgent', status: 'Open' })
+```

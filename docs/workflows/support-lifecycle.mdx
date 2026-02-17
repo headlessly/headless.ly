@@ -1,0 +1,165 @@
+---
+title: Support Lifecycle
+description: Ticket creation, assignment, escalation, resolution, and satisfaction tracking.
+---
+
+The support lifecycle workflow connects Support and CRM into a single graph. Tickets are created, assigned, escalated when necessary, resolved, and followed up with satisfaction tracking -- all through verb conjugation and after-hooks.
+
+## Full Flow
+
+```typescript
+import { Ticket } from '@headlessly/support'
+import { Contact, Activity } from '@headlessly/crm'
+
+// 1. Create ticket from existing contact
+const ticket = await Ticket.create({
+  subject: 'Cannot access billing portal',
+  priority: 'High',
+  contact: 'contact_fX9bL5nRd',
+  channel: 'email',
+})
+
+// 2. Assign to support agent
+await Ticket.assign({ id: ticket.$id, agent: 'user_bQ4xNmWj' })
+
+// 3. Escalate if needed
+await Ticket.escalate({ id: ticket.$id, reason: 'Billing system outage' })
+
+// 4. Resolve
+await Ticket.resolve({ id: ticket.$id, resolution: 'Portal access restored after billing sync' })
+
+// 5. Track satisfaction via after-hook
+Ticket.resolved(async (ticket, $) => {
+  await $.Activity.create({
+    type: 'satisfaction_survey',
+    contact: ticket.contact,
+    ticket: ticket.$id,
+  })
+})
+```
+
+## Step-by-Step Breakdown
+
+### Step 1: Create the Ticket
+
+A [Ticket](/entities/support/ticket) links to an existing [Contact](/entities/crm/contact), connecting support to the CRM graph.
+
+```typescript
+import { Ticket } from '@headlessly/support'
+
+const ticket = await Ticket.create({
+  subject: 'Cannot access billing portal',
+  priority: 'High',
+  contact: 'contact_fX9bL5nRd',
+  channel: 'email',
+})
+// ticket.$id => 'ticket_rV7yKdPm'
+```
+
+### Step 2: Assign the Ticket
+
+Assignment fires the `assigning` before-hook (for load-balancing logic) and the `assigned` after-hook (for notifications).
+
+```typescript
+await Ticket.assign({
+  id: 'ticket_rV7yKdPm',
+  agent: 'user_bQ4xNmWj',
+})
+```
+
+### Step 3: Escalate if Necessary
+
+Escalation bumps the ticket to a senior agent and records the reason in the event log.
+
+```typescript
+await Ticket.escalate({
+  id: 'ticket_rV7yKdPm',
+  reason: 'Billing system outage',
+})
+```
+
+### Step 4: Resolve the Ticket
+
+Resolution closes the ticket and records the fix. The `resolved` after-hook triggers downstream actions.
+
+```typescript
+await Ticket.resolve({
+  id: 'ticket_rV7yKdPm',
+  resolution: 'Portal access restored after billing sync',
+})
+```
+
+### Step 5: Track Satisfaction
+
+The after-hook on `Ticket.resolved` creates an [Activity](/entities/crm/activity) record for satisfaction follow-up.
+
+```typescript
+import { Activity } from '@headlessly/crm'
+
+Ticket.resolved(async (ticket, $) => {
+  await $.Activity.create({
+    type: 'satisfaction_survey',
+    contact: ticket.contact,
+    ticket: ticket.$id,
+  })
+})
+```
+
+## Event Flow
+
+| Step | Event | Payload |
+|------|-------|---------|
+| Ticket created | `ticket.created` | `{ $id: 'ticket_rV7yKdPm', priority: 'High' }` |
+| Assignment | `ticket.assigned` | `{ agent: 'user_bQ4xNmWj' }` |
+| Escalation | `ticket.escalated` | `{ reason: 'Billing system outage' }` |
+| Resolution | `ticket.resolved` | `{ resolution: 'Portal access restored...' }` |
+| Survey sent | `activity.created` | `{ type: 'satisfaction_survey' }` |
+
+## MCP Example
+
+An agent handles the entire support lifecycle via the three MCP primitives:
+
+```json
+{
+  "tool": "search",
+  "input": { "type": "Ticket", "filter": { "priority": "High", "status": "Open" } }
+}
+```
+
+```json
+{
+  "tool": "do",
+  "input": "Assign ticket_rV7yKdPm to user_bQ4xNmWj, then resolve it with 'Portal access restored after billing sync'"
+}
+```
+
+## Automation Pattern
+
+Auto-assignment distributes tickets based on agent workload using the `creating` before-hook:
+
+```typescript
+Ticket.creating(async (ticket, $) => {
+  const agents = await $.User.find({ role: 'support', status: 'online' })
+  const leastBusy = agents.sort((a, b) => a.openTickets - b.openTickets)[0]
+  ticket.agent = leastBusy.$id
+  return ticket
+})
+
+Ticket.resolved(async (ticket, $) => {
+  await $.Activity.create({
+    type: 'satisfaction_survey',
+    contact: ticket.contact,
+    ticket: ticket.$id,
+  })
+  const org = await $.Organization.get({ contact: ticket.contact })
+  if (org) {
+    await $.Activity.create({
+      type: 'health_check',
+      organization: org.$id,
+      note: `Ticket ${ticket.$id} resolved`,
+    })
+  }
+})
+```
+
+The before-hook on `Ticket.creating` handles assignment. The after-hook on `Ticket.resolved` triggers both a satisfaction survey and an org-level health check. Support feeds directly into CRM context -- one graph, no integration.

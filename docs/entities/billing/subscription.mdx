@@ -1,0 +1,364 @@
+---
+title: Subscription
+description: Active paying relationships with full lifecycle -- pause, cancel, upgrade, downgrade, and reactivate.
+---
+
+## Schema
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Subscription = Noun('Subscription', {
+  status: 'Active | PastDue | Cancelled | Trialing | Paused | Incomplete | Reactivated | Upgraded | Downgraded',
+  organization: '-> Organization.subscriptions',
+  customer: '-> Customer.subscriptions',
+  plan: '-> Plan',
+  currentPeriodStart: 'datetime!',
+  currentPeriodEnd: 'datetime!',
+  cancelAtPeriodEnd: 'boolean',
+  trialStart: 'datetime',
+  trialEnd: 'datetime',
+  startedAt: 'datetime!',
+  canceledAt: 'datetime',
+  pausedAt: 'datetime',
+  resumesAt: 'datetime',
+  endedAt: 'datetime',
+  cancelReason: 'string',
+  cancelFeedback: 'string',
+  quantity: 'number',
+  paymentMethod: 'string',
+  collectionMethod: 'string',
+  stripeSubscriptionId: 'string##',
+  stripeCustomerId: 'string',
+  pause: 'Paused',
+  cancel: 'Cancelled',
+  reactivate: 'Reactivated',
+  upgrade: 'Upgraded',
+  downgrade: 'Downgraded',
+  activate: 'Activated',
+  renew: 'Renewed',
+})
+```
+
+## Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `status` | enum | No | Current state (see Status State Machine below) |
+| `currentPeriodStart` | datetime | Yes | Start of the current billing period |
+| `currentPeriodEnd` | datetime | Yes | End of the current billing period |
+| `cancelAtPeriodEnd` | boolean | No | Whether to cancel at the end of the current period instead of immediately |
+| `trialStart` | datetime | No | When the trial period began |
+| `trialEnd` | datetime | No | When the trial period ends |
+| `startedAt` | datetime | Yes | When the subscription was first created |
+| `canceledAt` | datetime | No | When cancellation was requested |
+| `pausedAt` | datetime | No | When the subscription was paused |
+| `resumesAt` | datetime | No | When a paused subscription will automatically resume |
+| `endedAt` | datetime | No | When the subscription fully ended |
+| `cancelReason` | string | No | Machine-readable cancellation reason |
+| `cancelFeedback` | string | No | Human-readable cancellation feedback from the customer |
+| `quantity` | number | No | Seat count or usage quantity |
+| `paymentMethod` | string | No | Payment method ID for this subscription |
+| `collectionMethod` | string | No | How payment is collected: `charge_automatically` or `send_invoice` |
+| `stripeSubscriptionId` | string | No | Stripe Subscription ID (unique, indexed) |
+| `stripeCustomerId` | string | No | Stripe Customer ID for quick lookups |
+
+## Relationships
+
+| Field | Direction | Target | Description |
+|-------|-----------|--------|-------------|
+| `organization` | `->` | Organization.subscriptions | The organization this subscription belongs to |
+| `customer` | `->` | Customer.subscriptions | The billing customer |
+| `plan` | `->` | Plan | The plan being subscribed to |
+
+## Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `create` | `Created` | Create a new subscription (also creates in Stripe) |
+| `update` | `Updated` | Update subscription fields |
+| `delete` | `Deleted` | Soft-delete the subscription |
+| `pause` | `Paused` | Temporarily suspend billing |
+| `cancel` | `Cancelled` | End the subscription (immediately or at period end) |
+| `reactivate` | `Reactivated` | Restart a cancelled or paused subscription |
+| `upgrade` | `Upgraded` | Move to a higher-value plan |
+| `downgrade` | `Downgraded` | Move to a lower-value plan |
+| `activate` | `Activated` | Activate a trialing or incomplete subscription |
+| `renew` | `Renewed` | Renew the subscription for another billing period |
+
+### Verb Lifecycle
+
+Every verb follows the full conjugation pattern -- execute, before hook, after hook:
+
+```typescript
+import { Subscription } from '@headlessly/billing'
+
+// Execute
+await Subscription.cancel('sub_e5JhLzXc', {
+  cancelAtPeriodEnd: true,
+  cancelReason: 'too_expensive',
+  cancelFeedback: 'We found a cheaper alternative',
+})
+
+// Before hook -- runs before cancellation is processed
+Subscription.cancelling(sub => {
+  console.log(`About to cancel subscription ${sub.$id} for ${sub.customer}`)
+})
+
+// After hook -- runs after the Stripe subscription is cancelled
+Subscription.cancelled(sub => {
+  console.log(`Subscription ${sub.$id} cancelled at ${sub.canceledAt}`)
+})
+```
+
+## Status State Machine
+
+```
+  create()                              activate()
+(none) ──────→ Trialing ──────────────────→ Active
+                                             │  ▲
+                                   pause()   │  │  reactivate()
+                                             ▼  │
+                                           Paused
+                                             │
+                              reactivate()   │
+               Active ←──────────────────────┘
+                 │
+       cancel()  │  upgrade()  │  downgrade()
+                 ▼             ▼              ▼
+            Cancelled      Upgraded      Downgraded
+                            (Active)      (Active)
+                 │
+                 │  (payment fails)
+                 ▼
+              PastDue ──→ Cancelled (auto)
+```
+
+Valid transitions:
+
+| From | Verb | To |
+|------|------|----|
+| -- | `create` | `Trialing` or `Active` |
+| `Trialing` | `activate` | `Active` |
+| `Active` | `pause` | `Paused` |
+| `Active` | `cancel` | `Cancelled` |
+| `Active` | `upgrade` | `Upgraded` (then `Active`) |
+| `Active` | `downgrade` | `Downgraded` (then `Active`) |
+| `Active` | `renew` | `Renewed` (then `Active`) |
+| `Paused` | `reactivate` | `Reactivated` (then `Active`) |
+| `Paused` | `cancel` | `Cancelled` |
+| `Cancelled` | `reactivate` | `Reactivated` (then `Active`) |
+| `PastDue` | `activate` | `Active` |
+| `PastDue` | `cancel` | `Cancelled` |
+| `Incomplete` | `activate` | `Active` |
+
+`Upgraded`, `Downgraded`, `Reactivated`, and `Renewed` are transient event states -- the subscription resolves back to `Active` after the event is emitted.
+
+## Subscription Lifecycle Examples
+
+### Trial to Active
+
+```typescript
+import { Subscription } from '@headlessly/billing'
+
+const sub = await Subscription.create({
+  customer: 'customer_fX9bL5nRd',
+  plan: 'plan_Nw8rTxJv',
+  status: 'Trialing',
+  currentPeriodStart: new Date(),
+  currentPeriodEnd: new Date(Date.now() + 14 * 86400000),
+  trialStart: new Date(),
+  trialEnd: new Date(Date.now() + 14 * 86400000),
+  startedAt: new Date(),
+})
+
+// After trial converts
+await Subscription.activate(sub.$id)
+```
+
+### Pause and Resume
+
+```typescript
+import { Subscription } from '@headlessly/billing'
+
+// Pause for 30 days
+await Subscription.pause('sub_e5JhLzXc', {
+  resumesAt: new Date(Date.now() + 30 * 86400000),
+})
+
+// Or reactivate manually
+await Subscription.reactivate('sub_e5JhLzXc')
+```
+
+### Plan Change
+
+```typescript
+import { Subscription } from '@headlessly/billing'
+
+// Upgrade to a higher plan
+await Subscription.upgrade('sub_e5JhLzXc', {
+  plan: 'plan_hR5vWxJq',
+})
+
+// Downgrade at period end
+await Subscription.downgrade('sub_e5JhLzXc', {
+  plan: 'plan_Nw8rTxJv',
+  cancelAtPeriodEnd: false,
+})
+```
+
+### Cancellation with Feedback
+
+```typescript
+import { Subscription } from '@headlessly/billing'
+
+await Subscription.cancel('sub_e5JhLzXc', {
+  cancelAtPeriodEnd: true,
+  cancelReason: 'missing_features',
+  cancelFeedback: 'Need better reporting capabilities',
+})
+```
+
+## Cross-Domain Patterns
+
+Subscription is the heart of the revenue graph. It connects billing to every business function:
+
+```typescript
+import { Subscription } from '@headlessly/billing'
+
+// When a subscription activates, update the CRM contact stage
+Subscription.activated((sub, $) => {
+  const customer = await $.Customer.get(sub.customer)
+  if (customer.contact) {
+    await $.Contact.update(customer.contact, { stage: 'Customer' })
+  }
+})
+
+// When a subscription is cancelled, create a retention campaign
+Subscription.cancelled((sub, $) => {
+  const customer = await $.Customer.get(sub.customer)
+  await $.Campaign.create({
+    name: `Win-back: ${customer.name}`,
+    type: 'Retention',
+    status: 'Active',
+  })
+})
+
+// When a subscription upgrades, track the expansion revenue
+Subscription.upgraded((sub, $) => {
+  $.Metric.record('expansion_mrr', {
+    subscription: sub.$id,
+    plan: sub.plan,
+  })
+})
+```
+
+## Query Examples
+
+### SDK
+
+```typescript
+import { Subscription } from '@headlessly/billing'
+
+// Find all active subscriptions
+const active = await Subscription.find({ status: 'Active' })
+
+// Get a subscription with related data
+const sub = await Subscription.get('sub_e5JhLzXc', {
+  include: ['customer', 'plan'],
+})
+
+// Find subscriptions expiring this month
+const expiring = await Subscription.find({
+  cancelAtPeriodEnd: true,
+  currentPeriodEnd: { $lte: new Date('2025-06-30') },
+})
+
+// Find trialing subscriptions
+const trials = await Subscription.find({ status: 'Trialing' })
+
+// Count by status
+const pausedCount = await Subscription.count({ status: 'Paused' })
+```
+
+### MCP
+
+```json title="headless.ly/mcp#search"
+{ "type": "Subscription", "filter": { "status": "Active" } }
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Subscription", "id": "sub_e5JhLzXc", "include": ["customer", "plan"] }
+```
+
+```ts title="headless.ly/mcp#do"
+const trials = await $.Subscription.find({ status: 'Trialing' })
+for (const trial of trials) {
+  if (new Date(trial.trialEnd) < new Date()) {
+    await $.Subscription.activate(trial.$id)
+  }
+}
+```
+
+### REST
+
+```bash
+GET https://headless.ly/~acme/subscriptions?status=Active
+```
+
+```bash
+GET https://headless.ly/~acme/subscriptions/sub_e5JhLzXc
+```
+
+```bash
+POST https://headless.ly/~acme/subscriptions/sub_e5JhLzXc/cancel
+Content-Type: application/json
+
+{ "cancelAtPeriodEnd": true, "cancelReason": "too_expensive" }
+```
+
+## Event-Driven Patterns
+
+Subscriptions emit the richest event stream in the billing graph:
+
+```typescript
+import { Subscription } from '@headlessly/billing'
+
+// Monitor churn
+Subscription.cancelled((sub, $) => {
+  $.Event.create({
+    type: 'billing.churn',
+    data: {
+      subscription: sub.$id,
+      reason: sub.cancelReason,
+      feedback: sub.cancelFeedback,
+      plan: sub.plan,
+    },
+  })
+  $.Metric.record('churn_rate', { plan: sub.plan })
+})
+
+// Monitor trial conversions
+Subscription.activated((sub, $) => {
+  if (sub.trialStart) {
+    $.Event.create({
+      type: 'billing.trial_converted',
+      data: { subscription: sub.$id, plan: sub.plan },
+    })
+    $.Metric.record('trial_conversion_rate', { plan: sub.plan })
+  }
+})
+
+// Monitor renewals for NRR calculation
+Subscription.renewed((sub, $) => {
+  $.Metric.record('renewal', {
+    subscription: sub.$id,
+    plan: sub.plan,
+    quantity: sub.quantity,
+  })
+})
+```
+
+## Stripe Sync
+
+Subscriptions are fully bidirectional with Stripe. Every lifecycle verb (`pause`, `cancel`, `reactivate`, `upgrade`, `downgrade`) calls the corresponding Stripe API. Stripe webhooks (`customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `customer.subscription.trial_will_end`) flow back as events, keeping the headless.ly graph in sync. The `stripeSubscriptionId` field is the bidirectional link.

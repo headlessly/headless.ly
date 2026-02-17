@@ -136,7 +136,7 @@ export const Deal = Noun('Deal', {
   currency: 'string',
   recurringValue: 'number',
   recurringInterval: 'Monthly | Quarterly | Yearly',
-  stage: 'Prospecting | Qualification | Proposal | Negotiation | ClosedWon | ClosedLost',
+  stage: 'Prospecting | Qualification | Proposal | Negotiation | Closed | Won | Lost',
   probability: 'number',
   expectedCloseDate: 'date',
   actualCloseDate: 'date',
@@ -181,7 +181,7 @@ export const Activity = Noun('Activity', {
   startAt: 'datetime',
   endAt: 'datetime',
   duration: 'number',
-  allDay: 'string',
+  allDay: 'boolean',
   timezone: 'string',
   status: 'Pending | InProgress | Completed | Cancelled',
   priority: 'Low | Medium | High | Urgent',
@@ -209,8 +209,8 @@ export const Pipeline = Noun('Pipeline', {
   name: 'string!',
   slug: 'string##',
   description: 'string',
-  isDefault: 'string',
-  stages: 'string',
+  isDefault: 'boolean',
+  stages: 'json',
   dealRotting: 'number',
 })
 ```

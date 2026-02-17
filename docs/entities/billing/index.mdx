@@ -1,0 +1,130 @@
+---
+title: Billing
+description: Customer, Product, Plan, Price, Subscription, Invoice, Payment -- revenue powered by Stripe.
+icon: CreditCard
+---
+
+Seven entities form the complete billing graph -- from product catalog to recurring subscriptions to payment collection. Every entity is Stripe-backed. Creating a Subscription in headless.ly creates a Stripe subscription. Stripe webhooks flow back as immutable events.
+
+```typescript
+import { Customer, Product, Plan, Price, Subscription, Invoice } from '@headlessly/billing'
+
+const customer = await Customer.create({
+  name: 'Acme Dev',
+  email: 'billing@acme.dev',
+  organization: 'org_fX9bL5nRd',
+})
+
+const product = await Product.create({
+  name: 'Headlessly Pro',
+  type: 'Software',
+  status: 'Active',
+  visibility: 'Public',
+})
+
+const plan = await Plan.create({
+  name: 'Pro Monthly',
+  product: product.$id,
+  trialDays: 14,
+  status: 'Active',
+})
+
+const price = await Price.create({
+  amount: 4900,
+  currency: 'usd',
+  interval: 'Monthly',
+  plan: plan.$id,
+  active: true,
+})
+
+const subscription = await Subscription.create({
+  customer: customer.$id,
+  plan: plan.$id,
+  status: 'Trialing',
+  currentPeriodStart: new Date(),
+  currentPeriodEnd: new Date(Date.now() + 14 * 86400000),
+  startedAt: new Date(),
+})
+
+// After trial ends, activate
+await Subscription.activate(subscription.$id)
+```
+
+## The Billing Graph
+
+```
+Product ──< Plan ──< Price
+                │
+Customer ──< Subscription ──> Plan
+    │              │
+    ├──< Invoice ──┘
+    │       │
+    └──< Payment ──> Invoice
+```
+
+Products contain Plans, Plans contain Prices. A Customer subscribes to a Plan via a Subscription. Subscriptions generate Invoices, and Payments settle those Invoices. Every arrow is a typed relationship in the Noun schema.
+
+## Entities
+
+| Entity | Description | Custom Verbs |
+|--------|-------------|-------------|
+| [Customer](/entities/billing/customer) | Stripe Customer -- the billing identity | -- |
+| [Product](/entities/billing/product) | What you sell -- software, services, addons, bundles | -- |
+| [Plan](/entities/billing/plan) | Pricing tiers with trial configuration and feature limits | -- |
+| [Price](/entities/billing/price) | Amount, currency, and interval -- maps to Stripe Prices | -- |
+| [Subscription](/entities/billing/subscription) | Active paying relationships with full lifecycle | `pause`, `cancel`, `reactivate`, `upgrade`, `downgrade`, `activate`, `renew` |
+| [Invoice](/entities/billing/invoice) | Bills generated from subscriptions | `pay`, `void`, `finalize` |
+| [Payment](/entities/billing/payment) | Money movement -- charges and refunds | `refund`, `capture` |
+
+## Stripe as Truth Source
+
+All billing entities sync bidirectionally with Stripe. headless.ly is not a payment processor -- it is the typed graph layer on top of Stripe.
+
+- **Writes** to headless.ly create corresponding Stripe objects via the Stripe API
+- **Stripe webhooks** flow back as events, keeping the graph in sync
+- **Stripe IDs** are stored on every entity (`stripeCustomerId`, `stripeProductId`, `stripeSubscriptionId`, etc.) as indexed unique fields
+- **Financial metrics** (MRR, churn, NRR, LTV) are derived from real Stripe data -- headless baremetrics
+
+## Cross-Domain Connections
+
+Billing is the revenue engine that connects to every other domain:
+
+```typescript
+import { Deal } from '@headlessly/crm'
+
+Deal.won((deal, $) => {
+  const customer = await $.Customer.create({
+    name: deal.name,
+    email: deal.contact,
+    organization: deal.organization,
+  })
+  await $.Subscription.create({
+    customer: customer.$id,
+    plan: 'plan_Nw8rTxJv',
+  })
+})
+```
+
+- **CRM**: Deal close triggers Customer and Subscription creation
+- **Analytics**: Every billing event feeds into Metric and Funnel (MRR, churn, conversion)
+- **Support**: Customer is linked to Ticket for billing inquiries
+- **Marketing**: Subscription status drives Segment membership for retention campaigns
+
+## Package
+
+```bash
+npm install @headlessly/billing
+```
+
+```typescript
+import { Customer, Product, Plan, Price, Subscription, Invoice, Payment } from '@headlessly/billing'
+```
+
+Or via the unified SDK:
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+await $.Customer.create({ name: 'Acme Dev', email: 'billing@acme.dev' })
+await $.Subscription.find({ status: 'Active' })
+```

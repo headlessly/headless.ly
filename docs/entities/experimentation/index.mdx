@@ -1,0 +1,106 @@
+---
+title: Experimentation
+description: Experiment, FeatureFlag -- A/B testing, multivariate experiments, and progressive rollouts.
+icon: FlaskConical
+---
+
+Two entities give you a complete experimentation framework -- from hypothesis to statistical conclusion. Experiments define what you are testing and track results. Feature flags control who sees what and roll out changes progressively.
+
+```typescript
+import { Experiment, FeatureFlag } from '@headlessly/experiments'
+
+const experiment = await Experiment.create({
+  name: 'Onboarding Flow V2',
+  slug: 'onboarding-v2',
+  hypothesis: 'A simplified onboarding flow increases activation by 15%',
+  type: 'ABTest',
+  primaryMetric: 'activation_rate',
+  trafficAllocation: 50,
+  variants: [
+    { key: 'control', name: 'Current Flow', weight: 50 },
+    { key: 'treatment', name: 'Simplified Flow', weight: 50 },
+  ],
+})
+
+const flag = await FeatureFlag.create({
+  key: 'onboarding-v2',
+  name: 'Onboarding V2 Flag',
+  experiment: experiment.$id,
+  type: 'Boolean',
+  defaultValue: 'false',
+  rolloutPercentage: 50,
+})
+
+await Experiment.start(experiment.$id)
+
+// Later, when results are significant
+await Experiment.conclude(experiment.$id)
+await FeatureFlag.rollout(flag.$id)
+```
+
+## The Experimentation Graph
+
+```
+Experiment ──< FeatureFlag
+     │              │
+     ├── owner ──> Contact
+     │              │
+     └── org ──> Organization
+                    │
+                    └── targetingRules (audience segments)
+```
+
+Experiments own feature flags. An experiment can control multiple flags (multivariate), while a feature flag can exist independently for simple rollouts and kill switches.
+
+## Entities
+
+| Entity | Description | Custom Verbs |
+|--------|-------------|-------------|
+| [Experiment](/entities/experimentation/experiment) | A/B tests, multivariate, ML, and prompt experiments | `start`, `conclude`, `pause`, `stop` |
+| [FeatureFlag](/entities/experimentation/feature-flag) | Progressive rollouts, targeting rules, kill switches | `rollout`, `enable`, `disable` |
+
+## Cross-Domain Connections
+
+Experimentation connects to analytics for measurement and marketing for audience targeting:
+
+```typescript
+import { Experiment } from '@headlessly/experiments'
+
+Experiment.concluded((experiment, $) => {
+  // Record the result as a metric
+  $.Metric.create({
+    name: `${experiment.name} - Result`,
+    type: 'Conversion',
+    value: experiment.confidence,
+  })
+
+  // If the experiment won, roll out the feature flag
+  if (experiment.winner) {
+    $.FeatureFlag.rollout(experiment.winner)
+  }
+})
+```
+
+- **Analytics**: Experiment metrics feed into Funnel and Goal tracking. Every variant impression and conversion emits an Event
+- **Marketing**: Campaign experiments use Segments for targeting. Feature flags gate campaign features
+- **CRM**: Contact-level experiment assignment enables personalized experiences
+- **Platform**: Workflow triggers can be gated by feature flags. Agents use experiments to optimize prompts
+
+## Package
+
+```bash
+npm install @headlessly/experiments
+```
+
+```typescript
+import { Experiment, FeatureFlag } from '@headlessly/experiments'
+```
+
+Or via the unified SDK:
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+await $.Experiment.create({ name: 'Pricing Test', type: 'ABTest' })
+await $.FeatureFlag.find({ status: 'Active' })
+```

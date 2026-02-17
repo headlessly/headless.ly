@@ -1,0 +1,253 @@
+---
+title: Deal
+description: Sales opportunities with value, pipeline stage tracking, and close-to-subscribe automation.
+---
+
+## Schema
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Deal = Noun('Deal', {
+  name: 'string!',
+  organization: '-> Organization.deals',
+  contact: '-> Contact',
+  owner: '-> Contact',
+  value: 'number!',
+  currency: 'string',
+  recurringValue: 'number',
+  recurringInterval: 'Monthly | Quarterly | Yearly',
+  stage: 'Prospecting | Qualification | Proposal | Negotiation | Closed | Won | Lost',
+  probability: 'number',
+  expectedCloseDate: 'date',
+  actualCloseDate: 'date',
+  description: 'string',
+  nextStep: 'string',
+  competitorNotes: 'string',
+  lostReason: 'string',
+  wonReason: 'string',
+  leads: '<- Lead.deal[]',
+  source: 'string',
+  campaign: '-> Campaign',
+  activities: '<- Activity.deal[]',
+  lastActivityAt: 'datetime',
+  close: 'Closed',
+  win: 'Won',
+  lose: 'Lost',
+  advance: 'Advanced',
+  reopen: 'Reopened',
+})
+```
+
+## Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Deal title or opportunity name |
+| `organization` | -> Organization | No | The company this deal is with |
+| `contact` | -> Contact | No | Primary contact for this deal |
+| `owner` | -> Contact | No | Sales rep or agent responsible |
+| `value` | number | Yes | Total deal value in base currency |
+| `currency` | string | No | Currency code (USD, EUR, etc.) |
+| `recurringValue` | number | No | Recurring revenue component |
+| `recurringInterval` | enum | No | Monthly, Quarterly, or Yearly |
+| `stage` | enum | No | Current pipeline stage |
+| `probability` | number | No | Win probability (0-100) |
+| `expectedCloseDate` | date | No | Projected close date |
+| `actualCloseDate` | date | No | Actual close date |
+| `description` | string | No | Deal description and notes |
+| `nextStep` | string | No | Next action item |
+| `competitorNotes` | string | No | Competitive intelligence |
+| `lostReason` | string | No | Why the deal was lost |
+| `wonReason` | string | No | Why the deal was won |
+| `leads` | <- Lead[] | No | Leads that fed into this deal |
+| `source` | string | No | Acquisition source |
+| `campaign` | -> Campaign | No | Marketing campaign attribution |
+| `activities` | <- Activity[] | No | All activities on this deal |
+| `lastActivityAt` | datetime | No | Timestamp of the most recent activity |
+
+## Relationships
+
+| Field | Direction | Target | Description |
+|-------|-----------|--------|-------------|
+| `organization` | -> | Organization.deals | The company this deal is with |
+| `contact` | -> | Contact | Primary point of contact |
+| `owner` | -> | Contact | Sales rep or agent who owns this deal |
+| `campaign` | -> | Campaign | Marketing campaign that sourced this deal |
+| `leads` | <- | Lead.deal[] | Leads that converted into this deal |
+| `activities` | <- | Activity.deal[] | All logged activities (calls, emails, meetings) |
+
+## Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `create` | `Created` | Create a new deal |
+| `update` | `Updated` | Update deal fields |
+| `delete` | `Deleted` | Delete a deal |
+| `close` | `Closed` | Close the deal (neutral -- use `win` or `lose` for outcome) |
+| `win` | `Won` | Mark the deal as won |
+| `lose` | `Lost` | Mark the deal as lost with a reason |
+| `advance` | `Advanced` | Move to the next pipeline stage |
+| `reopen` | `Reopened` | Reopen a closed, won, or lost deal |
+
+### Verb Lifecycle
+
+```typescript
+import { Deal } from '@headlessly/crm'
+
+// BEFORE hook -- validate the deal before closing
+Deal.winning(deal => {
+  if (!deal.value) throw new Error('Deal value required to close')
+  if (!deal.contact) throw new Error('Contact required to close')
+})
+
+// Execute -- win the deal
+await Deal.win('deal_k7TmPvQx')
+
+// AFTER hook -- trigger billing and update the contact
+Deal.won((deal, $) => {
+  const customer = $.Customer.create({
+    name: deal.organization,
+    organization: deal.organization,
+  })
+  $.Subscription.create({
+    customer: customer.$id,
+    plan: 'pro',
+    organization: deal.organization,
+  })
+  $.Contact.update(deal.contact, { stage: 'Customer' })
+})
+```
+
+## Status State Machine
+
+```
+Prospecting --> Qualification --> Proposal --> Negotiation --> Won
+     |               |               |              |          |
+     v               v               v              v          v
+    Lost            Lost            Lost           Lost     Reopened
+                                                              |
+                                                              v
+                                                          Prospecting
+```
+
+- **Prospecting**: Initial outreach and discovery
+- **Qualification**: Evaluating fit and budget
+- **Proposal**: Formal proposal delivered
+- **Negotiation**: Terms and pricing under discussion
+- **Closed**: Deal completed (general close)
+- **Won**: Deal closed with a positive outcome
+- **Lost**: Deal closed with a negative outcome
+- **Reopened**: Previously closed deal re-entered the pipeline
+
+The `advance` verb moves a deal forward one stage. The `win` and `lose` verbs jump directly to terminal states from any stage.
+
+## Pipeline Integration
+
+Deals flow through stages defined by a [Pipeline](/entities/crm/pipeline). The default pipeline stages mirror the Deal stage enum, but custom pipelines can define different stage sequences:
+
+```typescript
+import { Deal, Pipeline } from '@headlessly/crm'
+
+// Use a custom pipeline
+const pipeline = await Pipeline.get('pipeline_mR4nVkTw')
+
+await Deal.create({
+  name: 'Acme Enterprise',
+  value: 120_000,
+  stage: 'Prospecting',
+  organization: 'org_Nw8rTxJv',
+  contact: 'contact_fX9bL5nRd',
+})
+
+// Advance through stages
+await Deal.advance('deal_k7TmPvQx')
+await Deal.advance('deal_k7TmPvQx')
+```
+
+## Cross-Domain Patterns
+
+Deal is where CRM meets revenue. It connects relationships to money:
+
+- **Billing**: `Deal.won()` is the natural trigger for Customer and Subscription creation. The deal value maps to the subscription amount. `recurringValue` and `recurringInterval` feed directly into billing.
+- **Marketing**: `Deal.campaign` and `Deal.source` close the attribution loop. Revenue from won deals flows back to Campaign ROI calculations.
+- **Analytics**: Deal stage transitions are events. Weighted pipeline value (`value * probability`) feeds forecast metrics. Time-to-close and win rate are derived from deal events.
+- **CRM (Lead)**: `Deal.leads` shows which leads converted into this deal, preserving the full acquisition chain.
+- **CRM (Activity)**: `Deal.activities` logs every touchpoint -- calls, demos, proposals -- that contributed to the outcome.
+
+```typescript
+import { Deal } from '@headlessly/crm'
+
+// Track weighted pipeline for forecasting
+Deal.advanced((deal, $) => {
+  $.Metric.create({
+    name: 'pipeline_weighted',
+    value: deal.value * (deal.probability / 100),
+    dimensions: { stage: deal.stage, owner: deal.owner },
+  })
+})
+```
+
+## Query Examples
+
+### SDK
+
+```typescript
+import { Deal } from '@headlessly/crm'
+
+// Find high-value deals in negotiation
+const bigDeals = await Deal.find({
+  stage: 'Negotiation',
+  value: { $gte: 50_000 },
+})
+
+// Get a deal with full context
+const deal = await Deal.get('deal_k7TmPvQx', {
+  include: ['organization', 'contact', 'activities', 'leads'],
+})
+
+// Create a deal from a converted lead
+await Deal.create({
+  name: 'Acme Platform License',
+  value: 48_000,
+  recurringValue: 4_000,
+  recurringInterval: 'Monthly',
+  organization: 'org_Nw8rTxJv',
+  contact: 'contact_fX9bL5nRd',
+  stage: 'Prospecting',
+  source: 'inbound',
+  expectedCloseDate: '2025-06-30',
+})
+```
+
+### MCP
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Deal",
+  "filter": { "stage": "Negotiation", "value": { "$gte": 50000 } },
+  "sort": { "value": "desc" },
+  "limit": 20
+}
+```
+
+### REST
+
+```bash
+# List deals in a specific stage
+curl https://crm.headless.ly/~acme/deals?stage=Negotiation
+
+# Get a specific deal
+curl https://crm.headless.ly/~acme/deals/deal_k7TmPvQx
+
+# Create a deal
+curl -X POST https://crm.headless.ly/~acme/deals \
+  -H 'Content-Type: application/json' \
+  -d '{"name": "Acme Enterprise", "value": 48000, "stage": "Prospecting", "contact": "contact_fX9bL5nRd"}'
+
+# Win a deal
+curl -X POST https://crm.headless.ly/~acme/deals/deal_k7TmPvQx/win
+
+# Advance a deal to the next stage
+curl -X POST https://crm.headless.ly/~acme/deals/deal_k7TmPvQx/advance
+```

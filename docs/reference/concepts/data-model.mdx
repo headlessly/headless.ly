@@ -1,0 +1,128 @@
+---
+title: Data Model
+description: The 35-entity typed graph — why these entities, how they connect, and the philosophy behind the data model.
+icon: Database
+---
+
+## Why 35 Entities
+
+Not 5, not 500. headless.ly ships exactly 35 entities because of a single constraint: **every entity exists because headless.ly needs it to run its own business**. This is the dogfooding principle.
+
+headless.ly is a startup that needs to track contacts, close deals, bill customers, manage projects, publish content, handle support tickets, run experiments, and measure growth. The 35 entities are the minimum set required to do all of that in a single system.
+
+If headless.ly does not need an entity to operate, it does not ship. No speculative schemas, no "just in case" tables, no enterprise bloat.
+
+## The 11 Domains
+
+| Domain | Count | Entities |
+|--------|-------|----------|
+| **Identity** | 2 | User, ApiKey |
+| **CRM** | 6 | Organization, Contact, Lead, Deal, Activity, Pipeline |
+| **Billing** | 7 | Customer, Product, Plan, Price, Subscription, Invoice, Payment |
+| **Projects** | 3 | Project, Issue, Comment |
+| **Content** | 3 | Content, Asset, Site |
+| **Support** | 1 | Ticket |
+| **Analytics** | 4 | Event, Metric, Funnel, Goal |
+| **Marketing** | 3 | Campaign, Segment, Form |
+| **Experimentation** | 2 | Experiment, FeatureFlag |
+| **Platform** | 3 | Workflow, Integration, Agent |
+| **Communication** | 1 | Message |
+
+Every domain maps to an `@headlessly/*` package. Import from the most specific domain:
+
+```typescript
+import { Contact, Deal } from '@headlessly/crm'
+import { Subscription, Invoice } from '@headlessly/billing'
+import { Experiment } from '@headlessly/experiments'
+```
+
+## Base Meta-Fields
+
+Every entity carries seven meta-fields that the system manages automatically:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `$type` | `string` | PascalCase entity discriminator (`Contact`, `Deal`, `Subscription`) |
+| `$id` | `string` | Unique ID in `{type}_{sqid}` format (`contact_fX9bL5nRd`) |
+| `$context` | `string` | Tenant namespace URL (`https://headless.ly/~acme`) |
+| `$version` | `number` | Monotonically increasing version, incremented on every mutation |
+| `$createdAt` | `datetime` | ISO 8601 timestamp of creation |
+| `$createdBy` | `string` | ID of the user or agent that created the entity |
+| `$updatedAt` | `datetime` | ISO 8601 timestamp of last mutation |
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+const contact = await Contact.create({ name: 'Alice', stage: 'Lead' })
+
+console.log(contact.$type)      // 'Contact'
+console.log(contact.$id)        // 'contact_fX9bL5nRd'
+console.log(contact.$context)   // 'https://headless.ly/~acme'
+console.log(contact.$version)   // 1
+console.log(contact.$createdAt) // '2026-01-15T12:00:00Z'
+```
+
+Meta-fields are read-only. You cannot set `$id`, `$version`, or `$createdAt` directly. They are managed by the system on every write.
+
+## Cross-Domain Connections
+
+The 35 entities form a single connected graph. Relationships cross domain boundaries freely:
+
+```
+CRM                    Billing                 Support
+───                    ───────                 ───────
+Contact ──────────────► Customer               Ticket
+   │                      │                      ▲
+   ▼                      ▼                      │
+  Deal                 Subscription           Contact
+   │                      │
+   ▼                      ▼
+Organization           Invoice ──► Payment
+```
+
+A Contact in CRM is the same person as a Customer in Billing and the requester on a Ticket in Support. Relationships link them without duplication:
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+const contact = await $.Contact.get('contact_fX9bL5nRd', {
+  include: ['deals', 'tickets', 'organization']
+})
+
+// Traverse across domains from a single root
+contact.deals          // Deal[] (CRM)
+contact.tickets        // Ticket[] (Support)
+contact.organization   // Organization (CRM)
+```
+
+## Relational-Document-Graph Hybrid
+
+Traditional databases force you to pick a model. headless.ly combines all three:
+
+| Mode | What It Enables | How It Works |
+|------|----------------|--------------|
+| **Relational** | Typed schemas, foreign keys, joins | Noun definitions produce typed columns with constraints |
+| **Document** | Flexible fields, nested data, schema evolution | `json` columns store arbitrary nested structures |
+| **Graph** | Bidirectional traversal, cross-domain links | `->` and `<-` relationships create indexed edges |
+
+This means you can query relationally (`Contact.find({ stage: 'Lead' })`), store unstructured data in `json` fields, and traverse the entity graph in any direction -- all in one system.
+
+## How This Differs from Traditional Schemas
+
+In a traditional SaaS stack, CRM is one database, billing is another, support is a third. You write glue code to sync data between them. Entity IDs do not match. Schema changes in one system break integrations with others.
+
+In headless.ly, all 35 entities live in the same typed graph. A `Contact` has a first-class relationship to `Subscription` without any integration layer. Schema changes propagate through Apache Iceberg metadata -- add columns without rewriting data, roll back without losing history.
+
+```typescript
+import { Deal } from '@headlessly/crm'
+
+// When a deal closes, create a subscription -- no integration needed
+Deal.closed((deal, $) => {
+  $.Subscription.create({
+    plan: 'pro',
+    contact: deal.contact,
+  })
+})
+```
+
+One graph, one event log, one SDK. The architecture eliminates the integration layer entirely.

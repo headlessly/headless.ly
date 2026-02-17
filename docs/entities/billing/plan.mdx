@@ -1,0 +1,254 @@
+---
+title: Plan
+description: Pricing tiers with trial configuration, feature limits, and status lifecycle.
+---
+
+## Schema
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Plan = Noun('Plan', {
+  name: 'string!',
+  slug: 'string##',
+  description: 'string',
+  product: '-> Product.plans',
+  prices: '<- Price.plan[]',
+  trialDays: 'number',
+  features: 'string',
+  limits: 'string',
+  status: 'Draft | Active | Grandfathered | Archived',
+  isDefault: 'boolean',
+  isFree: 'boolean',
+  isEnterprise: 'boolean',
+  badge: 'string',
+  order: 'number',
+})
+```
+
+## Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Plan display name (e.g. "Pro", "Team", "Enterprise") |
+| `slug` | string | No | URL-safe identifier (unique, indexed) |
+| `description` | string | No | Marketing description of the plan |
+| `trialDays` | number | No | Number of days in the free trial period |
+| `features` | string | No | Feature list included in this plan (serialized) |
+| `limits` | string | No | Usage limits (serialized, e.g. seats, storage, API calls) |
+| `status` | enum | No | Lifecycle state: `Draft`, `Active`, `Grandfathered`, or `Archived` |
+| `isDefault` | boolean | No | Whether this is the default plan for new signups |
+| `isFree` | boolean | No | Whether this is a free-tier plan |
+| `isEnterprise` | boolean | No | Whether this requires custom pricing/sales |
+| `badge` | string | No | Display badge (e.g. "Most Popular", "Best Value") |
+| `order` | number | No | Sort order for pricing page display |
+
+## Relationships
+
+| Field | Direction | Target | Description |
+|-------|-----------|--------|-------------|
+| `product` | `->` | Product.plans | The product this plan belongs to |
+| `prices` | `<-` | Price.plan[] | All price configurations for this plan |
+
+## Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `create` | `Created` | Create a new plan |
+| `update` | `Updated` | Update plan fields |
+| `delete` | `Deleted` | Soft-delete the plan |
+
+### Verb Lifecycle
+
+Every verb follows the full conjugation pattern -- execute, before hook, after hook:
+
+```typescript
+import { Plan } from '@headlessly/billing'
+
+// Execute
+await Plan.create({
+  name: 'Pro',
+  slug: 'pro',
+  product: 'product_k7TmPvQx',
+  trialDays: 14,
+  status: 'Active',
+  isDefault: true,
+  badge: 'Most Popular',
+  order: 2,
+})
+
+// Before hook -- validate plan configuration
+Plan.creating(plan => {
+  console.log(`About to create plan ${plan.name} for product ${plan.product}`)
+})
+
+// After hook -- set up downstream pricing
+Plan.created(plan => {
+  console.log(`Plan ${plan.name} is live`)
+})
+```
+
+## Status State Machine
+
+```
+  create()
+(none) ──────→ Draft
+                 │
+       update()  │
+                 ▼
+              Active
+               │  │
+     update()  │  │  update()
+               ▼  ▼
+     Grandfathered  Archived
+```
+
+Valid transitions:
+
+| From | Verb | To |
+|------|------|----|
+| -- | `create` | `Draft` |
+| `Draft` | `update` | `Active` |
+| `Active` | `update` | `Grandfathered` |
+| `Active` | `update` | `Archived` |
+| `Grandfathered` | `update` | `Archived` |
+| `Archived` | `update` | `Active` |
+
+- **Grandfathered**: Plan is no longer available to new subscribers, but existing subscribers keep their pricing and features. This is the recommended path for sunsetting a plan gracefully.
+- **Archived**: Plan is fully retired. No new subscriptions. Existing subscribers should be migrated.
+
+## Typical Plan Hierarchy
+
+```
+Product: "Headlessly Pro"
+├── Plan: Free     (isFree: true, order: 1)
+│   └── Price: $0/mo
+├── Plan: Pro      (isDefault: true, badge: "Most Popular", order: 2)
+│   ├── Price: $49/mo
+│   └── Price: $490/yr (discountPercent: 17)
+└── Plan: Enterprise (isEnterprise: true, order: 3)
+    └── (custom pricing via sales)
+```
+
+## Cross-Domain Patterns
+
+Plans connect to Subscriptions for activation and to Marketing for pricing page content:
+
+```typescript
+import { Plan } from '@headlessly/billing'
+
+// Set up a complete pricing page with three tiers
+const free = await Plan.create({
+  name: 'Free',
+  slug: 'free',
+  product: 'product_k7TmPvQx',
+  isFree: true,
+  status: 'Active',
+  order: 1,
+  features: 'Up to 100 contacts, 1 user, community support',
+})
+
+const pro = await Plan.create({
+  name: 'Pro',
+  slug: 'pro',
+  product: 'product_k7TmPvQx',
+  trialDays: 14,
+  isDefault: true,
+  badge: 'Most Popular',
+  status: 'Active',
+  order: 2,
+  features: 'Unlimited contacts, 10 users, priority support, integrations',
+})
+
+const enterprise = await Plan.create({
+  name: 'Enterprise',
+  slug: 'enterprise',
+  product: 'product_k7TmPvQx',
+  isEnterprise: true,
+  status: 'Active',
+  order: 3,
+  features: 'Unlimited everything, SSO, SLA, dedicated support',
+})
+```
+
+## Query Examples
+
+### SDK
+
+```typescript
+import { Plan } from '@headlessly/billing'
+
+// Find all active plans for a product
+const plans = await Plan.find({ product: 'product_k7TmPvQx', status: 'Active' })
+
+// Get the default plan
+const defaultPlan = await Plan.find({ isDefault: true, status: 'Active' })
+
+// Get a plan with its prices
+const plan = await Plan.get('plan_Nw8rTxJv', { include: ['prices'] })
+
+// Find free-tier plans
+const freePlans = await Plan.find({ isFree: true })
+```
+
+### MCP
+
+```json title="headless.ly/mcp#search"
+{ "type": "Plan", "filter": { "status": "Active", "product": "product_k7TmPvQx" } }
+```
+
+```json title="headless.ly/mcp#fetch"
+{ "type": "Plan", "id": "plan_Nw8rTxJv", "include": ["prices"] }
+```
+
+```ts title="headless.ly/mcp#do"
+const plans = await $.Plan.find({ status: 'Active' })
+const defaultPlan = plans.find(p => p.isDefault)
+```
+
+### REST
+
+```bash
+GET https://headless.ly/~acme/plans?status=Active&product=product_k7TmPvQx
+```
+
+```bash
+GET https://headless.ly/~acme/plans/plan_Nw8rTxJv
+```
+
+```bash
+POST https://headless.ly/~acme/plans
+Content-Type: application/json
+
+{ "name": "Pro", "product": "product_k7TmPvQx", "trialDays": 14, "status": "Active" }
+```
+
+## Event-Driven Patterns
+
+React to plan lifecycle events:
+
+```typescript
+import { Plan } from '@headlessly/billing'
+
+// When a plan is grandfathered, notify existing subscribers
+Plan.updated((plan, $) => {
+  if (plan.status === 'Grandfathered') {
+    const subs = await $.Subscription.find({ plan: plan.$id, status: 'Active' })
+    for (const sub of subs) {
+      await $.Message.create({
+        type: 'Email',
+        to: sub.customer,
+        subject: `Your ${plan.name} plan has been grandfathered`,
+      })
+    }
+  }
+})
+
+// Track plan creation for analytics
+Plan.created((plan, $) => {
+  $.Event.create({
+    type: 'billing.plan_created',
+    data: { name: plan.name, product: plan.product, isFree: plan.isFree },
+  })
+})
+```

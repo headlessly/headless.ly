@@ -1,0 +1,107 @@
+---
+title: Content
+description: Content, Asset, Site -- headless CMS for pages, posts, articles, and media.
+icon: FileText
+---
+
+Three entities form a headless content management system -- typed documents with SEO fields, managed media assets, and site configuration that determines how content renders. Draft, schedule, publish, archive -- the full editorial lifecycle as verbs.
+
+```typescript
+import { Content, Asset, Site } from '@headlessly/content'
+
+const site = await Site.create({
+  name: 'Acme Blog',
+  subdomain: 'blog',
+  status: 'Published',
+  visibility: 'Public',
+  defaultLanguage: 'en',
+})
+
+const hero = await Asset.create({
+  name: 'Launch Hero',
+  filename: 'launch-hero.webp',
+  url: 'https://cdn.acme.dev/launch-hero.webp',
+  type: 'Image',
+  mimeType: 'image/webp',
+  size: 245_000,
+  width: 1200,
+  height: 630,
+  alt: 'Product launch announcement',
+})
+
+const post = await Content.create({
+  title: 'Announcing Acme v2',
+  slug: 'announcing-acme-v2',
+  body: '# Acme v2 is here\n\nWe rebuilt everything...',
+  type: 'Post',
+  site: site.$id,
+  author: 'contact_fX9bL5nRd',
+  featuredImage: hero.$id,
+  status: 'Draft',
+})
+
+await Content.publish(post.$id)
+```
+
+## The Content Graph
+
+```
+Site ──< Content ──> Asset (featuredImage)
+             │
+             ├── author ──> Contact
+             └── organization ──> Organization
+```
+
+Every arrow is a typed relationship defined in the Noun schema. Back-references are automatic -- `Site.content` is the inverse of `Content.site`.
+
+## Entities
+
+| Entity | Description | Custom Verbs |
+|--------|-------------|-------------|
+| [Content](/entities/content/content) | Typed documents -- pages, posts, articles, guides -- with SEO and scheduling | `publish`, `archive`, `schedule` |
+| [Asset](/entities/content/asset) | Managed media files -- images, videos, documents, audio | `process` |
+| [Site](/entities/content/site) | Site configuration -- branding, language, visibility | -- |
+
+## Cross-Domain Connections
+
+Content integrates with the rest of the business graph:
+
+```typescript
+import { Content } from '@headlessly/content'
+
+Content.published((content, $) => {
+  $.Campaign.create({
+    name: `Promote: ${content.title}`,
+    type: 'Content',
+    status: 'Draft',
+  })
+  $.Event.create({
+    type: 'content.published',
+    properties: { contentId: content.$id, title: content.title },
+  })
+})
+```
+
+- **CRM**: Content authors are Contacts. Organization-scoped content for multi-tenant publishing.
+- **Marketing**: Published content triggers Campaign creation for promotion workflows.
+- **Analytics**: Publish, view, and archive events feed into Funnel and Metric tracking.
+- **Projects**: Content creation tracked as Issues in editorial projects.
+
+## Package
+
+```bash
+npm install @headlessly/content
+```
+
+```typescript
+import { Content, Asset, Site } from '@headlessly/content'
+```
+
+Or via the unified SDK:
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+await $.Content.find({ status: 'Published', type: 'Post' })
+await $.Site.get('site_jK8sTxJv')
+```

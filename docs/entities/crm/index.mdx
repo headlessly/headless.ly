@@ -1,0 +1,122 @@
+---
+title: CRM
+description: Organization, Contact, Lead, Deal, Activity, Pipeline -- the complete sales pipeline as a typed graph.
+icon: Users
+---
+
+Six entities form a connected graph that models the entire customer relationship lifecycle -- from first touch to closed deal and beyond. Organizations contain contacts, contacts generate leads, leads convert to deals, activities track every interaction, and pipelines define the stages deals flow through.
+
+```typescript
+import { Organization, Contact, Lead, Deal, Activity } from '@headlessly/crm'
+
+const org = await Organization.create({
+  name: 'Acme Dev',
+  domain: 'acme.dev',
+  type: 'Prospect',
+  industry: 'Software',
+})
+
+const contact = await Contact.create({
+  name: 'Alice Chen',
+  email: 'alice@acme.dev',
+  organization: org.$id,
+  stage: 'Lead',
+})
+
+const lead = await Lead.create({
+  name: 'Acme Inbound',
+  contact: contact.$id,
+  organization: org.$id,
+  source: 'website',
+})
+
+await Lead.convert(lead.$id)
+
+const deal = await Deal.create({
+  name: 'Acme Enterprise',
+  value: 48_000,
+  organization: org.$id,
+  contact: contact.$id,
+  stage: 'Prospecting',
+})
+
+await Activity.create({
+  subject: 'Discovery call with Alice',
+  type: 'Call',
+  deal: deal.$id,
+  contact: contact.$id,
+  status: 'Completed',
+})
+
+await Deal.advance(deal.$id)
+await Deal.win(deal.$id)
+```
+
+## The Sales Pipeline Graph
+
+```
+Organization ──< Contact ──< Lead ──> Deal ──< Activity
+     │               │                  │
+     │               ├── manager ──> Contact
+     │               │
+     └── parent ──> Organization        └──> Pipeline (stages)
+```
+
+Every arrow is a typed relationship defined in the Noun schema. Back-references are automatic -- `Organization.contacts` is the inverse of `Contact.organization`.
+
+## Entities
+
+| Entity | Description | Custom Verbs |
+|--------|-------------|-------------|
+| [Organization](/entities/crm/organization) | Companies, startups, partners, vendors | `enrich`, `score` |
+| [Contact](/entities/crm/contact) | People -- developers, founders, VCs | `qualify`, `capture`, `assign`, `merge`, `enrich` |
+| [Lead](/entities/crm/lead) | Inbound leads with BANT qualification | `convert`, `lose` |
+| [Deal](/entities/crm/deal) | Sales opportunities with value and stage tracking | `close`, `win`, `lose`, `advance`, `reopen` |
+| [Activity](/entities/crm/activity) | Calls, emails, meetings, demos, follow-ups | `complete`, `cancel`, `log` |
+| [Pipeline](/entities/crm/pipeline) | Sales pipeline stage configuration | -- |
+
+## Cross-Domain Connections
+
+CRM is the entry point for the entire business graph. When a deal closes, downstream entities activate:
+
+```typescript
+import { Deal } from '@headlessly/crm'
+
+Deal.won((deal, $) => {
+  const customer = $.Customer.create({
+    name: deal.name,
+    email: deal.contact,
+    organization: deal.organization,
+  })
+  $.Subscription.create({
+    customer: customer.$id,
+    plan: 'pro',
+  })
+  $.Contact.update(deal.contact, { stage: 'Customer' })
+})
+```
+
+- **Billing**: Deal close triggers Customer and Subscription creation
+- **Marketing**: Campaign attribution flows through Lead.campaign
+- **Analytics**: Every verb emits events that feed into Funnel and Metric
+- **Support**: Customer contacts become Ticket reporters
+- **Projects**: Organization maps to Project for delivery tracking
+
+## Package
+
+```bash
+npm install @headlessly/crm
+```
+
+```typescript
+import { Organization, Contact, Lead, Deal, Activity, Pipeline } from '@headlessly/crm'
+```
+
+Or via the unified SDK:
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+await $.Contact.create({ name: 'Alice Chen', stage: 'Lead' })
+await $.Deal.find({ stage: 'Negotiation' })
+```

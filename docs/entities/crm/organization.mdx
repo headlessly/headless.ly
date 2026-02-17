@@ -1,0 +1,224 @@
+---
+title: Organization
+description: Companies, startups, partners, vendors, and competitors -- the account-level entity in the CRM graph.
+---
+
+## Schema
+
+```typescript
+import { Noun } from 'digital-objects'
+
+export const Organization = Noun('Organization', {
+  name: 'string!',
+  legalName: 'string',
+  slug: 'string##',
+  domain: 'string##',
+  website: 'string',
+  description: 'string',
+  logo: 'string',
+  type: 'Prospect | Customer | Partner | Vendor | Competitor',
+  status: 'Active | Inactive | Churned | Archived',
+  tier: 'Enterprise | Business | Startup | SMB',
+  source: 'string',
+  industry: 'string',
+  naicsCode: 'string',
+  employeeCount: 'number',
+  annualRevenue: 'number',
+  foundedYear: 'number',
+  address: 'string',
+  city: 'string',
+  state: 'string',
+  country: 'string',
+  postalCode: 'string',
+  timezone: 'string',
+  parent: '-> Organization.subsidiaries',
+  subsidiaries: '<- Organization.parent[]',
+  contacts: '<- Contact.organization[]',
+  deals: '<- Deal.organization[]',
+  subscriptions: '<- Subscription.organization[]',
+  lifetimeValue: 'number',
+  healthScore: 'number',
+  npsScore: 'number',
+  linkedinUrl: 'string',
+  twitterHandle: 'string',
+  enrich: 'Enriched',
+  score: 'Scored',
+})
+```
+
+## Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Display name of the organization |
+| `legalName` | string | No | Registered legal entity name |
+| `slug` | string (unique, indexed) | No | URL-safe identifier |
+| `domain` | string (unique, indexed) | No | Primary web domain |
+| `website` | string | No | Full website URL |
+| `description` | string | No | Brief description of the organization |
+| `logo` | string | No | URL to the organization logo |
+| `type` | enum | No | Prospect, Customer, Partner, Vendor, or Competitor |
+| `status` | enum | No | Active, Inactive, Churned, or Archived |
+| `tier` | enum | No | Enterprise, Business, Startup, or SMB |
+| `source` | string | No | How the organization was acquired |
+| `industry` | string | No | Industry vertical |
+| `naicsCode` | string | No | NAICS classification code |
+| `employeeCount` | number | No | Number of employees |
+| `annualRevenue` | number | No | Annual revenue in base currency |
+| `foundedYear` | number | No | Year the organization was founded |
+| `address` | string | No | Street address |
+| `city` | string | No | City |
+| `state` | string | No | State or province |
+| `country` | string | No | Country |
+| `postalCode` | string | No | Postal or ZIP code |
+| `timezone` | string | No | IANA timezone identifier |
+| `parent` | -> Organization | No | Parent organization |
+| `subsidiaries` | <- Organization[] | No | Child organizations |
+| `contacts` | <- Contact[] | No | All contacts at this organization |
+| `deals` | <- Deal[] | No | All deals with this organization |
+| `subscriptions` | <- Subscription[] | No | Active subscriptions |
+| `lifetimeValue` | number | No | Total revenue from this organization |
+| `healthScore` | number | No | Computed account health (0-100) |
+| `npsScore` | number | No | Net promoter score |
+| `linkedinUrl` | string | No | LinkedIn company page URL |
+| `twitterHandle` | string | No | Twitter/X handle |
+
+## Relationships
+
+| Field | Direction | Target | Description |
+|-------|-----------|--------|-------------|
+| `parent` | -> | Organization.subsidiaries | Parent company in a corporate hierarchy |
+| `subsidiaries` | <- | Organization.parent[] | Child companies owned by this organization |
+| `contacts` | <- | Contact.organization[] | People who work at this organization |
+| `deals` | <- | Deal.organization[] | Sales opportunities with this organization |
+| `subscriptions` | <- | Subscription.organization[] | Active billing subscriptions |
+
+## Verbs
+
+| Verb | Event | Description |
+|------|-------|-------------|
+| `create` | `Created` | Create a new organization |
+| `update` | `Updated` | Update organization fields |
+| `delete` | `Deleted` | Delete an organization |
+| `enrich` | `Enriched` | Enrich with external data (firmographics, headcount, revenue) |
+| `score` | `Scored` | Compute or update the health score |
+
+### Verb Lifecycle
+
+```typescript
+import { Organization } from '@headlessly/crm'
+
+// BEFORE hook -- validate before enrichment
+Organization.enriching(org => {
+  if (!org.domain) throw new Error('Domain required for enrichment')
+})
+
+// Execute enrichment
+await Organization.enrich('org_Nw8rTxJv')
+
+// AFTER hook -- react to enriched data
+Organization.enriched(org => {
+  console.log(`${org.name}: ${org.employeeCount} employees, $${org.annualRevenue} revenue`)
+})
+```
+
+## Status State Machine
+
+```
+Prospect --> Customer --> Churned
+    |            |           |
+    v            v           v
+  Partner     Partner     Archived
+    |
+    v
+  Vendor
+```
+
+- **Prospect**: Initial state for new organizations
+- **Customer**: Organization has an active subscription
+- **Partner**: Strategic or integration partner
+- **Vendor**: Supplier or service provider
+- **Competitor**: Competing organization (tracked for intelligence)
+- **Churned**: Former customer who cancelled
+- **Archived**: Soft-deleted, no longer active
+
+## Cross-Domain Patterns
+
+Organization is the account-level anchor across the entire system:
+
+- **CRM**: Contacts belong to organizations. Deals are with organizations. Activities reference organizations.
+- **Billing**: `Organization.subscriptions` links directly to active Stripe subscriptions. When an org becomes a Customer, a billing Customer entity is created.
+- **Projects**: Organizations map to Projects for delivery and implementation tracking.
+- **Support**: Tickets from contacts at an organization roll up for account-level support views.
+- **Analytics**: Metrics like lifetime value, health score, and NPS aggregate from billing and support data.
+
+```typescript
+import { Organization } from '@headlessly/crm'
+
+Organization.created((org, $) => {
+  // Auto-create a project for onboarding
+  $.Project.create({
+    name: `${org.name} Onboarding`,
+    organization: org.$id,
+  })
+})
+```
+
+## Query Examples
+
+### SDK
+
+```typescript
+import { Organization } from '@headlessly/crm'
+
+// Find all enterprise customers
+const enterprises = await Organization.find({
+  tier: 'Enterprise',
+  type: 'Customer',
+  status: 'Active',
+})
+
+// Get a specific organization with its contacts
+const org = await Organization.get('org_Nw8rTxJv', {
+  include: ['contacts', 'deals', 'subscriptions'],
+})
+
+// Create a new prospect
+await Organization.create({
+  name: 'Startup Co',
+  domain: 'startup.co',
+  type: 'Prospect',
+  tier: 'Startup',
+  industry: 'Software',
+  source: 'referral',
+})
+```
+
+### MCP
+
+```json title="headless.ly/mcp#search"
+{
+  "type": "Organization",
+  "filter": { "type": "Customer", "tier": "Enterprise" },
+  "sort": { "lifetimeValue": "desc" },
+  "limit": 20
+}
+```
+
+### REST
+
+```bash
+# List organizations
+curl https://crm.headless.ly/~acme/organizations?type=Customer&tier=Enterprise
+
+# Get a specific organization
+curl https://crm.headless.ly/~acme/organizations/org_Nw8rTxJv
+
+# Create an organization
+curl -X POST https://crm.headless.ly/~acme/organizations \
+  -H 'Content-Type: application/json' \
+  -d '{"name": "Startup Co", "domain": "startup.co", "type": "Prospect"}'
+
+# Enrich an organization
+curl -X POST https://crm.headless.ly/~acme/organizations/org_Nw8rTxJv/enrich
+```

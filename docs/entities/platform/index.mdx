@@ -1,0 +1,110 @@
+---
+title: Platform
+description: Workflow, Integration, Agent -- automation, third-party connections, and AI agents.
+icon: Cpu
+---
+
+Three entities form the automation backbone of headless.ly. Workflows define event-driven automation rules. Integrations connect external services. Agents provide AI-powered autonomous operations.
+
+```typescript
+import { Workflow, Integration, Agent } from '@headlessly/platform'
+
+const stripe = await Integration.connect({
+  name: 'Stripe',
+  provider: 'stripe',
+  category: 'Payment',
+  authType: 'ApiKey',
+})
+
+const workflow = await Workflow.create({
+  name: 'New Customer Onboarding',
+  triggerEvent: 'Deal.won',
+  steps: [
+    { action: 'Customer.create', from: 'deal.contact' },
+    { action: 'Subscription.create', plan: 'pro' },
+    { action: 'Agent.invoke', agent: 'onboarding-agent' },
+  ],
+  errorHandling: 'Fallback',
+})
+
+await Workflow.activate(workflow.$id)
+
+const agent = await Agent.create({
+  name: 'Onboarding Agent',
+  slug: 'onboarding-agent',
+  type: 'Specialist',
+  model: 'claude-opus-4-6',
+  systemPrompt: 'You help new customers get set up with their headless.ly tenant.',
+  memory: 'Session',
+  tools: ['search', 'fetch', 'do'],
+})
+
+await Agent.deploy(agent.$id)
+```
+
+## The Platform Graph
+
+```
+Workflow ──triggers──> Agent
+    │                    │
+    ├── org ──> Organization
+    │                    │
+    └── steps ──> Integration
+                    │
+                    └── provider (Stripe, GitHub, Slack)
+```
+
+Workflows orchestrate. Integrations connect. Agents execute. Together they form the autonomous operations layer.
+
+## Entities
+
+| Entity | Description | Custom Verbs |
+|--------|-------------|-------------|
+| [Workflow](/entities/platform/workflow) | Event-triggered automation with retry and error handling | `activate`, `pause`, `trigger`, `archive` |
+| [Integration](/entities/platform/integration) | External service connections (Stripe, GitHub, Slack) | `connect`, `disconnect`, `sync` |
+| [Agent](/entities/platform/agent) | AI agents with model config, tools, and usage tracking | `do`, `ask`, `decide`, `approve`, `notify`, `delegate`, `escalate`, `learn`, `reflect`, `invoke`, `deploy`, `pause`, `stop`, `retire` |
+
+## Cross-Domain Connections
+
+Platform entities orchestrate every other domain in the system:
+
+```typescript
+import { Workflow } from '@headlessly/platform'
+
+Workflow.triggered((workflow, $) => {
+  $.Event.create({
+    type: 'workflow.triggered',
+    data: {
+      workflow: workflow.$id,
+      trigger: workflow.triggerEvent,
+      runCount: workflow.runCount,
+    },
+  })
+})
+```
+
+- **CRM**: Workflows automate lead qualification, deal progression, and contact enrichment
+- **Billing**: Integrations sync with Stripe for real-time subscription and payment data
+- **Projects**: GitHub integration syncs issues, PRs, and milestones bidirectionally
+- **Analytics**: Every workflow run and agent invocation emits Events for tracking
+- **Marketing**: Agents can autonomously manage campaigns and respond to form submissions
+- **Experimentation**: Feature flags gate workflow steps. Agents run prompt experiments
+
+## Package
+
+```bash
+npm install @headlessly/platform
+```
+
+```typescript
+import { Workflow, Integration, Agent } from '@headlessly/platform'
+```
+
+Or via the unified SDK:
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+await $.Workflow.find({ status: 'Active' })
+await $.Agent.deploy('agent_mR4nVkTw')
+```

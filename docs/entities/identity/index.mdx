@@ -1,0 +1,38 @@
+---
+title: Identity
+description: User and ApiKey -- authentication, authorization, and programmatic access.
+---
+
+The Identity domain manages who can access your headless.ly tenant and how. It contains two entities:
+
+| Entity | Description |
+|--------|-------------|
+| [User](/entities/identity/user) | Authenticated humans -- founders, team members, collaborators |
+| [ApiKey](/entities/identity/api-key) | Programmatic access tokens for SDK, CI/CD, and agent authentication |
+
+Identity is backed by WorkOS via [oauth.do](https://oauth.do). Users authenticate through SSO, magic links, or social login. ApiKeys enable machine-to-machine access with scoped permissions.
+
+Organization -- the tenant itself -- lives in the [CRM](/entities/crm) domain. Identity answers "who are you?" while CRM answers "what org do you belong to?"
+
+## Quick Start
+
+```typescript
+import { User, ApiKey } from '@headlessly/sdk'
+
+// Invite a team member
+await User.create({ name: 'Alice Chen', email: 'alice@acme.co', role: 'Admin' })
+
+// Create an API key for CI/CD
+await ApiKey.create({ name: 'GitHub Actions', scopes: 'read:all,write:content' })
+```
+
+## Progressive Identity (id.org.ai)
+
+headless.ly uses progressive identity -- agents connect first, authenticate later:
+
+1. **L0 (Anonymous)** -- read-only sandbox, no auth required
+2. **L1 (Session)** -- write access with ephemeral session
+3. **L2 (Claimed)** -- persistent identity via GitHub commit
+4. **L3 (Production)** -- billing attached, full access
+
+See [id.org.ai](https://id.org.ai) for the open identity standard.

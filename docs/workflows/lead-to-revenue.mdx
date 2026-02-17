@@ -1,0 +1,164 @@
+---
+title: Lead to Revenue
+description: The complete pipeline — Lead capture, qualification, deal close, customer creation, subscription activation.
+---
+
+The lead-to-revenue workflow is the foundational cross-domain journey in headless.ly. It connects CRM and Billing into a single automated pipeline where a website visitor becomes a paying subscriber without manual handoffs.
+
+## Full Flow
+
+```typescript
+import { Contact, Deal } from '@headlessly/crm'
+import { Customer, Subscription } from '@headlessly/billing'
+
+// 1. Capture lead
+const contact = await Contact.create({
+  name: 'Alice Chen',
+  email: 'alice@acme.dev',
+  stage: 'Lead',
+  source: 'website',
+})
+
+// 2. Qualify
+await Contact.qualify({ id: contact.$id })
+
+// 3. Create deal
+const deal = await Deal.create({
+  name: 'Acme Enterprise',
+  value: 48_000,
+  contact: contact.$id,
+  stage: 'Prospecting',
+})
+
+// 4. Close deal
+await Deal.win({ id: deal.$id })
+
+// 5. Auto-create customer and subscription via after hook
+Deal.won((deal, $) => {
+  const customer = $.Customer.create({
+    name: deal.name,
+    contact: deal.contact,
+  })
+  $.Subscription.create({
+    customer: customer.$id,
+    plan: 'plan_Nw8rTxJv',
+  })
+})
+```
+
+## Step-by-Step Breakdown
+
+### Step 1: Capture the Lead
+
+A [Contact](/entities/crm/contact) enters the system at the `Lead` stage. The `source` field tracks attribution.
+
+```typescript
+import { Contact } from '@headlessly/crm'
+
+const contact = await Contact.create({
+  name: 'Alice Chen',
+  email: 'alice@acme.dev',
+  stage: 'Lead',
+  source: 'website',
+})
+// contact.$id => 'contact_fX9bL5nRd'
+```
+
+### Step 2: Qualify the Contact
+
+Qualification transitions the contact from `Lead` to `Qualified`. This fires the full verb lifecycle: `qualifying` (before), `qualify` (execute), `qualified` (after).
+
+```typescript
+await Contact.qualify({ id: 'contact_fX9bL5nRd' })
+// contact.stage => 'Qualified'
+```
+
+### Step 3: Create a Deal
+
+A [Deal](/entities/crm/deal) ties the qualified contact to a revenue opportunity.
+
+```typescript
+import { Deal } from '@headlessly/crm'
+
+const deal = await Deal.create({
+  name: 'Acme Enterprise',
+  value: 48_000,
+  contact: 'contact_fX9bL5nRd',
+  stage: 'Prospecting',
+})
+// deal.$id => 'deal_k7TmPvQx'
+```
+
+### Step 4: Win the Deal
+
+Closing the deal triggers the `won` after-hook, which bridges CRM into Billing.
+
+```typescript
+await Deal.win({ id: 'deal_k7TmPvQx' })
+// deal.stage => 'Won'
+```
+
+### Step 5: Create Customer and Subscription
+
+The after-hook on `Deal.won` automatically provisions Billing entities. No human intervention required.
+
+```typescript
+import { Customer, Subscription } from '@headlessly/billing'
+
+Deal.won((deal, $) => {
+  const customer = $.Customer.create({
+    name: deal.name,
+    contact: deal.contact,
+  })
+  $.Subscription.create({
+    customer: customer.$id,
+    plan: 'plan_Nw8rTxJv',
+  })
+})
+```
+
+## Event Flow
+
+Each step emits immutable events to the event log:
+
+| Step | Event | Payload |
+|------|-------|---------|
+| Lead capture | `contact.created` | `{ $id: 'contact_fX9bL5nRd', stage: 'Lead' }` |
+| Qualification | `contact.qualified` | `{ $id: 'contact_fX9bL5nRd', stage: 'Qualified' }` |
+| Deal creation | `deal.created` | `{ $id: 'deal_k7TmPvQx', value: 48000 }` |
+| Deal close | `deal.won` | `{ $id: 'deal_k7TmPvQx', stage: 'Won' }` |
+| Customer created | `customer.created` | `{ $id: 'customer_mR3vYpLx' }` |
+| Subscription activated | `subscription.created` | `{ plan: 'plan_Nw8rTxJv' }` |
+
+## MCP Example
+
+An agent can execute this entire workflow through the `do` tool:
+
+```json
+{
+  "tool": "do",
+  "input": "Create a contact named Alice Chen (alice@acme.dev), qualify them, create a $48k deal called Acme Enterprise, and close it as won"
+}
+```
+
+The agent resolves this into the same SDK calls above, executing each step in sequence and letting the after-hooks handle the CRM-to-Billing bridge.
+
+## Automation Pattern
+
+The power of this workflow is in the `Deal.won` after-hook. Register it once and every closed deal automatically provisions a customer and subscription:
+
+```typescript
+// Register once at startup
+Deal.won((deal, $) => {
+  const customer = $.Customer.create({
+    name: deal.name,
+    contact: deal.contact,
+  })
+  $.Subscription.create({
+    customer: customer.$id,
+    plan: deal.plan ?? 'plan_Nw8rTxJv',
+  })
+})
+```
+
+This pattern eliminates the integration glue between CRM and Billing. One typed graph, one event system, zero middleware.

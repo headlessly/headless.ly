@@ -1,0 +1,105 @@
+---
+title: Analytics
+description: Event, Metric, Funnel, Goal -- event tracking, business metrics, conversion funnels, and goal tracking.
+icon: BarChart3
+---
+
+Four entities that turn raw activity into actionable insight. Events capture every tracked action across the system. Metrics aggregate those events into business KPIs. Funnels model multi-step conversion flows. Goals set targets and track progress against them.
+
+```typescript
+import { Event, Metric, Funnel, Goal } from '@headlessly/analytics'
+
+await Event.create({
+  name: 'page_view',
+  type: 'track',
+  source: 'Browser',
+  url: 'https://acme.dev/pricing',
+  path: '/pricing',
+  timestamp: new Date().toISOString(),
+})
+
+await Metric.record('metric_k7TmPvQx')
+
+const funnel = await Funnel.create({
+  name: 'Signup to Paid',
+  steps: JSON.stringify([
+    { name: 'Visit', event: 'page_view' },
+    { name: 'Signup', event: 'user_created' },
+    { name: 'Activate', event: 'first_action' },
+    { name: 'Subscribe', event: 'subscription_created' },
+  ]),
+})
+
+await Goal.create({
+  name: 'Q1 MRR Target',
+  target: 10000,
+  current: 4200,
+  unit: 'USD',
+  period: 'Quarterly',
+  metric: 'metric_k7TmPvQx',
+  status: 'OnTrack',
+})
+```
+
+## The Analytics Graph
+
+```
+Event ──> Organization
+Metric ──> Organization
+Funnel ──> Organization
+Goal ──> Metric ──> Organization
+```
+
+Events flow in as immutable records. Metrics aggregate event data into typed measurements. Funnels compose events into ordered conversion steps. Goals reference metrics and track progress toward defined targets.
+
+## Entities
+
+| Entity | Description | Custom Verbs |
+|--------|-------------|-------------|
+| [Event](/entities/analytics/event) | Immutable tracked actions -- pageviews, API calls, sign-ups, webhooks | -- (immutable: no update, no delete) |
+| [Metric](/entities/analytics/metric) | Business measurements -- MRR, DAU, churn, NPS | `record`, `reset`, `snapshot` |
+| [Funnel](/entities/analytics/funnel) | Multi-step conversion flows -- visitor to signup to paid | `analyze`, `activate` |
+| [Goal](/entities/analytics/goal) | Business objectives with targets and progress tracking | `achieve`, `complete`, `miss`, `reset` |
+
+## Cross-Domain Connections
+
+Analytics connects to every domain in the system. Events are the raw material; metrics, funnels, and goals are the lenses:
+
+```typescript
+import { Deal } from '@headlessly/crm'
+
+Deal.won((deal, $) => {
+  $.Event.create({
+    name: 'deal_won',
+    type: 'track',
+    source: 'API',
+    properties: JSON.stringify({ value: deal.value }),
+    timestamp: new Date().toISOString(),
+  })
+})
+```
+
+- **CRM**: Deal and contact lifecycle events feed into funnels and metrics
+- **Billing**: Stripe webhooks create events that drive financial metrics (MRR, churn, NRR, LTV)
+- **Marketing**: Campaign performance measured through funnels and goal tracking
+- **Support**: Ticket resolution times and satisfaction scores surface as metrics
+- **Projects**: Sprint velocity and delivery cadence tracked as gauges
+
+## Package
+
+```bash
+npm install @headlessly/analytics
+```
+
+```typescript
+import { Event, Metric, Funnel, Goal } from '@headlessly/analytics'
+```
+
+Or via the unified SDK:
+
+```typescript
+import { $ } from '@headlessly/sdk'
+
+await $.Event.create({ name: 'signup', type: 'track', source: 'Browser', timestamp: new Date().toISOString() })
+await $.Goal.achieve('goal_pQ8xNfKm')
+```
