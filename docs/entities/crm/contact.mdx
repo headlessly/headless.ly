@@ -162,7 +162,7 @@ Contact is the central identity entity that connects CRM to every other domain:
 - **Marketing**: Contacts belong to Segments and receive Campaigns. `Contact.source` and `Contact.leads[].campaign` track marketing attribution.
 - **Support**: Contact becomes the reporter on Tickets. Historical activities give support agents context.
 - **Analytics**: Every verb on a Contact (qualify, capture, assign) emits Events that feed Funnels.
-- **Communication**: Messages link to contacts via `Message.contact`.
+- **Communication**: Messages link to contacts via `Message.sender` and `Message.recipient`.
 
 ```typescript
 import { Contact } from '@headlessly/crm'

@@ -15,6 +15,7 @@ export const Ticket = Noun('Ticket', {
   firstResponseAt: 'datetime',
   resolvedAt: 'datetime',
   satisfaction: 'number',
+  assign: 'Assigned',
   resolve: 'Resolved',
   escalate: 'Escalated',
   close: 'Closed',

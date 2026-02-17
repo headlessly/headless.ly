@@ -227,7 +227,7 @@ Subscription is the heart of the revenue graph. It connects billing to every bus
 import { Subscription } from '@headlessly/billing'
 
 // When a subscription activates, update the CRM contact stage
-Subscription.activated((sub, $) => {
+Subscription.activated(async (sub, $) => {
   const customer = await $.Customer.get(sub.customer)
   if (customer.contact) {
     await $.Contact.update(customer.contact, { stage: 'Customer' })
@@ -235,7 +235,7 @@ Subscription.activated((sub, $) => {
 })
 
 // When a subscription is cancelled, create a retention campaign
-Subscription.cancelled((sub, $) => {
+Subscription.cancelled(async (sub, $) => {
   const customer = await $.Customer.get(sub.customer)
   await $.Campaign.create({
     name: `Win-back: ${customer.name}`,
