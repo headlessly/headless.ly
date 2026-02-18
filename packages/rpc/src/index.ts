@@ -71,7 +71,7 @@ export interface HeadlesslyRpcOptions {
  * Exported for testability — used internally by headlessly().
  */
 export function buildHeadlesslyConfig(options: HeadlesslyRpcOptions): { url: string; rpcOptions: RPCOptions } {
-  const base = (options.endpoint ?? 'https://db.headless.ly').replace(/\/+$/, '')
+  const base = (options.endpoint ?? 'https://headless.ly').replace(/\/+$/, '')
   const isSecure = /^https:\/\//.test(base)
   // Default to WebSocket — persistent connection avoids TLS handshake per request (~67ms savings)
   const useWs = options.transport !== 'http'
@@ -80,12 +80,15 @@ export function buildHeadlesslyConfig(options: HeadlesslyRpcOptions): { url: str
 
   const rpcOptions: RPCOptions = {
     reconnect: useWs,
+    headers: {
+      'x-tenant': options.tenant,
+    },
   }
   if (options.apiKey) {
     rpcOptions.auth = options.apiKey
   }
 
-  return { url: `${url}/~${options.tenant}`, rpcOptions }
+  return { url: `${url}/rpc`, rpcOptions }
 }
 
 /**
