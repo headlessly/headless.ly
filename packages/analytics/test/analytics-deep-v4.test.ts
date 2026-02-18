@@ -286,10 +286,7 @@ describe('@headlessly/analytics — deep coverage v4', () => {
       const goalA = await Goal.create({ name: 'A', target: 100, status: 'OnTrack' })
       const goalB = await Goal.create({ name: 'B', target: 200, status: 'OnTrack' })
 
-      const [updatedA, updatedB] = await Promise.all([
-        Goal.update(goalA.$id, { current: 50 }),
-        Goal.update(goalB.$id, { current: 100 }),
-      ])
+      const [updatedA, updatedB] = await Promise.all([Goal.update(goalA.$id, { current: 50 }), Goal.update(goalB.$id, { current: 100 })])
 
       expect(updatedA.$version).toBe(2)
       expect(updatedA.current).toBe(50)
@@ -297,10 +294,7 @@ describe('@headlessly/analytics — deep coverage v4', () => {
       expect(updatedB.current).toBe(100)
 
       // Further concurrent updates
-      const [a3, b3] = await Promise.all([
-        Goal.update(goalA.$id, { current: 75 }),
-        Goal.update(goalB.$id, { current: 150 }),
-      ])
+      const [a3, b3] = await Promise.all([Goal.update(goalA.$id, { current: 75 }), Goal.update(goalB.$id, { current: 150 })])
       expect(a3.$version).toBe(3)
       expect(b3.$version).toBe(3)
     })

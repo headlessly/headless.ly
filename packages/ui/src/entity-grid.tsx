@@ -28,15 +28,7 @@ export interface EntityGridProps {
   className?: string
 }
 
-export function EntityGrid({
-  noun,
-  filter,
-  editable = true,
-  rowHeight = 'default',
-  onViewRow,
-  onRelationshipNavigate,
-  className,
-}: EntityGridProps) {
+export function EntityGrid({ noun, filter, editable = true, rowHeight = 'default', onViewRow, onRelationshipNavigate, className }: EntityGridProps) {
   const schema = getNounSchema(noun)
   const columns = useMemo(() => (schema ? nounToColumns(schema) : []), [schema])
 
@@ -87,7 +79,7 @@ export function EntityGrid({
       columns={editableColumns}
       isLoading={loading}
       rowHeight={rowHeight}
-      rowIdField="$id"
+      rowIdField='$id'
       onCellUpdate={editable ? handleCellUpdate : undefined}
       onInsert={editable ? handleInsert : undefined}
       onDeleteRows={editable ? handleDeleteRows : undefined}

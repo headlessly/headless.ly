@@ -13,8 +13,7 @@ interface FetchCall {
 }
 
 const fetchCalls: FetchCall[] = []
-let fetchResponder: (url: string, init?: RequestInit) => Response | Promise<Response> = () =>
-  new Response(JSON.stringify({ ok: true }), { status: 200 })
+let fetchResponder: (url: string, init?: RequestInit) => Response | Promise<Response> = () => new Response(JSON.stringify({ ok: true }), { status: 200 })
 
 function resetFetch() {
   fetchCalls.length = 0

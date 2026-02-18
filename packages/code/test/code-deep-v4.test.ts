@@ -114,8 +114,7 @@ async function collectParse(response: Response): Promise<ExecEvent[]> {
 
 describe('ExecResult return type shape', () => {
   it('exec result contains exactly the expected fields', async () => {
-    fetchResponder = () =>
-      execOk({ exitCode: 0, stdout: 'hello\n', stderr: '', command: 'echo hello', duration: 15, timestamp: '2025-06-15T12:00:00Z' })
+    fetchResponder = () => execOk({ exitCode: 0, stdout: 'hello\n', stderr: '', command: 'echo hello', duration: 15, timestamp: '2025-06-15T12:00:00Z' })
     const client = createCodeClient({ apiKey: 'key' })
     const result: ExecResult = await client.exec('sb_1', 'echo hello')
     expect(result).toHaveProperty('success')
@@ -635,8 +634,7 @@ describe('Code interpreter different return value types', () => {
   })
 
   it('returns html output for rendered content', async () => {
-    fetchResponder = () =>
-      codeOk({ results: [{ type: 'html', data: '<table><tr><td>A</td><td>B</td></tr></table>', mimeType: 'text/html' }] })
+    fetchResponder = () => codeOk({ results: [{ type: 'html', data: '<table><tr><td>A</td><td>B</td></tr></table>', mimeType: 'text/html' }] })
     const client = createCodeClient({ apiKey: 'key' })
     const result = await client.runCode('sb_1', 'render_table()')
     const output = result.results[0] as ExecutionOutput
@@ -973,10 +971,7 @@ describe('Sequential error recovery', () => {
 
 describe('SSE stream advanced scenarios', () => {
   it('handles event type override followed by normal event without override', async () => {
-    const res = sseResponse(
-      'event: error\ndata: {"type":"stdout","data":"overridden"}\n\n',
-      'data: {"type":"stdout","data":"normal"}\n\n',
-    )
+    const res = sseResponse('event: error\ndata: {"type":"stdout","data":"overridden"}\n\n', 'data: {"type":"stdout","data":"normal"}\n\n')
     const events = await collectParse(res)
     expect(events).toHaveLength(2)
     expect(events[0]!.type).toBe('error')

@@ -456,11 +456,7 @@ describe('Batch-Style Concurrent Operations', () => {
   it('Promise.all with multiple DOClient calls fires all transports', async () => {
     const callFn = vi.fn(async (method: string) => `result_${method}`)
     const client = createDOClient({ call: callFn })
-    const [r1, r2, r3] = await Promise.all([
-      (client as any).contacts.list(),
-      (client as any).deals.list(),
-      (client as any).invoices.list(),
-    ])
+    const [r1, r2, r3] = await Promise.all([(client as any).contacts.list(), (client as any).deals.list(), (client as any).invoices.list()])
     expect(callFn).toHaveBeenCalledTimes(3)
     expect(r1).toBe('result_contacts.list')
     expect(r2).toBe('result_deals.list')
@@ -471,9 +467,7 @@ describe('Batch-Style Concurrent Operations', () => {
     let seq = 0
     const callFn = vi.fn(async () => ++seq)
     const client = createDOClient({ call: callFn })
-    const results = await Promise.all(
-      Array.from({ length: 5 }, () => (client as any).counter.next()),
-    )
+    const results = await Promise.all(Array.from({ length: 5 }, () => (client as any).counter.next()))
     expect(callFn).toHaveBeenCalledTimes(5)
     expect(new Set(results).size).toBe(5) // all unique
   })
@@ -498,10 +492,7 @@ describe('Batch-Style Concurrent Operations', () => {
       return null
     })
     const client = createDOClient({ call: callFn })
-    const [storageResult, methodResult] = await Promise.all([
-      client.storage.get('key'),
-      (client as any).custom.method(),
-    ])
+    const [storageResult, methodResult] = await Promise.all([client.storage.get('key'), (client as any).custom.method()])
     expect(storageResult).toBe('stored-value')
     expect(methodResult).toBe('custom-result')
   })

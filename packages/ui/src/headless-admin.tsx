@@ -19,12 +19,7 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import { getNounSchema } from 'digital-objects'
-import {
-  DatabaseSidebar,
-  TableEditorToolbar,
-  type DatabaseColumnDef,
-  type FilterCondition,
-} from '@mdxui/admin'
+import { DatabaseSidebar, TableEditorToolbar, type DatabaseColumnDef, type FilterCondition } from '@mdxui/admin'
 import { nounToSchemas, nounToColumns, domainForEntity } from './schema-bridge.js'
 import { EntityGrid } from './entity-grid.js'
 
@@ -105,7 +100,7 @@ export function HeadlessAdmin({
         collapsed={sidebarCollapsed}
         onCollapsedChange={setSidebarCollapsed}
       />
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className='flex-1 flex flex-col overflow-hidden'>
         {selectedEntity && selectedSchema && (
           <>
             <TableEditorToolbar
@@ -120,19 +115,10 @@ export function HeadlessAdmin({
               filters={filters}
               onFiltersChange={setFilters}
             />
-            <EntityGrid
-              noun={selectedEntity}
-              editable={editable}
-              onViewRow={handleViewRow}
-              onRelationshipNavigate={handleRelationshipNavigate}
-            />
+            <EntityGrid noun={selectedEntity} editable={editable} onViewRow={handleViewRow} onRelationshipNavigate={handleRelationshipNavigate} />
           </>
         )}
-        {!selectedEntity && (
-          <div className="flex-1 flex items-center justify-center text-muted-foreground">
-            Select an entity from the sidebar
-          </div>
-        )}
+        {!selectedEntity && <div className='flex-1 flex items-center justify-center text-muted-foreground'>Select an entity from the sidebar</div>}
       </div>
     </div>
   )

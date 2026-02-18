@@ -596,7 +596,6 @@ describe('@headlessly/marketing — deep v2', () => {
       const c1 = await Campaign.create({ name: 'C1', status: 'Active' })
       await Campaign.complete(c1.$id)
       expect(calls).toHaveLength(1)
-
       ;(unsub as () => void)()
 
       const c2 = await Campaign.create({ name: 'C2', status: 'Active' })
@@ -693,9 +692,7 @@ describe('@headlessly/marketing — deep v2', () => {
     it('Segment raw definition has no verb declarations', () => {
       const schema = Segment.$schema as NounSchema
       // Segment has no PascalCase values that are verb declarations
-      const verbKeys = Object.entries(schema.raw).filter(
-        ([key, val]) => typeof val === 'string' && /^[A-Z][a-zA-Z]+$/.test(val) && /^[a-z]/.test(key),
-      )
+      const verbKeys = Object.entries(schema.raw).filter(([key, val]) => typeof val === 'string' && /^[A-Z][a-zA-Z]+$/.test(val) && /^[a-z]/.test(key))
       expect(verbKeys).toHaveLength(0)
     })
   })

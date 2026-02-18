@@ -15,15 +15,7 @@ import {
   buildHeadlesslyConfig,
 } from '../src/index.js'
 
-import type {
-  RpcProxy,
-  RPCProxy,
-  Transport,
-  HeadlesslyRpcOptions,
-  DOClient,
-  HttpTransportOptions,
-  CapnwebTransportOptions,
-} from '../src/index.js'
+import type { RpcProxy, RPCProxy, Transport, HeadlesslyRpcOptions, DOClient, HttpTransportOptions, CapnwebTransportOptions } from '../src/index.js'
 
 // =============================================================================
 // 1. Factory Configuration (~8 tests)

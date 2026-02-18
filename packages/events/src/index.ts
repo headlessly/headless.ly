@@ -12,7 +12,18 @@
  */
 
 // Types
-export type { NounEventBase, NounEvent, NounEventInput, EventHandler, SubscriptionMode, Subscription, TimeQuery, CDCOptions, CrudVerb, CrudEvent } from './types.js'
+export type {
+  NounEventBase,
+  NounEvent,
+  NounEventInput,
+  EventHandler,
+  SubscriptionMode,
+  Subscription,
+  TimeQuery,
+  CDCOptions,
+  CrudVerb,
+  CrudEvent,
+} from './types.js'
 export { EventPatterns, crudEvent, verbEvent } from './types.js'
 
 // Event log

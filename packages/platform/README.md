@@ -33,7 +33,7 @@ None of them were built for an AI agent to operate.
 Your agent doesn't need a drag-and-drop canvas. It needs `Workflow.activate()`. It doesn't need a trigger/action visual builder with 47 authentication screens. It needs typed entities that are already connected. It doesn't need to parse a Stripe webhook payload, map it to a HubSpot contact schema, and POST it to a Zendesk API. It needs a BEFORE hook:
 
 ```typescript
-Workflow.activating(workflow => {
+Workflow.activating((workflow) => {
   if (workflow.steps.length === 0) throw new Error('Cannot activate empty workflow')
 })
 ```
@@ -188,13 +188,13 @@ Your agent connects to one MCP endpoint. It can orchestrate your entire automati
 ```
 
 ```ts title="platform.headless.ly/mcp#do"
-const stale = await $.Workflow.find({ status: 'Active', lastRunAt: { '$lt': '2026-01-01' } })
+const stale = await $.Workflow.find({ status: 'Active', lastRunAt: { $lt: '2026-01-01' } })
 for (const workflow of stale) {
   await $.Workflow.pause(workflow.$id)
   await $.Event.create({ type: 'workflow.stale', value: workflow.name })
 }
 
-const idle = await $.Agent.find({ status: 'Active', successRate: { '$lt': 0.5 } })
+const idle = await $.Agent.find({ status: 'Active', successRate: { $lt: 0.5 } })
 for (const agent of idle) {
   await $.Agent.retire(agent.$id)
   await $.Ticket.create({

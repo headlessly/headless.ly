@@ -242,10 +242,7 @@ export class EventLog {
   }
 
   /** Compact events for a specific entity into a single snapshot event */
-  async compact(
-    entityType: string,
-    entityId: string,
-  ): Promise<{ originalCount: number; snapshotEvent: NounEvent }> {
+  async compact(entityType: string, entityId: string): Promise<{ originalCount: number; snapshotEvent: NounEvent }> {
     const history = await this.getEntityHistory(entityType, entityId)
     const originalCount = history.length
 

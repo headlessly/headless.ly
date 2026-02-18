@@ -113,16 +113,40 @@ describe('entityNames registry', () => {
 
   it('does not contain any extra or unknown entity names', () => {
     const expected = new Set([
-      'User', 'ApiKey',
-      'Organization', 'Contact', 'Lead', 'Deal', 'Activity', 'Pipeline',
-      'Customer', 'Product', 'Plan', 'Price', 'Subscription', 'Invoice', 'Payment',
-      'Project', 'Issue', 'Comment',
-      'Content', 'Asset', 'Site',
+      'User',
+      'ApiKey',
+      'Organization',
+      'Contact',
+      'Lead',
+      'Deal',
+      'Activity',
+      'Pipeline',
+      'Customer',
+      'Product',
+      'Plan',
+      'Price',
+      'Subscription',
+      'Invoice',
+      'Payment',
+      'Project',
+      'Issue',
+      'Comment',
+      'Content',
+      'Asset',
+      'Site',
       'Ticket',
-      'Event', 'Metric', 'Funnel', 'Goal',
-      'Campaign', 'Segment', 'Form',
-      'Experiment', 'FeatureFlag',
-      'Workflow', 'Integration', 'Agent',
+      'Event',
+      'Metric',
+      'Funnel',
+      'Goal',
+      'Campaign',
+      'Segment',
+      'Form',
+      'Experiment',
+      'FeatureFlag',
+      'Workflow',
+      'Integration',
+      'Agent',
       'Message',
     ])
     for (const name of entityNames) {
@@ -619,13 +643,7 @@ describe.todo('live API: crm.headless.ly/openapi', () => {
     const paths = openApiSpec!.paths as Record<string, unknown>
 
     // Lead is not yet deployed — only check entities with live endpoints
-    const deployedPaths = [
-      '/api/organizations',
-      '/api/contacts',
-      '/api/deals',
-      '/api/activities',
-      '/api/pipelines',
-    ]
+    const deployedPaths = ['/api/organizations', '/api/contacts', '/api/deals', '/api/activities', '/api/pipelines']
 
     for (const expectedPath of deployedPaths) {
       expect(paths[expectedPath], `OpenAPI should have path ${expectedPath}`).toBeDefined()
@@ -636,11 +654,7 @@ describe.todo('live API: crm.headless.ly/openapi', () => {
     expect(openApiSpec).not.toBeNull()
     const paths = openApiSpec!.paths as Record<string, unknown>
 
-    const crmEntityPaths = [
-      '/api/contacts',
-      '/api/deals',
-      '/api/organizations',
-    ]
+    const crmEntityPaths = ['/api/contacts', '/api/deals', '/api/organizations']
 
     for (const listPath of crmEntityPaths) {
       // List/create path

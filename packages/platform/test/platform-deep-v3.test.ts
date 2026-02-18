@@ -34,10 +34,7 @@ describe('@headlessly/platform — deep v3', () => {
         trigger: 'Deal.closed',
         steps: JSON.stringify([{ action: 'Invoice.create' }]),
       })
-      const newSteps = JSON.stringify([
-        { action: 'Invoice.create' },
-        { action: 'Payment.request' },
-      ])
+      const newSteps = JSON.stringify([{ action: 'Invoice.create' }, { action: 'Payment.request' }])
       const updated = await Workflow.update(wf.$id, { steps: newSteps })
       expect(updated.name).toBe('Evolving Flow')
       expect(updated.trigger).toBe('Deal.closed')
@@ -241,14 +238,14 @@ describe('@headlessly/platform — deep v3', () => {
         ratingCount: 150,
         successRate: 0.95,
         totalTokens: 1500000,
-        totalCost: 45.50,
+        totalCost: 45.5,
         averageLatency: 1200,
       })
       expect(updated.rating).toBe(4.8)
       expect(updated.ratingCount).toBe(150)
       expect(updated.successRate).toBe(0.95)
       expect(updated.totalTokens).toBe(1500000)
-      expect(updated.totalCost).toBe(45.50)
+      expect(updated.totalCost).toBe(45.5)
       expect(updated.averageLatency).toBe(1200)
     })
 
@@ -410,10 +407,7 @@ describe('@headlessly/platform — deep v3', () => {
       const wf = await Workflow.create({ name: 'Update WF', trigger: 'test', runCount: 0 })
       const agent = await Agent.create({ name: 'Update Agent', totalTokens: 0 })
 
-      const [updatedWf, updatedAgent] = await Promise.all([
-        Workflow.update(wf.$id, { runCount: 42 }),
-        Agent.update(agent.$id, { totalTokens: 5000 }),
-      ])
+      const [updatedWf, updatedAgent] = await Promise.all([Workflow.update(wf.$id, { runCount: 42 }), Agent.update(agent.$id, { totalTokens: 5000 })])
       expect(updatedWf.runCount).toBe(42)
       expect(updatedAgent.totalTokens).toBe(5000)
     })
@@ -729,7 +723,21 @@ describe('@headlessly/platform — deep v3', () => {
   describe('Schema completeness and registry', () => {
     it('Workflow schema contains all expected field names', () => {
       const fieldNames = [...Workflow.$schema.fields.keys()]
-      const expected = ['name', 'description', 'triggerEvent', 'steps', 'retryPolicy', 'timeout', 'status', 'errorHandling', 'version', 'lastRunAt', 'runCount', 'successCount', 'failureCount']
+      const expected = [
+        'name',
+        'description',
+        'triggerEvent',
+        'steps',
+        'retryPolicy',
+        'timeout',
+        'status',
+        'errorHandling',
+        'version',
+        'lastRunAt',
+        'runCount',
+        'successCount',
+        'failureCount',
+      ]
       for (const name of expected) {
         expect(fieldNames).toContain(name)
       }
@@ -737,7 +745,22 @@ describe('@headlessly/platform — deep v3', () => {
 
     it('Integration schema contains all expected field names', () => {
       const fieldNames = [...Integration.$schema.fields.keys()]
-      const expected = ['name', 'slug', 'description', 'provider', 'providerUrl', 'providerLogo', 'category', 'authType', 'oauthScopes', 'configSchema', 'status', 'featured', 'apiBaseUrl', 'webhookSupport']
+      const expected = [
+        'name',
+        'slug',
+        'description',
+        'provider',
+        'providerUrl',
+        'providerLogo',
+        'category',
+        'authType',
+        'oauthScopes',
+        'configSchema',
+        'status',
+        'featured',
+        'apiBaseUrl',
+        'webhookSupport',
+      ]
       for (const name of expected) {
         expect(fieldNames).toContain(name)
       }
@@ -746,10 +769,33 @@ describe('@headlessly/platform — deep v3', () => {
     it('Agent schema contains all expected field names', () => {
       const fieldNames = [...Agent.$schema.fields.keys()]
       const expected = [
-        'name', 'slug', 'description', 'avatar', 'model', 'systemPrompt', 'instructions',
-        'persona', 'type', 'status', 'visibility', 'temperature', 'maxTokens', 'tools',
-        'functions', 'knowledgeBases', 'memory', 'memoryWindow', 'totalTokens', 'totalCost',
-        'averageLatency', 'successRate', 'rating', 'ratingCount', 'version', 'publishedAt', 'tags',
+        'name',
+        'slug',
+        'description',
+        'avatar',
+        'model',
+        'systemPrompt',
+        'instructions',
+        'persona',
+        'type',
+        'status',
+        'visibility',
+        'temperature',
+        'maxTokens',
+        'tools',
+        'functions',
+        'knowledgeBases',
+        'memory',
+        'memoryWindow',
+        'totalTokens',
+        'totalCost',
+        'averageLatency',
+        'successRate',
+        'rating',
+        'ratingCount',
+        'version',
+        'publishedAt',
+        'tags',
       ]
       for (const name of expected) {
         expect(fieldNames).toContain(name)
@@ -778,8 +824,12 @@ describe('@headlessly/platform — deep v3', () => {
   describe('CRUD hook lifecycle', () => {
     it('creating (BEFORE) hook fires before create completes', async () => {
       const order: string[] = []
-      Workflow.creating(() => { order.push('before') })
-      Workflow.created(() => { order.push('after') })
+      Workflow.creating(() => {
+        order.push('before')
+      })
+      Workflow.created(() => {
+        order.push('after')
+      })
 
       await Workflow.create({ name: 'Order Test', trigger: 'test' })
       expect(order).toEqual(['before', 'after'])

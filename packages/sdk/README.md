@@ -83,17 +83,17 @@ import { Issue } from '@headlessly/projects'
 
 ## Nine Domains, One Graph
 
-| Domain | Package | Entities | Replaces |
-|--------|---------|----------|----------|
-| **CRM** | `@headlessly/crm` | Organization, Contact, Lead, Deal, Activity, Pipeline | HubSpot, Salesforce, Pipedrive |
-| **Billing** | `@headlessly/billing` | Customer, Product, Plan, Price, Subscription, Invoice, Payment | Stripe Dashboard + billing logic |
-| **Projects** | `@headlessly/projects` | Project, Issue, Comment | Jira, Linear, Asana |
-| **Content** | `@headlessly/content` | Content, Asset, Site | Contentful, Sanity, WordPress |
-| **Support** | `@headlessly/support` | Ticket | Zendesk, Intercom, Freshdesk |
-| **Analytics** | `@headlessly/analytics` | Event, Metric, Funnel, Goal | Mixpanel, Amplitude, PostHog |
-| **Marketing** | `@headlessly/marketing` | Campaign, Segment, Form | Mailchimp, ActiveCampaign |
-| **Experiments** | `@headlessly/experiments` | Experiment, FeatureFlag | LaunchDarkly, Optimizely |
-| **Platform** | `@headlessly/platform` | Workflow, Integration, Agent | Zapier, Make, n8n |
+| Domain          | Package                   | Entities                                                       | Replaces                         |
+| --------------- | ------------------------- | -------------------------------------------------------------- | -------------------------------- |
+| **CRM**         | `@headlessly/crm`         | Organization, Contact, Lead, Deal, Activity, Pipeline          | HubSpot, Salesforce, Pipedrive   |
+| **Billing**     | `@headlessly/billing`     | Customer, Product, Plan, Price, Subscription, Invoice, Payment | Stripe Dashboard + billing logic |
+| **Projects**    | `@headlessly/projects`    | Project, Issue, Comment                                        | Jira, Linear, Asana              |
+| **Content**     | `@headlessly/content`     | Content, Asset, Site                                           | Contentful, Sanity, WordPress    |
+| **Support**     | `@headlessly/support`     | Ticket                                                         | Zendesk, Intercom, Freshdesk     |
+| **Analytics**   | `@headlessly/analytics`   | Event, Metric, Funnel, Goal                                    | Mixpanel, Amplitude, PostHog     |
+| **Marketing**   | `@headlessly/marketing`   | Campaign, Segment, Form                                        | Mailchimp, ActiveCampaign        |
+| **Experiments** | `@headlessly/experiments` | Experiment, FeatureFlag                                        | LaunchDarkly, Optimizely         |
+| **Platform**    | `@headlessly/platform`    | Workflow, Integration, Agent                                   | Zapier, Make, n8n                |
 
 Plus **Identity** (User, ApiKey) and **Communication** (Message) in the core SDK.
 
@@ -101,43 +101,43 @@ Plus **Identity** (User, ApiKey) and **Communication** (Message) in the core SDK
 
 The complete entity reference, alphabetical:
 
-| # | Entity | Domain | Package | Custom Verbs |
-|---|--------|--------|---------|-------------|
-| 1 | **Activity** | CRM | `@headlessly/crm` | `complete`, `cancel` |
-| 2 | **Agent** | Platform | `@headlessly/platform` | `deploy`, `pause`, `resume` |
-| 3 | **ApiKey** | Identity | `@headlessly/sdk` | `revoke` |
-| 4 | **Asset** | Content | `@headlessly/content` | `publish`, `archive` |
-| 5 | **Campaign** | Marketing | `@headlessly/marketing` | `launch`, `pause`, `complete` |
-| 6 | **Comment** | Projects | `@headlessly/projects` | — |
-| 7 | **Contact** | CRM | `@headlessly/crm` | `qualify`, `capture`, `assign`, `merge`, `enrich` |
-| 8 | **Content** | Content | `@headlessly/content` | `publish`, `archive`, `schedule` |
-| 9 | **Customer** | Billing | `@headlessly/billing` | — |
-| 10 | **Deal** | CRM | `@headlessly/crm` | `close`, `win`, `lose` |
-| 11 | **Event** | Analytics | `@headlessly/analytics` | — |
-| 12 | **Experiment** | Experiments | `@headlessly/experiments` | `start`, `stop`, `conclude` |
-| 13 | **FeatureFlag** | Experiments | `@headlessly/experiments` | `enable`, `disable` |
-| 14 | **Form** | Marketing | `@headlessly/marketing` | `publish`, `archive` |
-| 15 | **Funnel** | Analytics | `@headlessly/analytics` | — |
-| 16 | **Goal** | Analytics | `@headlessly/analytics` | `complete` |
-| 17 | **Integration** | Platform | `@headlessly/platform` | `activate`, `deactivate` |
-| 18 | **Invoice** | Billing | `@headlessly/billing` | `send`, `pay`, `void` |
-| 19 | **Issue** | Projects | `@headlessly/projects` | `assign`, `close`, `reopen` |
-| 20 | **Lead** | CRM | `@headlessly/crm` | `convert`, `lose` |
-| 21 | **Message** | Communication | `@headlessly/sdk` | `send`, `deliver`, `read` |
-| 22 | **Metric** | Analytics | `@headlessly/analytics` | — |
-| 23 | **Organization** | CRM | `@headlessly/crm` | — |
-| 24 | **Payment** | Billing | `@headlessly/billing` | `refund` |
-| 25 | **Pipeline** | CRM | `@headlessly/crm` | — |
-| 26 | **Plan** | Billing | `@headlessly/billing` | `activate`, `retire` |
-| 27 | **Price** | Billing | `@headlessly/billing` | — |
-| 28 | **Product** | Billing | `@headlessly/billing` | `publish`, `archive` |
-| 29 | **Project** | Projects | `@headlessly/projects` | `archive`, `complete` |
-| 30 | **Segment** | Marketing | `@headlessly/marketing` | — |
-| 31 | **Site** | Content | `@headlessly/content` | `publish`, `takedown` |
-| 32 | **Subscription** | Billing | `@headlessly/billing` | `activate`, `pause`, `resume`, `cancel` |
-| 33 | **Ticket** | Support | `@headlessly/support` | `assign`, `escalate`, `resolve`, `close`, `reopen` |
-| 34 | **User** | Identity | `@headlessly/sdk` | `invite`, `suspend`, `activate` |
-| 35 | **Workflow** | Platform | `@headlessly/platform` | `activate`, `deactivate`, `trigger` |
+| #   | Entity           | Domain        | Package                   | Custom Verbs                                       |
+| --- | ---------------- | ------------- | ------------------------- | -------------------------------------------------- |
+| 1   | **Activity**     | CRM           | `@headlessly/crm`         | `complete`, `cancel`                               |
+| 2   | **Agent**        | Platform      | `@headlessly/platform`    | `deploy`, `pause`, `resume`                        |
+| 3   | **ApiKey**       | Identity      | `@headlessly/sdk`         | `revoke`                                           |
+| 4   | **Asset**        | Content       | `@headlessly/content`     | `publish`, `archive`                               |
+| 5   | **Campaign**     | Marketing     | `@headlessly/marketing`   | `launch`, `pause`, `complete`                      |
+| 6   | **Comment**      | Projects      | `@headlessly/projects`    | —                                                  |
+| 7   | **Contact**      | CRM           | `@headlessly/crm`         | `qualify`, `capture`, `assign`, `merge`, `enrich`  |
+| 8   | **Content**      | Content       | `@headlessly/content`     | `publish`, `archive`, `schedule`                   |
+| 9   | **Customer**     | Billing       | `@headlessly/billing`     | —                                                  |
+| 10  | **Deal**         | CRM           | `@headlessly/crm`         | `close`, `win`, `lose`                             |
+| 11  | **Event**        | Analytics     | `@headlessly/analytics`   | —                                                  |
+| 12  | **Experiment**   | Experiments   | `@headlessly/experiments` | `start`, `stop`, `conclude`                        |
+| 13  | **FeatureFlag**  | Experiments   | `@headlessly/experiments` | `enable`, `disable`                                |
+| 14  | **Form**         | Marketing     | `@headlessly/marketing`   | `publish`, `archive`                               |
+| 15  | **Funnel**       | Analytics     | `@headlessly/analytics`   | —                                                  |
+| 16  | **Goal**         | Analytics     | `@headlessly/analytics`   | `complete`                                         |
+| 17  | **Integration**  | Platform      | `@headlessly/platform`    | `activate`, `deactivate`                           |
+| 18  | **Invoice**      | Billing       | `@headlessly/billing`     | `send`, `pay`, `void`                              |
+| 19  | **Issue**        | Projects      | `@headlessly/projects`    | `assign`, `close`, `reopen`                        |
+| 20  | **Lead**         | CRM           | `@headlessly/crm`         | `convert`, `lose`                                  |
+| 21  | **Message**      | Communication | `@headlessly/sdk`         | `send`, `deliver`, `read`                          |
+| 22  | **Metric**       | Analytics     | `@headlessly/analytics`   | —                                                  |
+| 23  | **Organization** | CRM           | `@headlessly/crm`         | —                                                  |
+| 24  | **Payment**      | Billing       | `@headlessly/billing`     | `refund`                                           |
+| 25  | **Pipeline**     | CRM           | `@headlessly/crm`         | —                                                  |
+| 26  | **Plan**         | Billing       | `@headlessly/billing`     | `activate`, `retire`                               |
+| 27  | **Price**        | Billing       | `@headlessly/billing`     | —                                                  |
+| 28  | **Product**      | Billing       | `@headlessly/billing`     | `publish`, `archive`                               |
+| 29  | **Project**      | Projects      | `@headlessly/projects`    | `archive`, `complete`                              |
+| 30  | **Segment**      | Marketing     | `@headlessly/marketing`   | —                                                  |
+| 31  | **Site**         | Content       | `@headlessly/content`     | `publish`, `takedown`                              |
+| 32  | **Subscription** | Billing       | `@headlessly/billing`     | `activate`, `pause`, `resume`, `cancel`            |
+| 33  | **Ticket**       | Support       | `@headlessly/support`     | `assign`, `escalate`, `resolve`, `close`, `reopen` |
+| 34  | **User**         | Identity      | `@headlessly/sdk`         | `invite`, `suspend`, `activate`                    |
+| 35  | **Workflow**     | Platform      | `@headlessly/platform`    | `activate`, `deactivate`, `trigger`                |
 
 Every entity supports CRUD operations (`create`, `get`, `find`, `update`, `delete`) automatically. Custom verbs add domain-specific lifecycle: `qualify()` → `qualifying()` → `qualified()` → `qualifiedBy`.
 
@@ -166,7 +166,7 @@ An AI agent connects to one MCP server and can operate your entire business. Sea
 
 ```typescript
 // BEFORE — validate, transform, or reject
-Contact.qualifying(contact => {
+Contact.qualifying((contact) => {
   if (!contact.email) throw new Error('Cannot qualify without email')
 })
 
@@ -200,11 +200,7 @@ await $.do(async ($) => {
 
 ```typescript
 // Concurrent reads — parallel queries in one call
-const [leads, deals, mrr] = await Promise.all([
-  $.Contact.find({ stage: 'Lead' }),
-  $.Deal.find({ stage: 'Open' }),
-  $.Metric.get('mrr'),
-])
+const [leads, deals, mrr] = await Promise.all([$.Contact.find({ stage: 'Lead' }), $.Deal.find({ stage: 'Open' }), $.Metric.get('mrr')])
 ```
 
 Remote operations route through [rpc.do](https://rpc.do) for efficient transport. The `headless.ly` entry point uses DONounProvider with rpc.do for Durable Object communication.
@@ -214,46 +210,43 @@ Remote operations route through [rpc.do](https://rpc.do) for efficient transport
 Every mutation is an immutable event. Any point in time is reconstructable:
 
 ```typescript
-const januaryLeads = await $.Contact.find(
-  { stage: 'Lead' },
-  { asOf: '2026-01-15T10:00:00Z' }
-)
+const januaryLeads = await $.Contact.find({ stage: 'Lead' }, { asOf: '2026-01-15T10:00:00Z' })
 
 await $.Contact.rollback('contact_fX9bL5nRd', { to: '2026-02-06T15:00:00Z' })
 ```
 
 ## Domain Packages
 
-| Package | Description |
-|---------|-------------|
-| [`@headlessly/crm`](packages/crm) | Contacts, companies, deals — your agent's CRM |
-| [`@headlessly/billing`](packages/billing) | Subscriptions, invoices, payments — Stripe as truth source |
-| [`@headlessly/projects`](packages/projects) | Issues, projects, comments — GitHub-synced |
-| [`@headlessly/content`](packages/content) | Pages, assets, sites — headless CMS |
-| [`@headlessly/support`](packages/support) | Tickets — headless help desk |
-| [`@headlessly/analytics`](packages/analytics) | Events, metrics, funnels, goals |
-| [`@headlessly/marketing`](packages/marketing) | Campaigns, segments, forms |
-| [`@headlessly/experiments`](packages/experiments) | A/B tests, feature flags |
-| [`@headlessly/platform`](packages/platform) | Workflows, integrations, agents |
+| Package                                           | Description                                                |
+| ------------------------------------------------- | ---------------------------------------------------------- |
+| [`@headlessly/crm`](packages/crm)                 | Contacts, companies, deals — your agent's CRM              |
+| [`@headlessly/billing`](packages/billing)         | Subscriptions, invoices, payments — Stripe as truth source |
+| [`@headlessly/projects`](packages/projects)       | Issues, projects, comments — GitHub-synced                 |
+| [`@headlessly/content`](packages/content)         | Pages, assets, sites — headless CMS                        |
+| [`@headlessly/support`](packages/support)         | Tickets — headless help desk                               |
+| [`@headlessly/analytics`](packages/analytics)     | Events, metrics, funnels, goals                            |
+| [`@headlessly/marketing`](packages/marketing)     | Campaigns, segments, forms                                 |
+| [`@headlessly/experiments`](packages/experiments) | A/B tests, feature flags                                   |
+| [`@headlessly/platform`](packages/platform)       | Workflows, integrations, agents                            |
 
 ### Infrastructure
 
-| Package | Description |
-|---------|-------------|
-| [`@headlessly/rpc`](packages/rpc) | capnweb promise pipelining via [rpc.do](https://rpc.do) |
-| [`@headlessly/objects`](packages/objects) | Durable Object-backed NounProvider |
-| [`@headlessly/events`](packages/events) | Immutable event log with time travel |
-| [`@headlessly/mcp`](packages/mcp) | MCP server — search, fetch, do |
-| [`@headlessly/code`](packages/code) | Sandboxed code execution |
+| Package                                   | Description                                             |
+| ----------------------------------------- | ------------------------------------------------------- |
+| [`@headlessly/rpc`](packages/rpc)         | capnweb promise pipelining via [rpc.do](https://rpc.do) |
+| [`@headlessly/objects`](packages/objects) | Durable Object-backed NounProvider                      |
+| [`@headlessly/events`](packages/events)   | Immutable event log with time travel                    |
+| [`@headlessly/mcp`](packages/mcp)         | MCP server — search, fetch, do                          |
+| [`@headlessly/code`](packages/code)       | Sandboxed code execution                                |
 
 ### Client SDKs
 
-| Package | Description |
-|---------|-------------|
-| [`@headlessly/js`](packages/js) | Browser — analytics, errors, feature flags |
-| [`@headlessly/node`](packages/node) | Node.js — server-side SDK |
-| [`@headlessly/react`](packages/react) | React hooks and providers |
-| [`@headlessly/ui`](packages/ui) | Schema-driven CRUD components |
+| Package                               | Description                                |
+| ------------------------------------- | ------------------------------------------ |
+| [`@headlessly/js`](packages/js)       | Browser — analytics, errors, feature flags |
+| [`@headlessly/node`](packages/node)   | Node.js — server-side SDK                  |
+| [`@headlessly/react`](packages/react) | React hooks and providers                  |
+| [`@headlessly/ui`](packages/ui)       | Schema-driven CRUD components              |
 
 ## License
 

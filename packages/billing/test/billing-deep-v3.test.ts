@@ -503,9 +503,7 @@ describe('@headlessly/billing v3 — deep tests', () => {
     })
 
     it('bulk delete customers', async () => {
-      const customers = await Promise.all(
-        Array.from({ length: 5 }, (_, i) => Customer.create({ name: `BulkDel-${i}`, email: `bd${i}@test.com` })),
-      )
+      const customers = await Promise.all(Array.from({ length: 5 }, (_, i) => Customer.create({ name: `BulkDel-${i}`, email: `bd${i}@test.com` })))
       const deleteResults = await Promise.all(customers.map((c) => Customer.delete(c.$id)))
       expect(deleteResults.every((r) => r === true)).toBe(true)
 

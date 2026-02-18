@@ -100,51 +100,51 @@ describe('per-entity schema field counts', () => {
   // It does NOT include: relationships or verb declarations or disabled verbs.
   const expectedFieldCounts: Record<string, number> = {
     // Identity (defined in sdk/src/index.ts)
-    User: 4,      // name, email, avatar, role(enum), status(enum) => role+status are enums so in fields
-    ApiKey: 4,    // name, keyPrefix, scopes, status(enum)
+    User: 4, // name, email, avatar, role(enum), status(enum) => role+status are enums so in fields
+    ApiKey: 4, // name, keyPrefix, scopes, status(enum)
     // CRM
     Organization: 27, // lots of fields + 3 enums (type, status, tier)
-    Contact: 17,      // name, firstName, lastName, email, phone, mobile, avatar, title, department, role(enum), status(enum), source, leadScore, preferredChannel(enum), timezone, language, linkedinUrl, twitterHandle, marketingConsent, lastEngagement
-    Lead: 12,         // name, source, sourceDetail, score, budget, authority, need, timeline, convertedAt, lostReason, lostAt, firstTouchAt, lastActivityAt, status(enum)
-    Deal: 15,         // name, value, currency, recurringValue, recurringInterval(enum), stage(enum), probability, expectedCloseDate, actualCloseDate, description, nextStep, competitorNotes, lostReason, wonReason, source, lastActivityAt
-    Activity: 17,     // subject, type(enum), description, dueAt, startAt, endAt, duration, allDay, timezone, status(enum), priority(enum), completedAt, outcome, recordingUrl, meetingLink, reminderAt
-    Pipeline: 5,      // name, slug, description, isDefault, stages, dealRotting
+    Contact: 17, // name, firstName, lastName, email, phone, mobile, avatar, title, department, role(enum), status(enum), source, leadScore, preferredChannel(enum), timezone, language, linkedinUrl, twitterHandle, marketingConsent, lastEngagement
+    Lead: 12, // name, source, sourceDetail, score, budget, authority, need, timeline, convertedAt, lostReason, lostAt, firstTouchAt, lastActivityAt, status(enum)
+    Deal: 15, // name, value, currency, recurringValue, recurringInterval(enum), stage(enum), probability, expectedCloseDate, actualCloseDate, description, nextStep, competitorNotes, lostReason, wonReason, source, lastActivityAt
+    Activity: 17, // subject, type(enum), description, dueAt, startAt, endAt, duration, allDay, timezone, status(enum), priority(enum), completedAt, outcome, recordingUrl, meetingLink, reminderAt
+    Pipeline: 5, // name, slug, description, isDefault, stages, dealRotting
     // Billing
-    Customer: 5,      // name, email, stripeCustomerId, paymentMethod, currency, taxExempt
-    Product: 10,      // name, slug, description, tagline, type(enum), icon, image, features, highlights, status(enum), visibility(enum), featured, stripeProductId
-    Plan: 10,         // name, slug, description, trialDays, features, limits, status(enum), isDefault, isFree, isEnterprise, badge, order
-    Price: 6,         // amount, currency, interval(enum), intervalCount, originalAmount, discountPercent, active, stripeId
+    Customer: 5, // name, email, stripeCustomerId, paymentMethod, currency, taxExempt
+    Product: 10, // name, slug, description, tagline, type(enum), icon, image, features, highlights, status(enum), visibility(enum), featured, stripeProductId
+    Plan: 10, // name, slug, description, trialDays, features, limits, status(enum), isDefault, isFree, isEnterprise, badge, order
+    Price: 6, // amount, currency, interval(enum), intervalCount, originalAmount, discountPercent, active, stripeId
     Subscription: 14, // status(enum), currentPeriodStart, currentPeriodEnd, cancelAtPeriodEnd, trialStart, trialEnd, startedAt, canceledAt, pausedAt, resumesAt, endedAt, cancelReason, cancelFeedback, quantity, paymentMethod, collectionMethod, stripeSubscriptionId, stripeCustomerId
-    Invoice: 16,      // number, subtotal, tax, discount, total, amountPaid, amountDue, currency, status(enum), periodStart, periodEnd, issuedAt, dueAt, paidAt, voidedAt, lineItems, receiptUrl, pdfUrl, hostedUrl, stripeInvoiceId
-    Payment: 4,       // amount, currency, status(enum), method, stripePaymentId
+    Invoice: 16, // number, subtotal, tax, discount, total, amountPaid, amountDue, currency, status(enum), periodStart, periodEnd, issuedAt, dueAt, paidAt, voidedAt, lineItems, receiptUrl, pdfUrl, hostedUrl, stripeInvoiceId
+    Payment: 4, // amount, currency, status(enum), method, stripePaymentId
     // Projects
-    Project: 8,       // name, slug, description, status(enum), visibility(enum), startDate, targetDate, tags
-    Issue: 8,         // title, description, status(enum), priority(enum), type(enum), labels, milestone, dueDate
-    Comment: 1,       // body
+    Project: 8, // name, slug, description, status(enum), visibility(enum), startDate, targetDate, tags
+    Issue: 8, // title, description, status(enum), priority(enum), type(enum), labels, milestone, dueDate
+    Comment: 1, // body
     // Content
-    Content: 17,      // title, slug, excerpt, body, type(enum), categories, tags, status(enum), publishedAt, scheduledAt, seoTitle, seoDescription, ogImage, noIndex, canonicalUrl, readingTime, viewCount, visibility(enum)
-    Asset: 14,        // name, filename, url, type(enum), mimeType, extension, size, width, height, alt, caption, duration, thumbnail, tags, source, license
-    Site: 13,         // name, subdomain, title, description, tagline, logo, favicon, primaryColor, accentColor, status(enum), visibility(enum), ogImage, defaultLanguage, supportedLanguages, timezone
+    Content: 17, // title, slug, excerpt, body, type(enum), categories, tags, status(enum), publishedAt, scheduledAt, seoTitle, seoDescription, ogImage, noIndex, canonicalUrl, readingTime, viewCount, visibility(enum)
+    Asset: 14, // name, filename, url, type(enum), mimeType, extension, size, width, height, alt, caption, duration, thumbnail, tags, source, license
+    Site: 13, // name, subdomain, title, description, tagline, logo, favicon, primaryColor, accentColor, status(enum), visibility(enum), ogImage, defaultLanguage, supportedLanguages, timezone
     // Support
-    Ticket: 9,        // subject, description, status(enum), priority(enum), category, channel(enum), tags, firstResponseAt, resolvedAt, satisfaction
+    Ticket: 9, // subject, description, status(enum), priority(enum), category, channel(enum), tags, firstResponseAt, resolvedAt, satisfaction
     // Analytics
-    Event: 12,        // name, type, data, source(enum), sessionId, userId, anonymousId, timestamp, url, path, referrer, properties
-    Metric: 5,        // name, value, type(enum), unit, dimensions, timestamp
-    Funnel: 4,        // name, description, steps, conversionRate
-    Goal: 6,          // name, description, target, current, unit, period(enum), status(enum)
+    Event: 12, // name, type, data, source(enum), sessionId, userId, anonymousId, timestamp, url, path, referrer, properties
+    Metric: 5, // name, value, type(enum), unit, dimensions, timestamp
+    Funnel: 4, // name, description, steps, conversionRate
+    Goal: 6, // name, description, target, current, unit, period(enum), status(enum)
     // Marketing
-    Campaign: 21,     // name, slug, description, type(enum), status(enum), startDate, endDate, launchedAt, budget, actualCost, currency, targetLeads, targetRevenue, actualLeads, actualRevenue, roi, landingPageUrl, utmSource, utmMedium, utmCampaign
-    Segment: 4,       // name, description, criteria, memberCount, isDynamic
-    Form: 5,          // name, description, fields, status(enum), submissionCount
+    Campaign: 21, // name, slug, description, type(enum), status(enum), startDate, endDate, launchedAt, budget, actualCost, currency, targetLeads, targetRevenue, actualLeads, actualRevenue, roi, landingPageUrl, utmSource, utmMedium, utmCampaign
+    Segment: 4, // name, description, criteria, memberCount, isDynamic
+    Form: 5, // name, description, fields, status(enum), submissionCount
     // Experiments
-    Experiment: 18,   // name, slug, description, hypothesis, type(enum), status(enum), startAt, endAt, targetAudience, trafficAllocation, variants, metrics, primaryMetric, results, winner, confidence, sampleSize, conversions, tags
-    FeatureFlag: 10,  // key, name, description, type(enum), defaultValue, variants, targetingRules, status(enum), rolloutPercentage, evaluations, lastEvaluatedAt
+    Experiment: 18, // name, slug, description, hypothesis, type(enum), status(enum), startAt, endAt, targetAudience, trafficAllocation, variants, metrics, primaryMetric, results, winner, confidence, sampleSize, conversions, tags
+    FeatureFlag: 10, // key, name, description, type(enum), defaultValue, variants, targetingRules, status(enum), rolloutPercentage, evaluations, lastEvaluatedAt
     // Platform
-    Workflow: 12,     // name, description, trigger, steps, retryPolicy, errorHandling(enum), timeout, status(enum), version, lastRunAt, runCount, successCount, failureCount
-    Integration: 12,  // name, slug, description, provider, providerUrl, providerLogo, category(enum), authType(enum), oauthScopes, configSchema, status(enum), featured, apiBaseUrl, webhookSupport
-    Agent: 22,        // name, slug, description, avatar, model, systemPrompt, instructions, persona, type(enum), status(enum), visibility(enum), temperature, maxTokens, tools, functions, knowledgeBases, memory(enum), memoryWindow, totalTokens, totalCost, averageLatency, successRate, rating, ratingCount, version, publishedAt, tags
+    Workflow: 12, // name, description, trigger, steps, retryPolicy, errorHandling(enum), timeout, status(enum), version, lastRunAt, runCount, successCount, failureCount
+    Integration: 12, // name, slug, description, provider, providerUrl, providerLogo, category(enum), authType(enum), oauthScopes, configSchema, status(enum), featured, apiBaseUrl, webhookSupport
+    Agent: 22, // name, slug, description, avatar, model, systemPrompt, instructions, persona, type(enum), status(enum), visibility(enum), temperature, maxTokens, tools, functions, knowledgeBases, memory(enum), memoryWindow, totalTokens, totalCost, averageLatency, successRate, rating, ratingCount, version, publishedAt, tags
     // Communication
-    Message: 5,       // body, channel(enum), status(enum), sender, recipient
+    Message: 5, // body, channel(enum), status(enum), sender, recipient
   }
 
   it('all 35 entities have $schema.fields as Map', () => {
@@ -171,38 +171,38 @@ describe('per-entity schema relationship counts', () => {
   const expectedRelationshipCounts: Record<string, number> = {
     User: 0,
     ApiKey: 0,
-    Organization: 5,  // parent, subsidiaries, contacts, deals, subscriptions
-    Contact: 5,       // organization, leads, activities, manager, reports
-    Lead: 5,          // contact, organization, owner, campaign, deal
-    Deal: 6,          // organization, contact, owner, leads, activities, campaign
-    Activity: 6,      // deal, contact, organization, campaign, assignee, createdBy
+    Organization: 5, // parent, subsidiaries, contacts, deals, subscriptions
+    Contact: 5, // organization, leads, activities, manager, reports
+    Lead: 5, // contact, organization, owner, campaign, deal
+    Deal: 6, // organization, contact, owner, leads, activities, campaign
+    Activity: 6, // deal, contact, organization, campaign, assignee, createdBy
     Pipeline: 0,
-    Customer: 4,      // organization, subscriptions, invoices, payments
-    Product: 1,       // plans
-    Plan: 2,          // product, prices
-    Price: 1,         // plan
-    Subscription: 3,  // organization, customer, plan
-    Invoice: 3,       // organization, customer, subscription
-    Payment: 2,       // customer, invoice
-    Project: 3,       // organization, owner, issues
-    Issue: 4,         // project, assignee, reporter, comments
-    Comment: 2,       // author, issue
-    Content: 3,       // site, author, featuredImage
-    Asset: 1,         // uploadedBy
-    Site: 1,          // content
-    Ticket: 3,        // assignee, requester, organization
-    Event: 1,         // organization
-    Metric: 1,        // organization
-    Funnel: 1,        // organization
-    Goal: 1,          // organization
-    Campaign: 2,      // leads, owner
-    Segment: 1,       // organization
-    Form: 1,          // organization
-    Experiment: 2,    // organization, owner
-    FeatureFlag: 2,   // organization, experiment
-    Workflow: 1,      // organization
+    Customer: 4, // organization, subscriptions, invoices, payments
+    Product: 1, // plans
+    Plan: 2, // product, prices
+    Price: 1, // plan
+    Subscription: 3, // organization, customer, plan
+    Invoice: 3, // organization, customer, subscription
+    Payment: 2, // customer, invoice
+    Project: 3, // organization, owner, issues
+    Issue: 4, // project, assignee, reporter, comments
+    Comment: 2, // author, issue
+    Content: 3, // site, author, featuredImage
+    Asset: 1, // uploadedBy
+    Site: 1, // content
+    Ticket: 3, // assignee, requester, organization
+    Event: 1, // organization
+    Metric: 1, // organization
+    Funnel: 1, // organization
+    Goal: 1, // organization
+    Campaign: 2, // leads, owner
+    Segment: 1, // organization
+    Form: 1, // organization
+    Experiment: 2, // organization, owner
+    FeatureFlag: 2, // organization, experiment
+    Workflow: 1, // organization
     Integration: 0,
-    Agent: 2,         // organization, owner
+    Agent: 2, // organization, owner
     Message: 0,
   }
 
@@ -346,7 +346,7 @@ describe('verb completeness per entity', () => {
     Asset: [...CRUD],
     Site: [...CRUD],
     Ticket: [...CRUD, 'resolve', 'escalate', 'close', 'reopen'],
-    Event: ['create'],  // update + delete disabled
+    Event: ['create'], // update + delete disabled
     Metric: [...CRUD, 'record', 'reset'],
     Funnel: [...CRUD, 'analyze'],
     Goal: [...CRUD, 'achieve', 'complete', 'miss', 'reset'],
@@ -559,7 +559,7 @@ describe('resolveEntity utility', () => {
   it('returns undefined for unknown types', () => {
     expect(resolveEntity('Unknown')).toBeUndefined()
     expect(resolveEntity('')).toBeUndefined()
-    expect(resolveEntity('contact')).toBeUndefined()  // case-sensitive
+    expect(resolveEntity('contact')).toBeUndefined() // case-sensitive
   })
 })
 

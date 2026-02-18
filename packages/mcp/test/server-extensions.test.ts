@@ -58,11 +58,7 @@ describe('@headlessly/mcp — Server Extensions', () => {
     it('custom tool appears alongside builtin tools', async () => {
       const server = new MCPServer({ provider })
 
-      server.tool(
-        'custom',
-        { type: 'object', properties: {} },
-        async () => ({ content: [{ type: 'text', text: 'ok' }] }),
-      )
+      server.tool('custom', { type: 'object', properties: {} }, async () => ({ content: [{ type: 'text', text: 'ok' }] }))
 
       const response = await server.handleRequest({ method: 'tools/list', id: 1 })
       const result = response.result as { tools: MCPTool[] }
@@ -104,21 +100,9 @@ describe('@headlessly/mcp — Server Extensions', () => {
     it('registering multiple custom tools works', async () => {
       const server = new MCPServer({ provider })
 
-      server.tool(
-        'tool-a',
-        { type: 'object', properties: {} },
-        async () => ({ content: [{ type: 'text', text: 'a' }] }),
-      )
-      server.tool(
-        'tool-b',
-        { type: 'object', properties: {} },
-        async () => ({ content: [{ type: 'text', text: 'b' }] }),
-      )
-      server.tool(
-        'tool-c',
-        { type: 'object', properties: {} },
-        async () => ({ content: [{ type: 'text', text: 'c' }] }),
-      )
+      server.tool('tool-a', { type: 'object', properties: {} }, async () => ({ content: [{ type: 'text', text: 'a' }] }))
+      server.tool('tool-b', { type: 'object', properties: {} }, async () => ({ content: [{ type: 'text', text: 'b' }] }))
+      server.tool('tool-c', { type: 'object', properties: {} }, async () => ({ content: [{ type: 'text', text: 'c' }] }))
 
       const response = await server.handleRequest({ method: 'tools/list', id: 1 })
       const result = response.result as { tools: MCPTool[] }
@@ -129,13 +113,9 @@ describe('@headlessly/mcp — Server Extensions', () => {
       const server = new MCPServer({ provider })
 
       // Register a custom 'search' tool that overrides the builtin
-      server.tool(
-        'search',
-        { type: 'object', properties: {} },
-        async () => ({
-          content: [{ type: 'text', text: 'custom search' }],
-        }),
-      )
+      server.tool('search', { type: 'object', properties: {} }, async () => ({
+        content: [{ type: 'text', text: 'custom search' }],
+      }))
 
       const response = await server.handleRequest({
         method: 'tools/call',
@@ -185,14 +165,10 @@ describe('@headlessly/mcp — Server Extensions', () => {
 
     it('custom tool can return isError', async () => {
       const server = new MCPServer({ provider })
-      server.tool(
-        'fail',
-        { type: 'object', properties: {} },
-        async () => ({
-          content: [{ type: 'text', text: 'Something went wrong' }],
-          isError: true,
-        }),
-      )
+      server.tool('fail', { type: 'object', properties: {} }, async () => ({
+        content: [{ type: 'text', text: 'Something went wrong' }],
+        isError: true,
+      }))
 
       const response = await server.handleRequest({
         method: 'tools/call',
@@ -216,9 +192,7 @@ describe('@headlessly/mcp — Server Extensions', () => {
       const result1 = await server.handle({ method: 'initialize', id: 1 })
       const result2 = await server.handleRequest({ method: 'initialize', id: 2 })
 
-      expect((result1.result as Record<string, unknown>).protocolVersion).toBe(
-        (result2.result as Record<string, unknown>).protocolVersion,
-      )
+      expect((result1.result as Record<string, unknown>).protocolVersion).toBe((result2.result as Record<string, unknown>).protocolVersion)
     })
 
     it('handle() processes tools/list', async () => {
@@ -382,13 +356,9 @@ describe('@headlessly/mcp — Server Extensions', () => {
 
     it('handler includes custom tools', async () => {
       const server = new MCPServer({ provider })
-      server.tool(
-        'health',
-        { type: 'object', properties: {} },
-        async () => ({
-          content: [{ type: 'text', text: JSON.stringify({ status: 'ok' }) }],
-        }),
-      )
+      server.tool('health', { type: 'object', properties: {} }, async () => ({
+        content: [{ type: 'text', text: JSON.stringify({ status: 'ok' }) }],
+      }))
 
       const handler = server.toFetchHandler()
 
@@ -433,16 +403,12 @@ describe('@headlessly/mcp — Server Extensions', () => {
       await provider.create('Contact', { name: 'Bob', stage: 'Qualified' })
 
       const server = new MCPServer({ provider })
-      server.tool(
-        'count-leads',
-        { type: 'object', properties: {} },
-        async () => {
-          const leads = await provider.find('Contact', { stage: 'Lead' })
-          return {
-            content: [{ type: 'text', text: JSON.stringify({ count: leads.length }) }],
-          }
-        },
-      )
+      server.tool('count-leads', { type: 'object', properties: {} }, async () => {
+        const leads = await provider.find('Contact', { stage: 'Lead' })
+        return {
+          content: [{ type: 'text', text: JSON.stringify({ count: leads.length }) }],
+        }
+      })
 
       const response = await server.handleRequest({
         method: 'tools/call',
@@ -456,11 +422,7 @@ describe('@headlessly/mcp — Server Extensions', () => {
 
     it('builtin tools still work after registering custom tools', async () => {
       const server = new MCPServer({ provider })
-      server.tool(
-        'custom',
-        { type: 'object', properties: {} },
-        async () => ({ content: [{ type: 'text', text: 'custom' }] }),
-      )
+      server.tool('custom', { type: 'object', properties: {} }, async () => ({ content: [{ type: 'text', text: 'custom' }] }))
 
       await provider.create('Contact', { name: 'Alice', stage: 'Lead' })
 

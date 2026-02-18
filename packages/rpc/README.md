@@ -9,10 +9,10 @@ const $ = headlessly({ tenant: 'acme', apiKey: 'key_...' })
 
 // Fetch contacts, their deals, each deal's subscription — one round-trip
 const revenue = await $.Contact.find({ stage: 'Customer' })
-  .map(c => c.deals)
-  .filter(d => d.stage === 'ClosedWon')
-  .map(d => d.subscription)
-  .map(s => s.plan.price)
+  .map((c) => c.deals)
+  .filter((d) => d.stage === 'ClosedWon')
+  .map((d) => d.subscription)
+  .map((s) => s.plan.price)
 ```
 
 That entire chain — contacts to deals to subscriptions to plan prices — executes in a **single HTTP request**. Not five. Not fifteen. One.
@@ -55,17 +55,16 @@ The `.map()` on an RPC result is not `Array.prototype.map`. It uses **record-rep
 
 ```typescript
 // Server-side map — the callback records property access, replays on server
-const dealValues = await $.Deal.find({ stage: 'Open' }).map(d => d.value)
+const dealValues = await $.Deal.find({ stage: 'Open' }).map((d) => d.value)
 
 // Chain maps for deep traversal
-const customerEmails = await $.Contact.find({ stage: 'Customer' })
-  .map(c => c.email)
+const customerEmails = await $.Contact.find({ stage: 'Customer' }).map((c) => c.email)
 
 // Map across relationships
 const activeCustomerPlans = await $.Contact.find({ stage: 'Customer' })
-  .map(c => c.deals)
-  .filter(d => d.stage === 'ClosedWon')
-  .map(d => d.subscription.plan.name)
+  .map((c) => c.deals)
+  .filter((d) => d.stage === 'ClosedWon')
+  .map((d) => d.subscription.plan.name)
 ```
 
 No serialized code strings. No `eval()`. No security risk. Just capnweb.

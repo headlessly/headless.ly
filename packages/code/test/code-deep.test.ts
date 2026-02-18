@@ -53,10 +53,7 @@ function sseResponse(...chunks: string[]): Response {
 }
 
 function sandboxResponse(id: string, status: 'running' | 'stopped' | 'error' = 'running') {
-  return new Response(
-    JSON.stringify({ success: true, data: { id, status, createdAt: '2025-01-01T00:00:00Z' } }),
-    { status: 200 },
-  )
+  return new Response(JSON.stringify({ success: true, data: { id, status, createdAt: '2025-01-01T00:00:00Z' } }), { status: 200 })
 }
 
 function execResponse(opts: Partial<{ exitCode: number; stdout: string; stderr: string; command: string; duration: number }> = {}) {
@@ -262,9 +259,7 @@ describe('Sandbox Lifecycle', () => {
 
     const client = createCodeClient({ apiKey: 'key' })
     await client.createSandbox({ id: 'sb_custom', timeout: 300, env: { NODE_ENV: 'test' } })
-    expect(fetchCalls[0]!.body).toEqual(
-      expect.objectContaining({ id: 'sb_custom', timeout: 300, env: { NODE_ENV: 'test' } }),
-    )
+    expect(fetchCalls[0]!.body).toEqual(expect.objectContaining({ id: 'sb_custom', timeout: 300, env: { NODE_ENV: 'test' } }))
   })
 })
 
@@ -280,14 +275,11 @@ describe('File Operations', () => {
     await client.writeFile('sb_1', '/app/main.ts', 'export default 42')
     expect(fetchCalls[0]!.method).toBe('POST')
     expect(fetchCalls[0]!.url).toContain('/files/write')
-    expect(fetchCalls[0]!.body).toEqual(
-      expect.objectContaining({ sandboxId: 'sb_1', path: '/app/main.ts', content: 'export default 42' }),
-    )
+    expect(fetchCalls[0]!.body).toEqual(expect.objectContaining({ sandboxId: 'sb_1', path: '/app/main.ts', content: 'export default 42' }))
   })
 
   it('readFile sends POST /files/read and returns content string', async () => {
-    fetchResponder = () =>
-      new Response(JSON.stringify({ success: true, data: { content: 'file contents here' } }), { status: 200 })
+    fetchResponder = () => new Response(JSON.stringify({ success: true, data: { content: 'file contents here' } }), { status: 200 })
 
     const client = createCodeClient({ apiKey: 'key' })
     const content = await client.readFile('sb_1', '/app/main.ts')
@@ -354,11 +346,7 @@ describe('Streaming Execution', () => {
 
   it('stream includes stdout chunks in order', async () => {
     fetchResponder = () =>
-      sseResponse(
-        'data: {"type":"stdout","data":"line1"}\n\n',
-        'data: {"type":"stdout","data":"line2"}\n\n',
-        'data: {"type":"stdout","data":"line3"}\n\n',
-      )
+      sseResponse('data: {"type":"stdout","data":"line1"}\n\n', 'data: {"type":"stdout","data":"line2"}\n\n', 'data: {"type":"stdout","data":"line3"}\n\n')
 
     const client = createCodeClient({ apiKey: 'key' })
     const stdoutChunks: string[] = []
@@ -369,11 +357,7 @@ describe('Streaming Execution', () => {
   })
 
   it('stream includes exit code in complete event', async () => {
-    fetchResponder = () =>
-      sseResponse(
-        'data: {"type":"stdout","data":"output"}\n\n',
-        'data: {"type":"complete","exitCode":1,"duration":50}\n\n',
-      )
+    fetchResponder = () => sseResponse('data: {"type":"stdout","data":"output"}\n\n', 'data: {"type":"complete","exitCode":1,"duration":50}\n\n')
 
     const client = createCodeClient({ apiKey: 'key' })
     let exitCode: number | undefined
@@ -390,8 +374,7 @@ describe('Streaming Execution', () => {
 
 describe('Error Handling', () => {
   it('throws when API returns success: false', async () => {
-    fetchResponder = () =>
-      new Response(JSON.stringify({ success: false, error: 'Sandbox limit exceeded' }), { status: 200 })
+    fetchResponder = () => new Response(JSON.stringify({ success: false, error: 'Sandbox limit exceeded' }), { status: 200 })
 
     const client = createCodeClient({ apiKey: 'key' })
     await expect(client.createSandbox()).rejects.toThrow('Sandbox limit exceeded')
@@ -402,9 +385,7 @@ describe('Error Handling', () => {
 
     const client = createCodeClient({ apiKey: 'key' })
     await client.exec('sb_1', 'pwd', { cwd: '/app', env: { FOO: 'bar' }, stdin: 'input data' })
-    expect(fetchCalls[0]!.body).toEqual(
-      expect.objectContaining({ sandboxId: 'sb_1', command: 'pwd', cwd: '/app', env: { FOO: 'bar' }, stdin: 'input data' }),
-    )
+    expect(fetchCalls[0]!.body).toEqual(expect.objectContaining({ sandboxId: 'sb_1', command: 'pwd', cwd: '/app', env: { FOO: 'bar' }, stdin: 'input data' }))
   })
 
   it('throws when exec command is empty string', async () => {
@@ -418,14 +399,11 @@ describe('Error Handling', () => {
 
     const client = createCodeClient({ apiKey: 'key' })
     await client.writeFile('sb_1', '/app/run.sh', '#!/bin/bash', { permissions: '0755' })
-    expect(fetchCalls[0]!.body).toEqual(
-      expect.objectContaining({ permissions: '0755' }),
-    )
+    expect(fetchCalls[0]!.body).toEqual(expect.objectContaining({ permissions: '0755' }))
   })
 
   it('readFile includes encoding option in request body', async () => {
-    fetchResponder = () =>
-      new Response(JSON.stringify({ success: true, data: { content: 'binary' } }), { status: 200 })
+    fetchResponder = () => new Response(JSON.stringify({ success: true, data: { content: 'binary' } }), { status: 200 })
 
     const client = createCodeClient({ apiKey: 'key' })
     await client.readFile('sb_1', '/app/data.bin', { encoding: 'base64' })
@@ -457,8 +435,7 @@ describe('Error Handling', () => {
   })
 
   it('exists returns false when server returns success:false', async () => {
-    fetchResponder = () =>
-      new Response(JSON.stringify({ success: false, error: 'not found' }), { status: 200 })
+    fetchResponder = () => new Response(JSON.stringify({ success: false, error: 'not found' }), { status: 200 })
 
     const client = createCodeClient({ apiKey: 'key' })
     const result = await client.exists('sb_1', '/nonexistent')

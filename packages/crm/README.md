@@ -27,7 +27,7 @@ None of them were built for an AI agent to operate.
 Your agent doesn't need a drag-and-drop pipeline view. It needs `Deal.close()`. It doesn't need a contact record page with 47 tabs. It needs `Contact.qualify()`. It doesn't need a "workflow builder" GUI. It needs a BEFORE hook:
 
 ```typescript
-Contact.qualifying(contact => {
+Contact.qualifying((contact) => {
   if (contact.leadScore < 50) throw new Error('Score too low to qualify')
 })
 ```
@@ -214,7 +214,7 @@ Query results are standard arrays — chain operations with familiar JavaScript:
 const active = await Contact.find({ status: 'Active' })
 for (const contact of active) {
   const deals = await Deal.find({ contact: contact.$id })
-  const open = deals.filter(d => d.stage !== 'ClosedWon' && d.stage !== 'ClosedLost')
+  const open = deals.filter((d) => d.stage !== 'ClosedWon' && d.stage !== 'ClosedLost')
   for (const deal of open) {
     await Deal.update(deal.$id, { lastContactedAt: new Date().toISOString() })
   }

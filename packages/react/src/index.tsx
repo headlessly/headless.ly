@@ -915,10 +915,7 @@ export function HeadlesslyProvider({ tenant, apiKey, endpoint, mode, children }:
     setInitialized(true)
   }, [tenant, apiKey, endpoint, mode])
 
-  const value = useMemo<HeadlesslyContextValue>(
-    () => ({ tenant, initialized, org }),
-    [tenant, initialized, org],
-  )
+  const value = useMemo<HeadlesslyContextValue>(() => ({ tenant, initialized, org }), [tenant, initialized, org])
 
   return <HeadlesslyContext.Provider value={value}>{children}</HeadlesslyContext.Provider>
 }
@@ -1255,9 +1252,7 @@ export function useDomain(domain: string): Record<string, NounEntity> {
   return useMemo(() => {
     const mod = domainModules[domain]
     if (!mod) {
-      throw new Error(
-        `Unknown domain: "${domain}". Available domains: ${Object.keys(domainModules).join(', ')}`,
-      )
+      throw new Error(`Unknown domain: "${domain}". Available domains: ${Object.keys(domainModules).join(', ')}`)
     }
     return mod
   }, [domain])

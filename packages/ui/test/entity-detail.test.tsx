@@ -22,7 +22,7 @@ describe('EntityDetail', () => {
     const Contact = registerTestNouns()
     const alice = await Contact.create({ name: 'Alice', email: 'alice@test.com', stage: 'Lead' })
 
-    render(<EntityDetail noun="Contact" id={alice.$id} />)
+    render(<EntityDetail noun='Contact' id={alice.$id} />)
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Contact' })).toBeInTheDocument()
@@ -36,13 +36,13 @@ describe('EntityDetail', () => {
 
   it('shows loading indicator when loading', () => {
     registerTestNouns()
-    render(<EntityDetail noun="Contact" id="contact_xxx" />)
+    render(<EntityDetail noun='Contact' id='contact_xxx' />)
     expect(screen.getByText('Loading...')).toBeInTheDocument()
   })
 
   it('shows not found when entity does not exist', async () => {
     registerTestNouns()
-    render(<EntityDetail noun="Contact" id="contact_nonexistent" />)
+    render(<EntityDetail noun='Contact' id='contact_nonexistent' />)
 
     await waitFor(() => {
       // useEntity resolves with null for missing entity → error state
@@ -54,7 +54,7 @@ describe('EntityDetail', () => {
     const Contact = registerTestNouns()
     const alice = await Contact.create({ name: 'Alice', stage: 'Lead', company: 'company_1' })
 
-    render(<EntityDetail noun="Contact" id={alice.$id} />)
+    render(<EntityDetail noun='Contact' id={alice.$id} />)
 
     await waitFor(() => {
       expect(screen.getByText('Relationships')).toBeInTheDocument()
@@ -68,7 +68,7 @@ describe('EntityDetail', () => {
     const alice = await Contact.create({ name: 'Alice', stage: 'Lead', company: 'company_1' })
     const onNavigate = vi.fn()
 
-    render(<EntityDetail noun="Contact" id={alice.$id} onNavigate={onNavigate} />)
+    render(<EntityDetail noun='Contact' id={alice.$id} onNavigate={onNavigate} />)
 
     await waitFor(() => {
       expect(screen.getByText('company_1')).toBeInTheDocument()
@@ -82,7 +82,7 @@ describe('EntityDetail', () => {
     const Contact = registerTestNouns()
     const alice = await Contact.create({ name: 'Alice', stage: 'Lead' })
 
-    render(<EntityDetail noun="Contact" id={alice.$id} />)
+    render(<EntityDetail noun='Contact' id={alice.$id} />)
 
     await waitFor(() => {
       expect(screen.getByText('Qualify')).toBeInTheDocument()
@@ -93,7 +93,7 @@ describe('EntityDetail', () => {
     const Contact = registerTestNouns()
     const alice = await Contact.create({ name: 'Alice', stage: 'Lead' })
 
-    render(<EntityDetail noun="Contact" id={alice.$id} />)
+    render(<EntityDetail noun='Contact' id={alice.$id} />)
 
     await waitFor(() => {
       expect(screen.getByText('Alice')).toBeInTheDocument()
@@ -115,7 +115,7 @@ describe('EntityDetail', () => {
     const alice = await Contact.create({ name: 'Alice', stage: 'Lead' })
     const onEdit = vi.fn()
 
-    render(<EntityDetail noun="Contact" id={alice.$id} onEdit={onEdit} />)
+    render(<EntityDetail noun='Contact' id={alice.$id} onEdit={onEdit} />)
 
     await waitFor(() => {
       expect(screen.getByText('Edit')).toBeInTheDocument()
@@ -129,7 +129,7 @@ describe('EntityDetail', () => {
     const Contact = registerTestNouns()
     const alice = await Contact.create({ name: 'Alice', stage: 'Lead' })
 
-    render(<EntityDetail noun="Contact" id={alice.$id} />)
+    render(<EntityDetail noun='Contact' id={alice.$id} />)
 
     await waitFor(() => {
       expect(screen.getByText('Alice')).toBeInTheDocument()
@@ -141,7 +141,7 @@ describe('EntityDetail', () => {
     const Contact = registerTestNouns()
     const alice = await Contact.create({ name: 'Alice', stage: 'Lead' })
 
-    render(<EntityDetail noun="Contact" id={alice.$id} />)
+    render(<EntityDetail noun='Contact' id={alice.$id} />)
 
     await waitFor(() => {
       expect(screen.getByText('Meta')).toBeInTheDocument()
@@ -149,7 +149,7 @@ describe('EntityDetail', () => {
   })
 
   it('handles unknown noun gracefully', () => {
-    render(<EntityDetail noun="UnknownEntity" id="x" />)
+    render(<EntityDetail noun='UnknownEntity' id='x' />)
     expect(screen.getByText('Unknown entity: UnknownEntity')).toBeInTheDocument()
   })
 
@@ -157,7 +157,7 @@ describe('EntityDetail', () => {
     const Contact = registerTestNouns()
     const alice = await Contact.create({ name: 'Alice', stage: 'Lead' })
 
-    const { container } = render(<EntityDetail noun="Contact" id={alice.$id} className="my-detail" />)
+    const { container } = render(<EntityDetail noun='Contact' id={alice.$id} className='my-detail' />)
 
     await waitFor(() => {
       expect(screen.getByText('Alice')).toBeInTheDocument()

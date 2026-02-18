@@ -203,7 +203,9 @@ export class SubscriptionManager {
             promises.push(
               Promise.resolve()
                 .then(() => handler(event))
-                .then(() => { delivered++ })
+                .then(() => {
+                  delivered++
+                })
                 .catch(() => {
                   failed++
                 }),
@@ -215,8 +217,12 @@ export class SubscriptionManager {
         case 'websocket': {
           promises.push(
             this.dispatchWebSocket(subscription, event)
-              .then(() => { delivered++ })
-              .catch(() => { failed++ }),
+              .then(() => {
+                delivered++
+              })
+              .catch(() => {
+                failed++
+              }),
           )
           break
         }
@@ -224,8 +230,12 @@ export class SubscriptionManager {
         case 'webhook': {
           promises.push(
             this.dispatchWebhook(subscription, event)
-              .then(() => { delivered++ })
-              .catch(() => { failed++ }),
+              .then(() => {
+                delivered++
+              })
+              .catch(() => {
+                failed++
+              }),
           )
           break
         }

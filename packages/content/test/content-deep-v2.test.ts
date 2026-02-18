@@ -929,9 +929,15 @@ describe('@headlessly/content — deep-v2 coverage', () => {
   describe('Multiple hook registration', () => {
     it('multiple BEFORE hooks run in registration order', async () => {
       const order: number[] = []
-      Content.publishing(() => { order.push(1) })
-      Content.publishing(() => { order.push(2) })
-      Content.publishing(() => { order.push(3) })
+      Content.publishing(() => {
+        order.push(1)
+      })
+      Content.publishing(() => {
+        order.push(2)
+      })
+      Content.publishing(() => {
+        order.push(3)
+      })
 
       const c = await Content.create({ title: 'Multi Hook', status: 'Draft' })
       await Content.publish(c.$id)
@@ -940,8 +946,12 @@ describe('@headlessly/content — deep-v2 coverage', () => {
 
     it('multiple AFTER hooks run in registration order', async () => {
       const order: number[] = []
-      Content.published(() => { order.push(1) })
-      Content.published(() => { order.push(2) })
+      Content.published(() => {
+        order.push(1)
+      })
+      Content.published(() => {
+        order.push(2)
+      })
 
       const c = await Content.create({ title: 'Multi After', status: 'Draft' })
       await Content.publish(c.$id)

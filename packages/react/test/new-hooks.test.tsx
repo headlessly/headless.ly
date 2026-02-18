@@ -52,7 +52,7 @@ afterEach(() => {
 })
 
 function Wrapper({ children }: { children: React.ReactNode }) {
-  return <HeadlessProvider apiKey="new_hooks_test">{children}</HeadlessProvider>
+  return <HeadlessProvider apiKey='new_hooks_test'>{children}</HeadlessProvider>
 }
 
 // ============================================================================
@@ -68,8 +68,8 @@ describe('HeadlesslyProvider', () => {
   it('renders children', async () => {
     await act(async () => {
       render(
-        <HeadlesslyProvider tenant="test-tenant">
-          <div data-testid="child">content</div>
+        <HeadlesslyProvider tenant='test-tenant'>
+          <div data-testid='child'>content</div>
         </HeadlesslyProvider>,
       )
     })
@@ -80,12 +80,12 @@ describe('HeadlesslyProvider', () => {
   it('provides tenant in context', async () => {
     function TenantDisplay() {
       const ctx = useHeadlessly()
-      return <div data-testid="tenant">{ctx.tenant}</div>
+      return <div data-testid='tenant'>{ctx.tenant}</div>
     }
 
     await act(async () => {
       render(
-        <HeadlesslyProvider tenant="acme">
+        <HeadlesslyProvider tenant='acme'>
           <TenantDisplay />
         </HeadlesslyProvider>,
       )
@@ -97,12 +97,12 @@ describe('HeadlesslyProvider', () => {
   it('sets initialized to true after mount', async () => {
     function InitDisplay() {
       const ctx = useHeadlessly()
-      return <div data-testid="init">{String(ctx.initialized)}</div>
+      return <div data-testid='init'>{String(ctx.initialized)}</div>
     }
 
     await act(async () => {
       render(
-        <HeadlesslyProvider tenant="init-test">
+        <HeadlesslyProvider tenant='init-test'>
           <InitDisplay />
         </HeadlesslyProvider>,
       )
@@ -114,12 +114,12 @@ describe('HeadlesslyProvider', () => {
   it('provides org object in context', async () => {
     function OrgDisplay() {
       const ctx = useHeadlessly()
-      return <div data-testid="org">{ctx.org ? 'present' : 'null'}</div>
+      return <div data-testid='org'>{ctx.org ? 'present' : 'null'}</div>
     }
 
     await act(async () => {
       render(
-        <HeadlesslyProvider tenant="org-test">
+        <HeadlesslyProvider tenant='org-test'>
           <OrgDisplay />
         </HeadlesslyProvider>,
       )
@@ -131,12 +131,12 @@ describe('HeadlesslyProvider', () => {
   it('accepts apiKey prop', async () => {
     function TenantDisplay() {
       const ctx = useHeadlessly()
-      return <div data-testid="s">{ctx.tenant}</div>
+      return <div data-testid='s'>{ctx.tenant}</div>
     }
 
     await act(async () => {
       render(
-        <HeadlesslyProvider tenant="key-test" apiKey="hly_sk_test">
+        <HeadlesslyProvider tenant='key-test' apiKey='hly_sk_test'>
           <TenantDisplay />
         </HeadlesslyProvider>,
       )
@@ -148,12 +148,12 @@ describe('HeadlesslyProvider', () => {
   it('accepts endpoint prop', async () => {
     function TenantDisplay() {
       const ctx = useHeadlessly()
-      return <div data-testid="s">{ctx.tenant}</div>
+      return <div data-testid='s'>{ctx.tenant}</div>
     }
 
     await act(async () => {
       render(
-        <HeadlesslyProvider tenant="endpoint-test" endpoint="https://db.headless.ly">
+        <HeadlesslyProvider tenant='endpoint-test' endpoint='https://db.headless.ly'>
           <TenantDisplay />
         </HeadlesslyProvider>,
       )
@@ -165,12 +165,12 @@ describe('HeadlesslyProvider', () => {
   it('accepts mode prop', async () => {
     function TenantDisplay() {
       const ctx = useHeadlessly()
-      return <div data-testid="s">{ctx.tenant}</div>
+      return <div data-testid='s'>{ctx.tenant}</div>
     }
 
     await act(async () => {
       render(
-        <HeadlesslyProvider tenant="mode-test" mode="memory">
+        <HeadlesslyProvider tenant='mode-test' mode='memory'>
           <TenantDisplay />
         </HeadlesslyProvider>,
       )
@@ -226,7 +226,7 @@ describe('useHeadlessly', () => {
 
     await act(async () => {
       render(
-        <HeadlesslyProvider tenant="capture-test">
+        <HeadlesslyProvider tenant='capture-test'>
           <Capture />
         </HeadlesslyProvider>,
       )
@@ -252,8 +252,8 @@ describe('useEntity.mutate', () => {
     function TestComponent() {
       const { data, loading, mutate } = useEntity('Contact', created.$id)
       mutateFn = mutate
-      if (loading) return <div data-testid="s">loading</div>
-      return <div data-testid="s">{(data as Record<string, unknown>)?.name as string}</div>
+      if (loading) return <div data-testid='s'>loading</div>
+      return <div data-testid='s'>{(data as Record<string, unknown>)?.name as string}</div>
     }
 
     await act(async () => {
@@ -275,8 +275,8 @@ describe('useEntity.mutate', () => {
     function TestComponent() {
       const { data, loading, mutate } = useEntity('Contact', created.$id)
       mutateFn = mutate
-      if (loading) return <div data-testid="s">loading</div>
-      return <div data-testid="s">{(data as Record<string, unknown>)?.name as string}</div>
+      if (loading) return <div data-testid='s'>loading</div>
+      return <div data-testid='s'>{(data as Record<string, unknown>)?.name as string}</div>
     }
 
     await act(async () => {
@@ -333,9 +333,11 @@ describe('useEntity.mutate', () => {
       render(<TestComponent />, { wrapper: Wrapper })
     })
 
-    await expect(act(async () => {
-      await mutateFn!({ name: 'test' })
-    })).rejects.toThrow('Unknown entity type')
+    await expect(
+      act(async () => {
+        await mutateFn!({ name: 'test' })
+      }),
+    ).rejects.toThrow('Unknown entity type')
   })
 })
 
@@ -354,7 +356,7 @@ describe('useCreate', () => {
 
     function TestComponent() {
       hookResult = useCreate('Contact')
-      return <div data-testid="s">{hookResult.loading ? 'loading' : 'idle'}</div>
+      return <div data-testid='s'>{hookResult.loading ? 'loading' : 'idle'}</div>
     }
 
     await act(async () => {
@@ -374,11 +376,7 @@ describe('useCreate', () => {
     function TestComponent() {
       const { create, loading, data } = useCreate('Contact')
       createFn = create
-      return (
-        <div data-testid="s">
-          {loading ? 'loading' : data ? (data as Record<string, unknown>).name as string : 'idle'}
-        </div>
-      )
+      return <div data-testid='s'>{loading ? 'loading' : data ? ((data as Record<string, unknown>).name as string) : 'idle'}</div>
     }
 
     await act(async () => {
@@ -408,7 +406,7 @@ describe('useCreate', () => {
     function TestComponent() {
       const { create, error } = useCreate('BogusType')
       createFn = create
-      return <div data-testid="s">{error?.message ?? 'clean'}</div>
+      return <div data-testid='s'>{error?.message ?? 'clean'}</div>
     }
 
     await act(async () => {
@@ -434,7 +432,7 @@ describe('useCreate', () => {
     function TestComponent() {
       const { create, loading } = useCreate('Contact')
       createFn = create
-      return <div data-testid="s">{loading ? 'busy' : 'idle'}</div>
+      return <div data-testid='s'>{loading ? 'busy' : 'idle'}</div>
     }
 
     await act(async () => {
@@ -488,11 +486,7 @@ describe('useUpdate', () => {
     function TestComponent() {
       const { update, data } = useUpdate('Contact')
       updateFn = update
-      return (
-        <div data-testid="s">
-          {data ? (data as Record<string, unknown>).name as string : 'idle'}
-        </div>
-      )
+      return <div data-testid='s'>{data ? ((data as Record<string, unknown>).name as string) : 'idle'}</div>
     }
 
     await act(async () => {
@@ -518,7 +512,7 @@ describe('useUpdate', () => {
     function TestComponent() {
       const { update, error } = useUpdate('FakeType')
       updateFn = update
-      return <div data-testid="s">{error?.message ?? 'clean'}</div>
+      return <div data-testid='s'>{error?.message ?? 'clean'}</div>
     }
 
     await act(async () => {
@@ -575,7 +569,7 @@ describe('useDelete', () => {
     function TestComponent() {
       const { remove, loading } = useDelete('Contact')
       removeFn = remove
-      return <div data-testid="s">{loading ? 'busy' : 'idle'}</div>
+      return <div data-testid='s'>{loading ? 'busy' : 'idle'}</div>
     }
 
     await act(async () => {
@@ -597,7 +591,7 @@ describe('useDelete', () => {
     function TestComponent() {
       const { remove, error } = useDelete('GhostType')
       removeFn = remove
-      return <div data-testid="s">{error?.message ?? 'clean'}</div>
+      return <div data-testid='s'>{error?.message ?? 'clean'}</div>
     }
 
     await act(async () => {
@@ -654,7 +648,7 @@ describe('useVerb', () => {
     function TestComponent() {
       const { execute, loading } = useVerb('Contact', 'qualify')
       executeFn = execute
-      return <div data-testid="s">{loading ? 'busy' : 'idle'}</div>
+      return <div data-testid='s'>{loading ? 'busy' : 'idle'}</div>
     }
 
     await act(async () => {
@@ -678,7 +672,7 @@ describe('useVerb', () => {
     function TestComponent() {
       const { execute, error } = useVerb('Contact', 'nonExistentVerb')
       executeFn = execute
-      return <div data-testid="s">{error?.message ?? 'clean'}</div>
+      return <div data-testid='s'>{error?.message ?? 'clean'}</div>
     }
 
     await act(async () => {
@@ -704,7 +698,7 @@ describe('useVerb', () => {
     function TestComponent() {
       const { execute, error } = useVerb('NoSuchType', 'qualify')
       executeFn = execute
-      return <div data-testid="s">{error?.message ?? 'clean'}</div>
+      return <div data-testid='s'>{error?.message ?? 'clean'}</div>
     }
 
     await act(async () => {
@@ -756,7 +750,7 @@ describe('useVerb', () => {
     function TestComponent() {
       const { execute, loading } = useVerb('Contact', 'qualify')
       executeFn = execute
-      return <div data-testid="s">{loading ? 'busy' : 'idle'}</div>
+      return <div data-testid='s'>{loading ? 'busy' : 'idle'}</div>
     }
 
     await act(async () => {
@@ -819,7 +813,7 @@ describe('useSubscription', () => {
 
     function TestComponent() {
       hookResult = useSubscription('Contact', {}, () => {})
-      return <div data-testid="s">{hookResult.connected ? 'yes' : 'no'}</div>
+      return <div data-testid='s'>{hookResult.connected ? 'yes' : 'no'}</div>
     }
 
     await act(async () => {
@@ -840,7 +834,7 @@ describe('useSubscription', () => {
 
     function TestComponent() {
       const { connected } = useSubscription('Contact', { stage: 'Lead' }, handler)
-      return <div data-testid="s">{connected ? 'connected' : 'waiting'}</div>
+      return <div data-testid='s'>{connected ? 'connected' : 'waiting'}</div>
     }
 
     await act(async () => {
@@ -863,7 +857,7 @@ describe('useSubscription', () => {
 
     function TestComponent() {
       const { connected } = useSubscription('Ticket', handler)
-      return <div data-testid="s">{connected ? 'connected' : 'waiting'}</div>
+      return <div data-testid='s'>{connected ? 'connected' : 'waiting'}</div>
     }
 
     await act(async () => {
@@ -880,11 +874,7 @@ describe('useSubscription', () => {
   it('sets error for unknown entity type', async () => {
     function TestComponent() {
       const { error, connected } = useSubscription('FakeEntity', () => {})
-      return (
-        <div data-testid="s">
-          {error ? error.message : connected ? 'connected' : 'waiting'}
-        </div>
-      )
+      return <div data-testid='s'>{error ? error.message : connected ? 'connected' : 'waiting'}</div>
     }
 
     await act(async () => {
@@ -904,12 +894,10 @@ describe('useSubscription', () => {
 
     function TestComponent() {
       const { connected } = useSubscription('Contact', handler)
-      return <div data-testid="s">{connected ? 'yes' : 'no'}</div>
+      return <div data-testid='s'>{connected ? 'yes' : 'no'}</div>
     }
 
-    const { unmount } = await act(async () =>
-      render(<TestComponent />, { wrapper: Wrapper }),
-    )
+    const { unmount } = await act(async () => render(<TestComponent />, { wrapper: Wrapper }))
 
     await waitFor(() => {
       expect(screen.getByTestId('s').textContent).toBe('yes')
@@ -930,7 +918,7 @@ describe('useSubscription', () => {
     function TestComponent() {
       const { connected, unsubscribe } = useSubscription('Contact', handler)
       unsubscribeFn = unsubscribe
-      return <div data-testid="s">{connected ? 'yes' : 'no'}</div>
+      return <div data-testid='s'>{connected ? 'yes' : 'no'}</div>
     }
 
     await act(async () => {
@@ -973,7 +961,7 @@ describe('useDomain', () => {
 
     function TestComponent() {
       domain = useDomain('crm') as unknown as Record<string, unknown>
-      return <div data-testid="s">loaded</div>
+      return <div data-testid='s'>loaded</div>
     }
 
     await act(async () => {
@@ -994,7 +982,7 @@ describe('useDomain', () => {
 
     function TestComponent() {
       domain = useDomain('billing') as unknown as Record<string, unknown>
-      return <div data-testid="s">loaded</div>
+      return <div data-testid='s'>loaded</div>
     }
 
     await act(async () => {
@@ -1174,7 +1162,7 @@ describe('useDomain', () => {
       const [, setCount] = useState(0)
       return (
         <div>
-          <div data-testid="s">renders: {domainRefs.length}</div>
+          <div data-testid='s'>renders: {domainRefs.length}</div>
           <button onClick={() => setCount((c) => c + 1)}>rerender</button>
         </div>
       )
@@ -1221,15 +1209,15 @@ describe('Composition: new hooks together', () => {
         return result
       }
 
-      if (!id) return <div data-testid="s">no entity</div>
+      if (!id) return <div data-testid='s'>no entity</div>
 
-      return <EntityDisplay type="Contact" id={id} />
+      return <EntityDisplay type='Contact' id={id} />
     }
 
     function EntityDisplay({ type, id }: { type: string; id: string }) {
       const { data, loading } = useEntity(type, id)
-      if (loading) return <div data-testid="s">loading</div>
-      return <div data-testid="s">{(data as Record<string, unknown>)?.name as string}</div>
+      if (loading) return <div data-testid='s'>loading</div>
+      return <div data-testid='s'>{(data as Record<string, unknown>)?.name as string}</div>
     }
 
     await act(async () => {
@@ -1259,8 +1247,8 @@ describe('Composition: new hooks together', () => {
       executeFn = execute
       refetchFn = refetch
 
-      if (loading) return <div data-testid="s">loading</div>
-      return <div data-testid="s">{(data as Record<string, unknown>)?.stage as string}</div>
+      if (loading) return <div data-testid='s'>loading</div>
+      return <div data-testid='s'>{(data as Record<string, unknown>)?.stage as string}</div>
     }
 
     await act(async () => {
@@ -1293,12 +1281,8 @@ describe('Composition: new hooks together', () => {
 
       return (
         <div>
-          <div data-testid="s">
-            {data ? (data as Record<string, unknown>).name as string : 'idle'}
-          </div>
-          <div data-testid="domain">
-            {domainModule ? Object.keys(domainModule).length : 0}
-          </div>
+          <div data-testid='s'>{data ? ((data as Record<string, unknown>).name as string) : 'idle'}</div>
+          <div data-testid='domain'>{domainModule ? Object.keys(domainModule).length : 0}</div>
           <button onClick={() => create({ name: 'DomainCreated', stage: 'Lead' })}>create</button>
         </div>
       )

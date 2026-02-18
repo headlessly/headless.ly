@@ -56,9 +56,7 @@ export class GoogleAnalyticsForwarder implements EventForwarder {
   forward(event: AnalyticsEvent | ErrorEvent): void {
     if (typeof window === 'undefined') return
 
-    const gtag = (window as unknown as Record<string, unknown>).gtag as
-      | ((...args: unknown[]) => void)
-      | undefined
+    const gtag = (window as unknown as Record<string, unknown>).gtag as ((...args: unknown[]) => void) | undefined
 
     if (!gtag) return
 
@@ -135,10 +133,7 @@ export class SegmentForwarder implements EventForwarder {
           break
         case 'alias':
           if (event.userId) {
-            segment.alias(
-              event.userId,
-              (event.properties?.previousId as string) ?? undefined,
-            )
+            segment.alias(event.userId, (event.properties?.previousId as string) ?? undefined)
           }
           break
         case 'group':
@@ -220,10 +215,7 @@ export class PostHogForwarder implements EventForwarder {
           break
         case 'alias':
           if (event.userId) {
-            posthog.alias(
-              event.userId,
-              (event.properties?.previousId as string) ?? undefined,
-            )
+            posthog.alias(event.userId, (event.properties?.previousId as string) ?? undefined)
           }
           break
         case 'group':

@@ -53,31 +53,31 @@ export function EntityDetail({ noun, id, onNavigate, onEdit, className }: Entity
   return (
     <div className={`space-y-6 ${className ?? ''}`}>
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className='flex items-center justify-between'>
         <div>
-          <h2 className="text-lg font-semibold">{schema.name}</h2>
-          <p className="text-sm text-muted-foreground">{String(entityData.$id)}</p>
+          <h2 className='text-lg font-semibold'>{schema.name}</h2>
+          <p className='text-sm text-muted-foreground'>{String(entityData.$id)}</p>
         </div>
-        <div className="flex gap-2">
+        <div className='flex gap-2'>
           {onEdit && (
-            <button onClick={() => onEdit(noun, id)} className="rounded-md border px-3 py-1.5 text-sm">
+            <button onClick={() => onEdit(noun, id)} className='rounded-md border px-3 py-1.5 text-sm'>
               Edit
             </button>
           )}
-          <button onClick={refetch} className="rounded-md border px-3 py-1.5 text-sm">
+          <button onClick={refetch} className='rounded-md border px-3 py-1.5 text-sm'>
             Refresh
           </button>
         </div>
       </div>
 
       {/* Fields */}
-      <div className="space-y-3">
-        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Fields</h3>
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
+      <div className='space-y-3'>
+        <h3 className='text-sm font-medium text-muted-foreground uppercase tracking-wide'>Fields</h3>
+        <dl className='grid grid-cols-2 gap-x-4 gap-y-2'>
           {Array.from(schema.fields).map(([key, prop]) => (
             <div key={key}>
-              <dt className="text-sm text-muted-foreground">{formatLabel(key)}</dt>
-              <dd className="text-sm font-medium">{formatCellValue(entityData[key], prop.type)}</dd>
+              <dt className='text-sm text-muted-foreground'>{formatLabel(key)}</dt>
+              <dd className='text-sm font-medium'>{formatCellValue(entityData[key], prop.type)}</dd>
             </div>
           ))}
         </dl>
@@ -85,24 +85,21 @@ export function EntityDetail({ noun, id, onNavigate, onEdit, className }: Entity
 
       {/* Relationships */}
       {relationships.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Relationships</h3>
-          <div className="space-y-2">
+        <div className='space-y-3'>
+          <h3 className='text-sm font-medium text-muted-foreground uppercase tracking-wide'>Relationships</h3>
+          <div className='space-y-2'>
             {relationships.map((rel) => {
               const value = entityData[rel.key]
               return (
-                <div key={rel.key} className="flex items-center justify-between py-1">
-                  <span className="text-sm text-muted-foreground">{formatLabel(rel.key)}</span>
-                  <span className="text-sm">
+                <div key={rel.key} className='flex items-center justify-between py-1'>
+                  <span className='text-sm text-muted-foreground'>{formatLabel(rel.key)}</span>
+                  <span className='text-sm'>
                     {value ? (
-                      <button
-                        onClick={() => onNavigate?.(rel.targetType, String(value))}
-                        className="text-primary underline-offset-2 hover:underline"
-                      >
+                      <button onClick={() => onNavigate?.(rel.targetType, String(value))} className='text-primary underline-offset-2 hover:underline'>
                         {String(value)}
                       </button>
                     ) : (
-                      <span className="text-muted-foreground">{'\u2014'}</span>
+                      <span className='text-muted-foreground'>{'\u2014'}</span>
                     )}
                   </span>
                 </div>
@@ -114,9 +111,9 @@ export function EntityDetail({ noun, id, onNavigate, onEdit, className }: Entity
 
       {/* Verbs */}
       {verbs.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Actions</h3>
-          <div className="flex flex-wrap gap-2">
+        <div className='space-y-3'>
+          <h3 className='text-sm font-medium text-muted-foreground uppercase tracking-wide'>Actions</h3>
+          <div className='flex flex-wrap gap-2'>
             {verbs.map((verb) => (
               <VerbActionButton key={verb.name} noun={noun} id={id} verb={verb.name} label={verb.label} onComplete={refetch} />
             ))}
@@ -125,23 +122,23 @@ export function EntityDetail({ noun, id, onNavigate, onEdit, className }: Entity
       )}
 
       {/* Meta */}
-      <div className="space-y-3 border-t pt-4">
-        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Meta</h3>
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+      <div className='space-y-3 border-t pt-4'>
+        <h3 className='text-sm font-medium text-muted-foreground uppercase tracking-wide'>Meta</h3>
+        <dl className='grid grid-cols-2 gap-x-4 gap-y-2 text-sm'>
           <div>
-            <dt className="text-muted-foreground">Type</dt>
-            <dd className="font-mono">{String(entityData.$type ?? noun)}</dd>
+            <dt className='text-muted-foreground'>Type</dt>
+            <dd className='font-mono'>{String(entityData.$type ?? noun)}</dd>
           </div>
           <div>
-            <dt className="text-muted-foreground">Version</dt>
+            <dt className='text-muted-foreground'>Version</dt>
             <dd>{String(entityData.$version ?? 1)}</dd>
           </div>
           <div>
-            <dt className="text-muted-foreground">Created</dt>
+            <dt className='text-muted-foreground'>Created</dt>
             <dd>{formatCellValue(entityData.$createdAt, 'datetime')}</dd>
           </div>
           <div>
-            <dt className="text-muted-foreground">Updated</dt>
+            <dt className='text-muted-foreground'>Updated</dt>
             <dd>{formatCellValue(entityData.$updatedAt, 'datetime')}</dd>
           </div>
         </dl>
@@ -153,19 +150,7 @@ export function EntityDetail({ noun, id, onNavigate, onEdit, className }: Entity
 /**
  * Internal verb action button with loading state.
  */
-function VerbActionButton({
-  noun,
-  id,
-  verb,
-  label,
-  onComplete,
-}: {
-  noun: string
-  id: string
-  verb: string
-  label: string
-  onComplete?: () => void
-}) {
+function VerbActionButton({ noun, id, verb, label, onComplete }: { noun: string; id: string; verb: string; label: string; onComplete?: () => void }) {
   const { execute, loading } = useVerb(noun, verb)
 
   const handleClick = useCallback(async () => {
@@ -174,7 +159,7 @@ function VerbActionButton({
   }, [execute, id, onComplete])
 
   return (
-    <button onClick={handleClick} disabled={loading} className="rounded-md border px-3 py-1.5 text-sm disabled:opacity-50">
+    <button onClick={handleClick} disabled={loading} className='rounded-md border px-3 py-1.5 text-sm disabled:opacity-50'>
       {loading ? `${label}...` : label}
     </button>
   )

@@ -628,11 +628,41 @@ describe('@headlessly/objects -- deep-v4 tests', () => {
 
     it('registering all 35 core entities populates getAllNouns correctly', () => {
       const entityNames = [
-        'User', 'ApiKey', 'Organization', 'Contact', 'Lead', 'Deal', 'Activity', 'Pipeline',
-        'Customer', 'Product', 'Plan', 'Price', 'Subscription', 'Invoice', 'Payment',
-        'Project', 'Issue', 'Comment', 'Content', 'Asset', 'Site', 'Ticket',
-        'Event', 'Metric', 'Funnel', 'Goal', 'Campaign', 'Segment', 'Form',
-        'Experiment', 'FeatureFlag', 'Workflow', 'Integration', 'Agent', 'Message',
+        'User',
+        'ApiKey',
+        'Organization',
+        'Contact',
+        'Lead',
+        'Deal',
+        'Activity',
+        'Pipeline',
+        'Customer',
+        'Product',
+        'Plan',
+        'Price',
+        'Subscription',
+        'Invoice',
+        'Payment',
+        'Project',
+        'Issue',
+        'Comment',
+        'Content',
+        'Asset',
+        'Site',
+        'Ticket',
+        'Event',
+        'Metric',
+        'Funnel',
+        'Goal',
+        'Campaign',
+        'Segment',
+        'Form',
+        'Experiment',
+        'FeatureFlag',
+        'Workflow',
+        'Integration',
+        'Agent',
+        'Message',
       ]
 
       for (const name of entityNames) {
@@ -739,7 +769,9 @@ describe('@headlessly/objects -- deep-v4 tests', () => {
 
     it('code subscription fires when provider creates an entity', async () => {
       const received: unknown[] = []
-      subMgr.registerCode('Contact.*', (e) => { received.push(e) })
+      subMgr.registerCode('Contact.*', (e) => {
+        received.push(e)
+      })
 
       await provider.create('Contact', { name: 'Alice' })
       // Give async dispatch a tick
@@ -750,7 +782,9 @@ describe('@headlessly/objects -- deep-v4 tests', () => {
 
     it('deactivated subscription does not fire', async () => {
       const received: unknown[] = []
-      const subId = subMgr.registerCode('*', (e) => { received.push(e) })
+      const subId = subMgr.registerCode('*', (e) => {
+        received.push(e)
+      })
       subMgr.deactivate(subId)
 
       await provider.create('Contact', { name: 'Alice' })
@@ -761,7 +795,9 @@ describe('@headlessly/objects -- deep-v4 tests', () => {
 
     it('reactivated subscription fires again', async () => {
       const received: unknown[] = []
-      const subId = subMgr.registerCode('*', (e) => { received.push(e) })
+      const subId = subMgr.registerCode('*', (e) => {
+        received.push(e)
+      })
       subMgr.deactivate(subId)
 
       await provider.create('Contact', { name: 'Alice' })
@@ -798,19 +834,10 @@ describe('@headlessly/objects -- deep-v4 tests', () => {
         qualify: 'Qualified',
       })
 
-      const entities = await Promise.all(
-        Array.from({ length: 20 }, (_, i) =>
-          provider.create('Contact', { name: `Contact ${i}`, stage: 'Lead' }),
-        ),
-      )
+      const entities = await Promise.all(Array.from({ length: 20 }, (_, i) => provider.create('Contact', { name: `Contact ${i}`, stage: 'Lead' })))
 
       const results = await Promise.all(
-        entities.map((e) =>
-          executeVerb(
-            { type: 'Contact', verb: 'qualify', entityId: e.$id, data: { stage: 'Qualified' } },
-            { provider, events: bridge },
-          ),
-        ),
+        entities.map((e) => executeVerb({ type: 'Contact', verb: 'qualify', entityId: e.$id, data: { stage: 'Qualified' } }, { provider, events: bridge })),
       )
 
       expect(results).toHaveLength(20)
@@ -826,23 +853,12 @@ describe('@headlessly/objects -- deep-v4 tests', () => {
         close: 'Won',
       })
 
-      const deals = await Promise.all(
-        Array.from({ length: 10 }, (_, i) =>
-          provider.create('Deal', { title: `Deal ${i}`, stage: 'Open' }),
-        ),
-      )
+      const deals = await Promise.all(Array.from({ length: 10 }, (_, i) => provider.create('Deal', { title: `Deal ${i}`, stage: 'Open' })))
 
       const allEvents: NounEvent[] = []
       bridge.subscribe('*', (e) => allEvents.push(e))
 
-      await Promise.all(
-        deals.map((d) =>
-          executeVerb(
-            { type: 'Deal', verb: 'close', entityId: d.$id, data: { stage: 'Won' } },
-            { provider, events: bridge },
-          ),
-        ),
-      )
+      await Promise.all(deals.map((d) => executeVerb({ type: 'Deal', verb: 'close', entityId: d.$id, data: { stage: 'Won' } }, { provider, events: bridge })))
 
       // Each verb execution emits 3 events (activity, verb, event)
       expect(allEvents).toHaveLength(30)

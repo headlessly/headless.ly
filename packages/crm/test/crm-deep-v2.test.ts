@@ -785,10 +785,7 @@ describe('@headlessly/crm — deep v2', () => {
       const deal1 = await Deal.create({ name: 'Deal A', value: 100 })
       const deal2 = await Deal.create({ name: 'Deal B', value: 200 })
 
-      const [updated1, updated2] = await Promise.all([
-        Deal.update(deal1.$id, { value: 999 }),
-        Deal.update(deal2.$id, { value: 888 }),
-      ])
+      const [updated1, updated2] = await Promise.all([Deal.update(deal1.$id, { value: 999 }), Deal.update(deal2.$id, { value: 888 })])
 
       expect(updated1.value).toBe(999)
       expect(updated2.value).toBe(888)
@@ -819,12 +816,38 @@ describe('@headlessly/crm — deep v2', () => {
     it('Organization raw has all expected keys', () => {
       const raw = Organization.$schema.raw
       const expectedKeys = [
-        'name', 'legalName', 'slug', 'domain', 'website', 'description', 'logo',
-        'type', 'status', 'tier', 'source', 'industry', 'naicsCode',
-        'employeeCount', 'annualRevenue', 'foundedYear',
-        'address', 'city', 'state', 'country', 'postalCode', 'timezone',
-        'parent', 'subsidiaries', 'contacts', 'deals', 'subscriptions',
-        'lifetimeValue', 'healthScore', 'npsScore', 'linkedinUrl', 'twitterHandle',
+        'name',
+        'legalName',
+        'slug',
+        'domain',
+        'website',
+        'description',
+        'logo',
+        'type',
+        'status',
+        'tier',
+        'source',
+        'industry',
+        'naicsCode',
+        'employeeCount',
+        'annualRevenue',
+        'foundedYear',
+        'address',
+        'city',
+        'state',
+        'country',
+        'postalCode',
+        'timezone',
+        'parent',
+        'subsidiaries',
+        'contacts',
+        'deals',
+        'subscriptions',
+        'lifetimeValue',
+        'healthScore',
+        'npsScore',
+        'linkedinUrl',
+        'twitterHandle',
       ]
       for (const key of expectedKeys) {
         expect(raw).toHaveProperty(key)
@@ -835,11 +858,32 @@ describe('@headlessly/crm — deep v2', () => {
     it('Contact raw has all expected keys', () => {
       const raw = Contact.$schema.raw
       const expectedKeys = [
-        'name', 'firstName', 'lastName', 'email', 'phone', 'mobile', 'avatar',
-        'title', 'department', 'organization', 'role', 'stage', 'status', 'source',
-        'leadScore', 'preferredChannel', 'timezone', 'language',
-        'leads', 'activities', 'manager', 'reports',
-        'linkedinUrl', 'twitterHandle', 'marketingConsent', 'lastEngagement',
+        'name',
+        'firstName',
+        'lastName',
+        'email',
+        'phone',
+        'mobile',
+        'avatar',
+        'title',
+        'department',
+        'organization',
+        'role',
+        'stage',
+        'status',
+        'source',
+        'leadScore',
+        'preferredChannel',
+        'timezone',
+        'language',
+        'leads',
+        'activities',
+        'manager',
+        'reports',
+        'linkedinUrl',
+        'twitterHandle',
+        'marketingConsent',
+        'lastEngagement',
         'qualify',
       ]
       for (const key of expectedKeys) {
@@ -851,10 +895,27 @@ describe('@headlessly/crm — deep v2', () => {
     it('Lead raw has all expected keys', () => {
       const raw = Lead.$schema.raw
       const expectedKeys = [
-        'name', 'contact', 'organization', 'owner', 'status', 'source',
-        'sourceDetail', 'campaign', 'score', 'budget', 'authority', 'need',
-        'timeline', 'deal', 'convertedAt', 'lostReason', 'lostAt',
-        'firstTouchAt', 'lastActivityAt', 'convert', 'lose',
+        'name',
+        'contact',
+        'organization',
+        'owner',
+        'status',
+        'source',
+        'sourceDetail',
+        'campaign',
+        'score',
+        'budget',
+        'authority',
+        'need',
+        'timeline',
+        'deal',
+        'convertedAt',
+        'lostReason',
+        'lostAt',
+        'firstTouchAt',
+        'lastActivityAt',
+        'convert',
+        'lose',
       ]
       for (const key of expectedKeys) {
         expect(raw).toHaveProperty(key)
@@ -865,11 +926,31 @@ describe('@headlessly/crm — deep v2', () => {
     it('Deal raw has all expected keys', () => {
       const raw = Deal.$schema.raw
       const expectedKeys = [
-        'name', 'organization', 'contact', 'owner', 'value', 'currency',
-        'recurringValue', 'recurringInterval', 'stage', 'probability',
-        'expectedCloseDate', 'actualCloseDate', 'description', 'nextStep',
-        'competitorNotes', 'lostReason', 'wonReason', 'leads', 'source',
-        'campaign', 'activities', 'lastActivityAt', 'close', 'win', 'lose',
+        'name',
+        'organization',
+        'contact',
+        'owner',
+        'value',
+        'currency',
+        'recurringValue',
+        'recurringInterval',
+        'stage',
+        'probability',
+        'expectedCloseDate',
+        'actualCloseDate',
+        'description',
+        'nextStep',
+        'competitorNotes',
+        'lostReason',
+        'wonReason',
+        'leads',
+        'source',
+        'campaign',
+        'activities',
+        'lastActivityAt',
+        'close',
+        'win',
+        'lose',
       ]
       for (const key of expectedKeys) {
         expect(raw).toHaveProperty(key)
@@ -880,10 +961,30 @@ describe('@headlessly/crm — deep v2', () => {
     it('Activity raw has all expected keys', () => {
       const raw = Activity.$schema.raw
       const expectedKeys = [
-        'subject', 'type', 'description', 'deal', 'contact', 'organization',
-        'campaign', 'assignee', 'createdBy', 'dueAt', 'startAt', 'endAt',
-        'duration', 'allDay', 'timezone', 'status', 'priority', 'completedAt',
-        'outcome', 'recordingUrl', 'meetingLink', 'reminderAt', 'complete', 'cancel',
+        'subject',
+        'type',
+        'description',
+        'deal',
+        'contact',
+        'organization',
+        'campaign',
+        'assignee',
+        'createdBy',
+        'dueAt',
+        'startAt',
+        'endAt',
+        'duration',
+        'allDay',
+        'timezone',
+        'status',
+        'priority',
+        'completedAt',
+        'outcome',
+        'recordingUrl',
+        'meetingLink',
+        'reminderAt',
+        'complete',
+        'cancel',
       ]
       for (const key of expectedKeys) {
         expect(raw).toHaveProperty(key)

@@ -142,7 +142,7 @@ export function createCodeClient(config: CodeClientConfig = {}): CodeClient {
           const url = `${baseUrl}${repoPath}`
           const headers: Record<string, string> = {
             'Content-Type': 'application/json',
-            'Accept': 'text/event-stream',
+            Accept: 'text/event-stream',
           }
           if (config.apiKey) {
             headers['Authorization'] = `Bearer ${config.apiKey}`

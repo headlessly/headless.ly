@@ -8,16 +8,7 @@
  */
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { setProvider, clearRegistry, getProvider } from 'digital-objects'
-import {
-  headlessly,
-  $,
-  RemoteNounProvider,
-  LocalNounProvider,
-  detectEnvironment,
-  detectEndpoint,
-  enableLazy,
-  entityNames,
-} from '../src/index'
+import { headlessly, $, RemoteNounProvider, LocalNounProvider, detectEnvironment, detectEndpoint, enableLazy, entityNames } from '../src/index'
 import defaultExport from '../src/index'
 
 describe('headlessly() initialization', () => {

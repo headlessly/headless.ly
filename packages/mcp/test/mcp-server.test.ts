@@ -663,7 +663,7 @@ describe('@headlessly/mcp — server & handler tests (RED)', () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Origin': 'https://app.headless.ly',
+          Origin: 'https://app.headless.ly',
         },
         body: JSON.stringify({ method: 'initialize', id: 1 }),
       })
@@ -727,9 +727,7 @@ describe('@headlessly/mcp — server & handler tests (RED)', () => {
     })
 
     it('code eval with timeout returns timeout error', async () => {
-      const evaluate = vi.fn().mockImplementation(
-        () => new Promise((_, reject) => setTimeout(() => reject(new Error('Execution timed out')), 100)),
-      )
+      const evaluate = vi.fn().mockImplementation(() => new Promise((_, reject) => setTimeout(() => reject(new Error('Execution timed out')), 100)))
       const handlers = createHandlers({ provider, evaluate })
 
       const result = await handlers.doAction({

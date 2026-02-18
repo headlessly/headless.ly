@@ -196,9 +196,7 @@ describe('@headlessly/events — EventBus', () => {
     bus.on('Deal.closed', handler)
     bus.off('Deal.closed', handler)
 
-    await bus.emit(
-      verbEvent('close', 'Deal', 'deal_testOff1', { action: 'close', activity: 'closing', event: 'closed' }),
-    )
+    await bus.emit(verbEvent('close', 'Deal', 'deal_testOff1', { action: 'close', activity: 'closing', event: 'closed' }))
 
     expect(received.length).toBe(0)
   })
@@ -211,12 +209,8 @@ describe('@headlessly/events — EventBus', () => {
       received.push(event)
     })
 
-    await bus.emit(
-      verbEvent('qualify', 'Contact', 'contact_once1', { action: 'qualify', activity: 'qualifying', event: 'qualified' }),
-    )
-    await bus.emit(
-      verbEvent('qualify', 'Contact', 'contact_once2', { action: 'qualify', activity: 'qualifying', event: 'qualified' }),
-    )
+    await bus.emit(verbEvent('qualify', 'Contact', 'contact_once1', { action: 'qualify', activity: 'qualifying', event: 'qualified' }))
+    await bus.emit(verbEvent('qualify', 'Contact', 'contact_once2', { action: 'qualify', activity: 'qualifying', event: 'qualified' }))
 
     expect(received.length).toBe(1)
   })
@@ -230,9 +224,7 @@ describe('@headlessly/events — EventBus', () => {
     })
 
     await bus.emit(crudEvent('create', 'Contact', 'contact_wild1'))
-    await bus.emit(
-      verbEvent('close', 'Deal', 'deal_wild1', { action: 'close', activity: 'closing', event: 'closed' }),
-    )
+    await bus.emit(verbEvent('close', 'Deal', 'deal_wild1', { action: 'close', activity: 'closing', event: 'closed' }))
 
     expect(received.length).toBe(2)
   })

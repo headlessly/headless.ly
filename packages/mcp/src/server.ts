@@ -155,9 +155,7 @@ export class MCPServer {
 
     // Handle batch JSON-RPC requests
     if (Array.isArray(parsed)) {
-      const results = await Promise.all(
-        parsed.map((req: Record<string, unknown>) => this.handleRequest(req)),
-      )
+      const results = await Promise.all(parsed.map((req: Record<string, unknown>) => this.handleRequest(req)))
       return new Response(JSON.stringify(results), {
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
       })

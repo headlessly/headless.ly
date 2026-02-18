@@ -140,10 +140,23 @@ describe('@headlessly/support deep-v4 tests', () => {
 
     it('raw definition keys match expected set', () => {
       const expected = [
-        'subject', 'description', 'status', 'priority', 'category',
-        'assignee', 'requester', 'organization', 'channel', 'tags',
-        'firstResponseAt', 'resolvedAt', 'satisfaction',
-        'resolve', 'escalate', 'close', 'reopen',
+        'subject',
+        'description',
+        'status',
+        'priority',
+        'category',
+        'assignee',
+        'requester',
+        'organization',
+        'channel',
+        'tags',
+        'firstResponseAt',
+        'resolvedAt',
+        'satisfaction',
+        'resolve',
+        'escalate',
+        'close',
+        'reopen',
       ]
       const rawKeys = Object.keys(Ticket.$schema.raw)
       for (const key of expected) {
@@ -153,10 +166,23 @@ describe('@headlessly/support deep-v4 tests', () => {
 
     it('raw definition does not contain unexpected keys', () => {
       const expected = new Set([
-        'subject', 'description', 'status', 'priority', 'category',
-        'assignee', 'requester', 'organization', 'channel', 'tags',
-        'firstResponseAt', 'resolvedAt', 'satisfaction',
-        'resolve', 'escalate', 'close', 'reopen',
+        'subject',
+        'description',
+        'status',
+        'priority',
+        'category',
+        'assignee',
+        'requester',
+        'organization',
+        'channel',
+        'tags',
+        'firstResponseAt',
+        'resolvedAt',
+        'satisfaction',
+        'resolve',
+        'escalate',
+        'close',
+        'reopen',
       ])
       for (const key of Object.keys(Ticket.$schema.raw)) {
         expect(expected.has(key)).toBe(true)
@@ -280,18 +306,14 @@ describe('@headlessly/support deep-v4 tests', () => {
   // ===========================================================================
   describe('Concurrent verb executions', () => {
     it('concurrent resolve on different tickets all succeed', async () => {
-      const tickets = await Promise.all(
-        Array.from({ length: 10 }, (_, i) => Ticket.create({ subject: `CR ${i}`, status: 'Open' })),
-      )
+      const tickets = await Promise.all(Array.from({ length: 10 }, (_, i) => Ticket.create({ subject: `CR ${i}`, status: 'Open' })))
       const resolved = await Promise.all(tickets.map((t) => Ticket.resolve(t.$id)))
       expect(resolved.every((r) => r.status === 'Resolved')).toBe(true)
       expect(resolved.length).toBe(10)
     })
 
     it('concurrent close on different tickets all succeed', async () => {
-      const tickets = await Promise.all(
-        Array.from({ length: 10 }, (_, i) => Ticket.create({ subject: `CC ${i}`, status: 'Open' })),
-      )
+      const tickets = await Promise.all(Array.from({ length: 10 }, (_, i) => Ticket.create({ subject: `CC ${i}`, status: 'Open' })))
       const closed = await Promise.all(tickets.map((t) => Ticket.close(t.$id)))
       expect(closed.every((c) => c.status === 'Closed')).toBe(true)
     })
@@ -302,12 +324,7 @@ describe('@headlessly/support deep-v4 tests', () => {
       const t3 = await Ticket.create({ subject: 'CM3', status: 'Open' })
       const t4 = await Ticket.create({ subject: 'CM4', status: 'Closed' })
 
-      const [r1, r2, r3, r4] = await Promise.all([
-        Ticket.resolve(t1.$id),
-        Ticket.close(t2.$id),
-        Ticket.escalate(t3.$id),
-        Ticket.reopen(t4.$id),
-      ])
+      const [r1, r2, r3, r4] = await Promise.all([Ticket.resolve(t1.$id), Ticket.close(t2.$id), Ticket.escalate(t3.$id), Ticket.reopen(t4.$id)])
 
       expect(r1.status).toBe('Resolved')
       expect(r2.status).toBe('Closed')
@@ -321,9 +338,7 @@ describe('@headlessly/support deep-v4 tests', () => {
         calls.push('resolving')
       })
 
-      const tickets = await Promise.all(
-        Array.from({ length: 5 }, (_, i) => Ticket.create({ subject: `CH ${i}`, status: 'Open' })),
-      )
+      const tickets = await Promise.all(Array.from({ length: 5 }, (_, i) => Ticket.create({ subject: `CH ${i}`, status: 'Open' })))
       await Promise.all(tickets.map((t) => Ticket.resolve(t.$id)))
       expect(calls.length).toBe(5)
       unsub()

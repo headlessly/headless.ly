@@ -60,7 +60,7 @@ function FeatureDisplay() {
 
 function DistinctIdDisplay() {
   const ctx = useHeadless()
-  return <div data-testid="distinct-id">{ctx.distinctId}</div>
+  return <div data-testid='distinct-id'>{ctx.distinctId}</div>
 }
 
 function ThrowingChild() {
@@ -80,7 +80,7 @@ describe('@headlessly/react — real tests', () => {
     it('renders children', async () => {
       await act(async () => {
         render(
-          <HeadlessProvider apiKey="test_key">
+          <HeadlessProvider apiKey='test_key'>
             <div>child content</div>
           </HeadlessProvider>,
         )
@@ -91,7 +91,7 @@ describe('@headlessly/react — real tests', () => {
     it('initializes SDK — distinctId is non-empty after render', async () => {
       await act(async () => {
         render(
-          <HeadlessProvider apiKey="test_key">
+          <HeadlessProvider apiKey='test_key'>
             <DistinctIdDisplay />
           </HeadlessProvider>,
         )
@@ -121,7 +121,7 @@ describe('@headlessly/react — real tests', () => {
 
       await act(async () => {
         render(
-          <HeadlessProvider apiKey="test_key">
+          <HeadlessProvider apiKey='test_key'>
             <Capture />
           </HeadlessProvider>,
         )
@@ -141,8 +141,8 @@ describe('@headlessly/react — real tests', () => {
       // Since flags are fetched async during init, the initial render may show fallback.
       await act(async () => {
         render(
-          <HeadlessProvider apiKey="test_key">
-            <Feature flag="test-feature" fallback={<span>fallback</span>}>
+          <HeadlessProvider apiKey='test_key'>
+            <Feature flag='test-feature' fallback={<span>fallback</span>}>
               <span>visible</span>
             </Feature>
           </HeadlessProvider>,
@@ -155,8 +155,8 @@ describe('@headlessly/react — real tests', () => {
     it('renders fallback when flag is disabled', async () => {
       await act(async () => {
         render(
-          <HeadlessProvider apiKey="test_key">
-            <Feature flag="disabled-feature" fallback={<span>fallback</span>}>
+          <HeadlessProvider apiKey='test_key'>
+            <Feature flag='disabled-feature' fallback={<span>fallback</span>}>
               <span>hidden</span>
             </Feature>
           </HeadlessProvider>,
@@ -177,7 +177,7 @@ describe('@headlessly/react — real tests', () => {
 
       await act(async () => {
         render(
-          <HeadlessProvider apiKey="test_key">
+          <HeadlessProvider apiKey='test_key'>
             <ErrorBoundary fallback={<div>error occurred</div>}>
               <ThrowingChild />
             </ErrorBoundary>
@@ -201,8 +201,8 @@ describe('@headlessly/react — real tests', () => {
     it('renders null (no visible output)', async () => {
       const { container } = await act(async () =>
         render(
-          <HeadlessProvider apiKey="test_key">
-            <PageView name="home" />
+          <HeadlessProvider apiKey='test_key'>
+            <PageView name='home' />
           </HeadlessProvider>,
         ),
       )
@@ -227,7 +227,7 @@ describe('@headlessly/react — real tests', () => {
 
       await act(async () => {
         render(
-          <HeadlessProvider apiKey="test_key">
+          <HeadlessProvider apiKey='test_key'>
             <Capture />
           </HeadlessProvider>,
         )

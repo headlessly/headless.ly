@@ -33,7 +33,7 @@ None of them were built for an AI agent to operate.
 Your agent doesn't need a flag management dashboard. It needs `FeatureFlag.enable()`. It doesn't need an experiment results page with confidence interval charts. It needs `Experiment.conclude()`. It doesn't need a "targeting builder" GUI with drag-and-drop rules. It needs a BEFORE hook:
 
 ```typescript
-Experiment.starting(experiment => {
+Experiment.starting((experiment) => {
   if (!experiment.hypothesis) throw new Error('No experiment without a hypothesis')
 })
 ```
@@ -160,7 +160,7 @@ Your agent connects to one MCP endpoint. It can run your entire experimentation 
 ```
 
 ```ts title="experiments.headless.ly/mcp#do"
-const mature = await $.Experiment.find({ status: 'Running', confidence: { '$gte': 95 } })
+const mature = await $.Experiment.find({ status: 'Running', confidence: { $gte: 95 } })
 for (const experiment of mature) {
   await $.Experiment.conclude(experiment.$id)
   await $.FeatureFlag.enable(experiment.winner)
@@ -179,7 +179,7 @@ Query results are standard arrays — chain operations with familiar JavaScript:
 
 ```typescript
 const completed = await Experiment.find({ status: 'Completed' })
-const winners = completed.filter(e => e.confidence >= 95)
+const winners = completed.filter((e) => e.confidence >= 95)
 for (const experiment of winners) {
   await FeatureFlag.enable(experiment.winner)
   await Campaign.create({ name: `Ship ${experiment.name}`, type: 'Announcement' })

@@ -178,12 +178,7 @@ describe('@headlessly/objects -- deep-v3 provider tests', () => {
       const contact = await provider.create('Contact', { name: 'Alice', stage: 'Lead' })
       await provider.update('Contact', contact.$id, { stage: 'Qualified', score: 85 })
 
-      const diff = await timeTraveler.diff(
-        'Contact',
-        contact.$id,
-        { atVersion: 1 },
-        { atVersion: 2 },
-      )
+      const diff = await timeTraveler.diff('Contact', contact.$id, { atVersion: 1 }, { atVersion: 2 })
 
       expect(diff.before).not.toBeNull()
       expect(diff.after).not.toBeNull()
@@ -322,9 +317,7 @@ describe('@headlessly/objects -- deep-v3 provider tests', () => {
     })
 
     it('concurrent creates produce unique IDs for all entities', async () => {
-      const promises = Array.from({ length: 50 }, (_, i) =>
-        provider.create('Contact', { name: `Contact ${i}` }),
-      )
+      const promises = Array.from({ length: 50 }, (_, i) => provider.create('Contact', { name: `Contact ${i}` }))
 
       const results = await Promise.all(promises)
       const ids = results.map((r) => r.$id)
@@ -336,9 +329,7 @@ describe('@headlessly/objects -- deep-v3 provider tests', () => {
     it('concurrent reads after a write all return the correct entity', async () => {
       const entity = await provider.create('Contact', { name: 'Shared Alice' })
 
-      const promises = Array.from({ length: 20 }, () =>
-        provider.get('Contact', entity.$id),
-      )
+      const promises = Array.from({ length: 20 }, () => provider.get('Contact', entity.$id))
 
       const results = await Promise.all(promises)
       for (const result of results) {
@@ -354,10 +345,7 @@ describe('@headlessly/objects -- deep-v3 provider tests', () => {
       await provider.create('Deal', { title: 'Deal 2', value: 200 })
       await provider.create('Deal', { title: 'Deal 3', value: 300 })
 
-      const [contacts, deals] = await Promise.all([
-        provider.find('Contact'),
-        provider.find('Deal'),
-      ])
+      const [contacts, deals] = await Promise.all([provider.find('Contact'), provider.find('Deal')])
 
       expect(contacts).toHaveLength(2)
       expect(deals).toHaveLength(3)
@@ -365,9 +353,7 @@ describe('@headlessly/objects -- deep-v3 provider tests', () => {
 
     it('concurrent creates and reads do not cause data corruption', async () => {
       // Mix creates and reads
-      const createPromises = Array.from({ length: 10 }, (_, i) =>
-        provider.create('Contact', { name: `Contact ${i}`, index: i }),
-      )
+      const createPromises = Array.from({ length: 10 }, (_, i) => provider.create('Contact', { name: `Contact ${i}`, index: i }))
 
       const created = await Promise.all(createPromises)
 
@@ -385,7 +371,9 @@ describe('@headlessly/objects -- deep-v3 provider tests', () => {
     it('concurrent event emissions do not lose events', async () => {
       const bridge = createEventBridge()
       const received: NounEvent[] = []
-      bridge.subscribe('*', (e) => { received.push(e) })
+      bridge.subscribe('*', (e) => {
+        received.push(e)
+      })
 
       const events: NounEvent[] = Array.from({ length: 30 }, (_, i) => ({
         $id: `evt_conc_${i}`,
@@ -465,9 +453,7 @@ describe('@headlessly/objects -- deep-v3 provider tests', () => {
         doFetch: mockFetch,
       })
 
-      await expect(
-        provider.update('Contact', 'contact_abc', { name: 'Updated' }),
-      ).rejects.toThrow(DOProviderError)
+      await expect(provider.update('Contact', 'contact_abc', { name: 'Updated' })).rejects.toThrow(DOProviderError)
 
       try {
         await provider.update('Contact', 'contact_abc', { name: 'Updated' })
@@ -508,9 +494,7 @@ describe('@headlessly/objects -- deep-v3 provider tests', () => {
     it('perform on non-existent entity throws and provider remains usable', async () => {
       const provider = new LocalNounProvider({ context: 'https://headless.ly/~errperf' })
 
-      await expect(
-        provider.perform('Contact', 'qualify', 'contact_ghost'),
-      ).rejects.toThrow('Contact not found: contact_ghost')
+      await expect(provider.perform('Contact', 'qualify', 'contact_ghost')).rejects.toThrow('Contact not found: contact_ghost')
 
       // Provider still works after the error
       const contact = await provider.create('Contact', { name: 'Recovery' })
@@ -634,18 +618,9 @@ describe('@headlessly/objects -- deep-v3 provider tests', () => {
       const allEvents: NounEvent[] = []
       bridge.subscribe('*', (e) => allEvents.push(e))
 
-      await executeVerb(
-        { type: 'Deal', verb: 'qualify', entityId: deal.$id, data: { stage: 'Qualified' } },
-        { provider, events: bridge },
-      )
-      await executeVerb(
-        { type: 'Deal', verb: 'negotiate', entityId: deal.$id, data: { stage: 'Negotiation' } },
-        { provider, events: bridge },
-      )
-      await executeVerb(
-        { type: 'Deal', verb: 'close', entityId: deal.$id, data: { stage: 'Won' } },
-        { provider, events: bridge },
-      )
+      await executeVerb({ type: 'Deal', verb: 'qualify', entityId: deal.$id, data: { stage: 'Qualified' } }, { provider, events: bridge })
+      await executeVerb({ type: 'Deal', verb: 'negotiate', entityId: deal.$id, data: { stage: 'Negotiation' } }, { provider, events: bridge })
+      await executeVerb({ type: 'Deal', verb: 'close', entityId: deal.$id, data: { stage: 'Won' } }, { provider, events: bridge })
 
       // Each verb produces 3 events: activity, verb, event (9 total)
       expect(allEvents).toHaveLength(9)
@@ -692,10 +667,7 @@ describe('@headlessly/objects -- deep-v3 provider tests', () => {
       const events: NounEvent[] = []
       bridge.subscribe('*', (e) => events.push(e))
 
-      await executeVerb(
-        { type: 'Order', verb: 'ship', entityId: order.$id, data: { status: 'Shipped' } },
-        { provider, events: bridge },
-      )
+      await executeVerb({ type: 'Order', verb: 'ship', entityId: order.$id, data: { status: 'Shipped' } }, { provider, events: bridge })
 
       const types = events.map((e) => e.$type)
       // Canonical conjugation doubles the final consonant: ship -> shipping / shipped
@@ -711,10 +683,7 @@ describe('@headlessly/objects -- deep-v3 provider tests', () => {
       const events: NounEvent[] = []
       bridge.subscribe('*', (e) => events.push(e))
 
-      await executeVerb(
-        { type: 'Contact', verb: 'create', entityId: contact.$id, data: { name: 'Bob' } },
-        { provider, events: bridge },
-      )
+      await executeVerb({ type: 'Contact', verb: 'create', entityId: contact.$id, data: { name: 'Bob' } }, { provider, events: bridge })
 
       const types = events.map((e) => e.$type)
       expect(types).toContain('Contact.creating')
@@ -729,10 +698,7 @@ describe('@headlessly/objects -- deep-v3 provider tests', () => {
       const events: NounEvent[] = []
       bridge.subscribe('*', (e) => events.push(e))
 
-      await executeVerb(
-        { type: 'Contact', verb: 'delete', entityId: contact.$id },
-        { provider, events: bridge },
-      )
+      await executeVerb({ type: 'Contact', verb: 'delete', entityId: contact.$id }, { provider, events: bridge })
 
       const types = events.map((e) => e.$type)
       expect(types).toContain('Contact.deleting')
@@ -952,9 +918,7 @@ describe('@headlessly/objects -- deep-v3 provider tests', () => {
         ok: true,
         status: 200,
         json: async () => ({
-          items: [
-            { $id: 'contact_1', $type: 'Contact', name: 'Alice' },
-          ],
+          items: [{ $id: 'contact_1', $type: 'Contact', name: 'Alice' }],
         }),
       })
 

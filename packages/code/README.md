@@ -11,13 +11,17 @@ const code = createCodeClient({ apiKey: 'key_...' })
 const sandbox = await code.createSandbox()
 
 // Run TypeScript with full entity access
-const result = await code.runCode(sandbox.id, `
+const result = await code.runCode(
+  sandbox.id,
+  `
   const leads = await $.Contact.find({ stage: 'Lead', leadScore: { $gte: 80 } })
   for (const lead of leads) {
     await $.Contact.qualify(lead.$id)
   }
   return { qualified: leads.length }
-`, { language: 'typescript' })
+`,
+  { language: 'typescript' },
+)
 
 console.log(result.output) // { qualified: 12 }
 
@@ -62,7 +66,7 @@ Run any shell command inside the sandbox:
 
 ```typescript
 const result = await code.exec(sandbox.id, 'echo hello world')
-console.log(result.stdout)   // 'hello world\n'
+console.log(result.stdout) // 'hello world\n'
 console.log(result.exitCode) // 0
 ```
 
@@ -92,9 +96,15 @@ const response = await fetch('https://code.headless.ly/exec/stream', {
 
 for await (const event of parseExecStream(response.body)) {
   switch (event.type) {
-    case 'stdout': process.stdout.write(event.data); break
-    case 'stderr': process.stderr.write(event.data); break
-    case 'exit': console.log('Exit code:', event.code); break
+    case 'stdout':
+      process.stdout.write(event.data)
+      break
+    case 'stderr':
+      process.stderr.write(event.data)
+      break
+    case 'exit':
+      console.log('Exit code:', event.code)
+      break
   }
 }
 ```
@@ -104,11 +114,15 @@ for await (const event of parseExecStream(response.body)) {
 Read, write, list, check, and delete files inside the sandbox:
 
 ```typescript
-await code.writeFile(sandbox.id, '/app/index.ts', `
+await code.writeFile(
+  sandbox.id,
+  '/app/index.ts',
+  `
   import { Contact } from '@headlessly/crm'
   const leads = await Contact.find({ stage: 'Lead' })
   console.log(leads.length)
-`)
+`,
+)
 
 const content = await code.readFile(sandbox.id, '/app/index.ts')
 const files = await code.listFiles(sandbox.id, '/app')
@@ -122,23 +136,35 @@ Run code in JavaScript, TypeScript, Python, Ruby, or Bash:
 
 ```typescript
 // TypeScript
-const ts = await code.runCode(sandbox.id, `
+const ts = await code.runCode(
+  sandbox.id,
+  `
   const contacts = await $.Contact.find({ stage: 'Customer' })
   return contacts.map(c => c.name)
-`, { language: 'typescript' })
+`,
+  { language: 'typescript' },
+)
 
 // Python
-const py = await code.runCode(sandbox.id, `
+const py = await code.runCode(
+  sandbox.id,
+  `
 import json
 data = [{"name": "Alice", "score": 85}, {"name": "Bob", "score": 42}]
 qualified = [d for d in data if d["score"] >= 50]
 print(json.dumps(qualified))
-`, { language: 'python' })
+`,
+  { language: 'python' },
+)
 
 // Bash
-const sh = await code.runCode(sandbox.id, `
+const sh = await code.runCode(
+  sandbox.id,
+  `
   curl -s https://api.github.com/repos/headlessly/sdk | jq .stargazers_count
-`, { language: 'bash' })
+`,
+  { language: 'bash' },
+)
 ```
 
 ## Install

@@ -305,7 +305,7 @@ describe('@headlessly/projects -- deep-v4 coverage', () => {
     })
 
     it('preserves content with inline code and special characters', async () => {
-      const special = 'Use `Contact.find({ stage: \'Lead\' })` to query. See <https://docs.headless.ly>'
+      const special = "Use `Contact.find({ stage: 'Lead' })` to query. See <https://docs.headless.ly>"
       const comment = await Comment.create({ body: special })
       expect(comment.body).toBe(special)
     })
@@ -372,7 +372,10 @@ describe('@headlessly/projects -- deep-v4 coverage', () => {
       await (Project as any).archive(project.$id)
 
       expect(events).toEqual(['completing', 'completed', 'archiving', 'archived'])
-      u1(); u2(); u3(); u4()
+      u1()
+      u2()
+      u3()
+      u4()
     })
 
     it('archive fires ONLY archiving+archived, not completing/completed', async () => {
@@ -387,7 +390,10 @@ describe('@headlessly/projects -- deep-v4 coverage', () => {
 
       expect(events).toEqual(['archiving', 'archived'])
       expect(events).not.toContain('completing')
-      u1(); u2(); u3(); u4()
+      u1()
+      u2()
+      u3()
+      u4()
     })
   })
 
@@ -405,7 +411,8 @@ describe('@headlessly/projects -- deep-v4 coverage', () => {
 
       const issue = await Issue.create({ title: 'Chain test', status: 'Open' })
       expect(issue.labels).toBe('auto,processed')
-      unsub1(); unsub2()
+      unsub1()
+      unsub2()
     })
 
     it('BEFORE hook on updating transforms priority field', async () => {
@@ -437,7 +444,9 @@ describe('@headlessly/projects -- deep-v4 coverage', () => {
       expect(issue.step1).toBe(true)
       expect(issue.step2).toBe(true)
       expect(issue.step3).toBe(true)
-      unsub1(); unsub2(); unsub3()
+      unsub1()
+      unsub2()
+      unsub3()
     })
   })
 
@@ -446,10 +455,7 @@ describe('@headlessly/projects -- deep-v4 coverage', () => {
   // ===========================================================================
   describe('Concurrent cross-entity operations', () => {
     it('creates Issue and Comment in parallel then links them via update', async () => {
-      const [issue, comment] = await Promise.all([
-        Issue.create({ title: 'Parallel link', status: 'Open' }),
-        Comment.create({ body: 'Will link later' }),
-      ])
+      const [issue, comment] = await Promise.all([Issue.create({ title: 'Parallel link', status: 'Open' }), Comment.create({ body: 'Will link later' })])
 
       expect(issue.$type).toBe('Issue')
       expect(comment.$type).toBe('Comment')
@@ -478,10 +484,7 @@ describe('@headlessly/projects -- deep-v4 coverage', () => {
 
     it('parallel verb execution and comment creation on same issue', async () => {
       const issue = await Issue.create({ title: 'Parallel verb', status: 'Open' })
-      const [closed, comment] = await Promise.all([
-        (Issue as any).close(issue.$id),
-        Comment.create({ body: 'Racing comment', issue: issue.$id }),
-      ])
+      const [closed, comment] = await Promise.all([(Issue as any).close(issue.$id), Comment.create({ body: 'Racing comment', issue: issue.$id })])
       expect(closed.status).toBe('Closed')
       expect(comment.issue).toBe(issue.$id)
     })
@@ -699,7 +702,10 @@ describe('@headlessly/projects -- deep-v4 coverage', () => {
       expect(events).toContain('closed')
       expect(events).not.toContain('updating')
       expect(events).not.toContain('updated')
-      u1(); u2(); u3(); u4()
+      u1()
+      u2()
+      u3()
+      u4()
     })
 
     it('Issue.update fires updating+updated but NOT closing+closed', async () => {
@@ -716,7 +722,10 @@ describe('@headlessly/projects -- deep-v4 coverage', () => {
       expect(events).toContain('updated')
       expect(events).not.toContain('closing')
       expect(events).not.toContain('closed')
-      u1(); u2(); u3(); u4()
+      u1()
+      u2()
+      u3()
+      u4()
     })
   })
 

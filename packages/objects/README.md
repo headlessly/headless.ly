@@ -111,9 +111,9 @@ IDs use the format `{type}_{sqid}` — short, unique, URL-safe, with a built-in 
 ```typescript
 import { generateSqid, generateEntityId, generateEventId } from '@headlessly/objects'
 
-const sqid = generateSqid()              // 'fX9bL5nRdKpQ'
-const id = generateEntityId('Contact')   // 'contact_fX9bL5nRdKpQ'
-const eid = generateEventId()            // 'evt_k7TmPvQxW3hN'
+const sqid = generateSqid() // 'fX9bL5nRdKpQ'
+const id = generateEntityId('Contact') // 'contact_fX9bL5nRdKpQ'
+const eid = generateEventId() // 'evt_k7TmPvQxW3hN'
 ```
 
 ## Install

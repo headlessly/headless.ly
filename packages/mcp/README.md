@@ -9,19 +9,25 @@ const server = new MCPServer({ provider })
 
 // search — find entities across the graph
 await server.handleRequest({
-  jsonrpc: '2.0', method: 'tools/call', id: 1,
+  jsonrpc: '2.0',
+  method: 'tools/call',
+  id: 1,
   params: { name: 'search', arguments: { type: 'Contact', filter: { stage: 'Lead' } } },
 })
 
 // fetch — get specific entities with relationships
 await server.handleRequest({
-  jsonrpc: '2.0', method: 'tools/call', id: 2,
+  jsonrpc: '2.0',
+  method: 'tools/call',
+  id: 2,
   params: { name: 'fetch', arguments: { type: 'Deal', id: 'deal_k7TmPvQx', include: ['contact', 'subscription'] } },
 })
 
 // do — execute any operation with TypeScript
 await server.handleRequest({
-  jsonrpc: '2.0', method: 'tools/call', id: 3,
+  jsonrpc: '2.0',
+  method: 'tools/call',
+  id: 3,
   params: { name: 'do', arguments: { code: 'await $.Contact.qualify("contact_fX9bL5nRd")' } },
 })
 ```

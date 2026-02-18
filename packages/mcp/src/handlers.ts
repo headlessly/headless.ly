@@ -37,10 +37,7 @@ function findReverseRelationships(typeName: string): Array<{ fieldName: string; 
 /**
  * Load reverse-related entities for a given entity instance.
  */
-async function loadRelationships(
-  provider: NounProvider,
-  entity: NounInstance,
-): Promise<Record<string, unknown[]>> {
+async function loadRelationships(provider: NounProvider, entity: NounInstance): Promise<Record<string, unknown[]>> {
   const reverseRels = findReverseRelationships(entity.$type)
   const related: Record<string, unknown[]> = {}
 
@@ -80,7 +77,6 @@ interface EventEntry {
   timestamp: string
   seq: number
 }
-
 
 export function createHandlers(options: MCPHandlerOptions) {
   const { provider: rawProvider, context, evaluate } = options
@@ -297,9 +293,7 @@ export function createHandlers(options: MCPHandlerOptions) {
           // Time-travel: if asOf is specified, replay from event log
           if (args.asOf) {
             const asOfTime = new Date(args.asOf).getTime()
-            const entityEvents = eventLog
-              .filter((e) => e.type === args.type && e.id === args.id)
-              .sort((a, b) => a.seq - b.seq)
+            const entityEvents = eventLog.filter((e) => e.type === args.type && e.id === args.id).sort((a, b) => a.seq - b.seq)
 
             if (entityEvents.length === 0) {
               return { content: [{ type: 'text', text: `Entity not found at ${args.asOf}: ${args.type}/${args.id}` }], isError: true }

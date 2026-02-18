@@ -1,24 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-import {
-  headlessly,
-  RPC,
-  $,
-  http,
-  capnweb,
-  binding,
-  composite,
-  createDOClient,
-  createRPCClient,
-  buildHeadlesslyConfig,
-} from '../src/index.js'
+import { headlessly, RPC, $, http, capnweb, binding, composite, createDOClient, createRPCClient, buildHeadlesslyConfig } from '../src/index.js'
 
-import type {
-  Transport,
-  HeadlesslyRpcOptions,
-  HttpTransportOptions,
-  CapnwebTransportOptions,
-} from '../src/index.js'
+import type { Transport, HeadlesslyRpcOptions, HttpTransportOptions, CapnwebTransportOptions } from '../src/index.js'
 
 // =============================================================================
 // 1. Error Classes — ConnectionError (~8 tests)
@@ -323,8 +307,16 @@ describe('Binding Transport Edge Cases', () => {
 
 describe('Composite Transport Advanced', () => {
   it('composite with 3 transports falls through to third on failure', async () => {
-    const t1: Transport = { call: vi.fn(async () => { throw new Error('t1 fail') }) }
-    const t2: Transport = { call: vi.fn(async () => { throw new Error('t2 fail') }) }
+    const t1: Transport = {
+      call: vi.fn(async () => {
+        throw new Error('t1 fail')
+      }),
+    }
+    const t2: Transport = {
+      call: vi.fn(async () => {
+        throw new Error('t2 fail')
+      }),
+    }
     const t3: Transport = { call: vi.fn(async () => 'third') }
     const ct = composite(t1, t2, t3)
     const result = await ct.call('method', [])
@@ -335,7 +327,11 @@ describe('Composite Transport Advanced', () => {
   })
 
   it('composite passes method name and args to each transport', async () => {
-    const t1: Transport = { call: vi.fn(async () => { throw new Error('fail') }) }
+    const t1: Transport = {
+      call: vi.fn(async () => {
+        throw new Error('fail')
+      }),
+    }
     const t2: Transport = { call: vi.fn(async () => 'ok') }
     const ct = composite(t1, t2)
     await ct.call('users.list', [{ active: true }])
@@ -380,8 +376,16 @@ describe('Composite Transport Advanced', () => {
   })
 
   it('composite preserves error type from last transport', async () => {
-    const t1: Transport = { call: vi.fn(async () => { throw new TypeError('type error') }) }
-    const t2: Transport = { call: vi.fn(async () => { throw new RangeError('range error') }) }
+    const t1: Transport = {
+      call: vi.fn(async () => {
+        throw new TypeError('type error')
+      }),
+    }
+    const t2: Transport = {
+      call: vi.fn(async () => {
+        throw new RangeError('range error')
+      }),
+    }
     const ct = composite(t1, t2)
     try {
       await ct.call('method', [])
@@ -757,7 +761,9 @@ describe('DOClient Method Proxy — Arguments', () => {
   })
 
   it('method proxy propagates transport errors', async () => {
-    const callFn = vi.fn(async () => { throw new Error('transport error') })
+    const callFn = vi.fn(async () => {
+      throw new Error('transport error')
+    })
     const mockTransport: Transport = { call: callFn }
     const client = createDOClient(mockTransport)
     await expect((client as any).fails()).rejects.toThrow('transport error')
@@ -771,11 +777,7 @@ describe('DOClient Method Proxy — Arguments', () => {
     })
     const mockTransport: Transport = { call: callFn }
     const client = createDOClient(mockTransport)
-    const [r1, r2, r3] = await Promise.all([
-      (client as any).a(),
-      (client as any).b(),
-      (client as any).c(),
-    ])
+    const [r1, r2, r3] = await Promise.all([(client as any).a(), (client as any).b(), (client as any).c()])
     expect(callFn).toHaveBeenCalledTimes(3)
     expect(r1.method).toBe('a')
     expect(r2.method).toBe('b')

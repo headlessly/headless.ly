@@ -17,15 +17,23 @@ vi.stubGlobal('navigator', {
 const localStore: Record<string, string> = {}
 vi.stubGlobal('localStorage', {
   getItem: vi.fn((k: string) => localStore[k] ?? null),
-  setItem: vi.fn((k: string, v: string) => { localStore[k] = v }),
-  removeItem: vi.fn((k: string) => { delete localStore[k] }),
+  setItem: vi.fn((k: string, v: string) => {
+    localStore[k] = v
+  }),
+  removeItem: vi.fn((k: string) => {
+    delete localStore[k]
+  }),
 })
 
 const sessionStore: Record<string, string> = {}
 vi.stubGlobal('sessionStorage', {
   getItem: vi.fn((k: string) => sessionStore[k] ?? null),
-  setItem: vi.fn((k: string, v: string) => { sessionStore[k] = v }),
-  removeItem: vi.fn((k: string) => { delete sessionStore[k] }),
+  setItem: vi.fn((k: string, v: string) => {
+    sessionStore[k] = v
+  }),
+  removeItem: vi.fn((k: string) => {
+    delete sessionStore[k]
+  }),
 })
 
 vi.stubGlobal('location', {
@@ -68,9 +76,7 @@ const getLastFetchBody = (): Record<string, unknown> => {
 }
 
 const getAllFetchBodies = (): Record<string, unknown>[] => {
-  return mockFetch.mock.calls
-    .filter((c: unknown[]) => c[1]?.body)
-    .map((c: unknown[]) => JSON.parse(c[1].body as string))
+  return mockFetch.mock.calls.filter((c: unknown[]) => c[1]?.body).map((c: unknown[]) => JSON.parse(c[1].body as string))
 }
 
 // ---------------------------------------------------------------------------
@@ -113,20 +119,14 @@ describe('@headlessly/js — browser SDK (RED)', () => {
       mod.init({ apiKey: 'hl_test_123' })
       mod.track('test_event')
       mod.flush()
-      expect(mockFetch).toHaveBeenCalledWith(
-        'https://headless.ly/e',
-        expect.objectContaining({ method: 'POST' }),
-      )
+      expect(mockFetch).toHaveBeenCalledWith('https://headless.ly/e', expect.objectContaining({ method: 'POST' }))
     })
 
     it('uses custom endpoint when provided', () => {
       mod.init({ apiKey: 'hl_test_123', endpoint: 'https://custom.example.com/events' })
       mod.track('test_event')
       mod.flush()
-      expect(mockFetch).toHaveBeenCalledWith(
-        'https://custom.example.com/events',
-        expect.objectContaining({ method: 'POST' }),
-      )
+      expect(mockFetch).toHaveBeenCalledWith('https://custom.example.com/events', expect.objectContaining({ method: 'POST' }))
     })
 
     it('throws if apiKey is not provided', () => {
@@ -201,9 +201,7 @@ describe('@headlessly/js — browser SDK (RED)', () => {
       const body = getLastFetchBody()
       const events = body.events as { properties: Record<string, unknown>; event: string }[]
       expect(events[0].event).toBe('Dashboard')
-      expect(events[0].properties).toEqual(
-        expect.objectContaining({ section: 'analytics', tab: 'overview' }),
-      )
+      expect(events[0].properties).toEqual(expect.objectContaining({ section: 'analytics', tab: 'overview' }))
     })
   })
 
@@ -232,9 +230,7 @@ describe('@headlessly/js — browser SDK (RED)', () => {
       await flushPromises()
       const body = getLastFetchBody()
       const events = body.events as { properties: Record<string, unknown> }[]
-      expect(events[0].properties).toEqual(
-        expect.objectContaining({ buttonId: 'cta', variant: 'blue' }),
-      )
+      expect(events[0].properties).toEqual(expect.objectContaining({ buttonId: 'cta', variant: 'blue' }))
     })
 
     it('includes a timestamp in ISO format', async () => {
@@ -282,9 +278,7 @@ describe('@headlessly/js — browser SDK (RED)', () => {
       // batchSize is 100 in this describe block
       mod.track('queued_event')
       // fetch should not have been called for this event (only init flag fetch)
-      const trackCalls = mockFetch.mock.calls.filter(
-        (c: unknown[]) => c[1]?.body && JSON.parse(c[1].body as string).events,
-      )
+      const trackCalls = mockFetch.mock.calls.filter((c: unknown[]) => c[1]?.body && JSON.parse(c[1].body as string).events)
       expect(trackCalls.length).toBe(0)
     })
 
@@ -292,13 +286,9 @@ describe('@headlessly/js — browser SDK (RED)', () => {
       mod.track('auth_test')
       await mod.flush()
       await flushPromises()
-      const call = mockFetch.mock.calls.find(
-        (c: unknown[]) => c[1]?.body && JSON.parse(c[1].body as string).events,
-      )
+      const call = mockFetch.mock.calls.find((c: unknown[]) => c[1]?.body && JSON.parse(c[1].body as string).events)
       expect(call).toBeDefined()
-      expect(call![1].headers).toEqual(
-        expect.objectContaining({ Authorization: 'Bearer hl_test_123' }),
-      )
+      expect(call![1].headers).toEqual(expect.objectContaining({ Authorization: 'Bearer hl_test_123' }))
     })
   })
 
@@ -325,9 +315,7 @@ describe('@headlessly/js — browser SDK (RED)', () => {
       const body = getLastFetchBody()
       const events = body.events as { userId: string; traits: Record<string, unknown> }[]
       expect(events[0].userId).toBe('user_42')
-      expect(events[0].traits).toEqual(
-        expect.objectContaining({ email: 'bob@test.com', plan: 'pro' }),
-      )
+      expect(events[0].traits).toEqual(expect.objectContaining({ email: 'bob@test.com', plan: 'pro' }))
     })
 
     it('sets userId for all subsequent track calls', async () => {
@@ -349,9 +337,7 @@ describe('@headlessly/js — browser SDK (RED)', () => {
       // The merged user object should have both traits
       const instance = mod.getInstance()
       const user = (instance as unknown as { user: { email?: string; plan?: string } }).user
-      expect(user).toEqual(
-        expect.objectContaining({ email: 'bob@test.com', plan: 'enterprise' }),
-      )
+      expect(user).toEqual(expect.objectContaining({ email: 'bob@test.com', plan: 'enterprise' }))
     })
 
     it('works without traits parameter', async () => {
@@ -434,9 +420,7 @@ describe('@headlessly/js — browser SDK (RED)', () => {
     it('captures unhandled promise rejections automatically', async () => {
       mod.init({ apiKey: 'hl_test_123', captureErrors: true, batchSize: 1 })
       // Simulate an unhandledrejection event
-      const handler = (window.addEventListener as ReturnType<typeof vi.fn>).mock.calls.find(
-        (c: unknown[]) => c[0] === 'unhandledrejection',
-      )
+      const handler = (window.addEventListener as ReturnType<typeof vi.fn>).mock.calls.find((c: unknown[]) => c[0] === 'unhandledrejection')
       expect(handler).toBeDefined()
       // The handler callback should be registered
       expect(typeof handler![1]).toBe('function')
@@ -468,9 +452,7 @@ describe('@headlessly/js — browser SDK (RED)', () => {
       mod.track('b')
       mod.track('c') // should trigger auto-flush at 3
       await flushPromises()
-      const eventCalls = mockFetch.mock.calls.filter(
-        (c: unknown[]) => c[1]?.body && JSON.parse(c[1].body as string).events,
-      )
+      const eventCalls = mockFetch.mock.calls.filter((c: unknown[]) => c[1]?.body && JSON.parse(c[1].body as string).events)
       expect(eventCalls.length).toBeGreaterThanOrEqual(1)
     })
 
@@ -479,15 +461,11 @@ describe('@headlessly/js — browser SDK (RED)', () => {
       mockFetch.mockClear()
       mod.track('interval_event')
       // No immediate flush (batchSize=100)
-      expect(mockFetch.mock.calls.filter(
-        (c: unknown[]) => c[1]?.body && JSON.parse(c[1].body as string).events,
-      ).length).toBe(0)
+      expect(mockFetch.mock.calls.filter((c: unknown[]) => c[1]?.body && JSON.parse(c[1].body as string).events).length).toBe(0)
       // Advance past the flush interval
       vi.advanceTimersByTime(2500)
       await flushPromises()
-      const eventCalls = mockFetch.mock.calls.filter(
-        (c: unknown[]) => c[1]?.body && JSON.parse(c[1].body as string).events,
-      )
+      const eventCalls = mockFetch.mock.calls.filter((c: unknown[]) => c[1]?.body && JSON.parse(c[1].body as string).events)
       expect(eventCalls.length).toBeGreaterThanOrEqual(1)
     })
 
@@ -497,9 +475,7 @@ describe('@headlessly/js — browser SDK (RED)', () => {
       mockFetch.mockClear()
       await mod.flush()
       await flushPromises()
-      const eventCalls = mockFetch.mock.calls.filter(
-        (c: unknown[]) => c[1]?.body && JSON.parse(c[1].body as string).events,
-      )
+      const eventCalls = mockFetch.mock.calls.filter((c: unknown[]) => c[1]?.body && JSON.parse(c[1].body as string).events)
       expect(eventCalls.length).toBe(1)
     })
 
@@ -525,9 +501,7 @@ describe('@headlessly/js — browser SDK (RED)', () => {
       // Second flush should send nothing
       await mod.flush()
       await flushPromises()
-      const eventCalls = mockFetch.mock.calls.filter(
-        (c: unknown[]) => c[1]?.body && JSON.parse(c[1].body as string).events,
-      )
+      const eventCalls = mockFetch.mock.calls.filter((c: unknown[]) => c[1]?.body && JSON.parse(c[1].body as string).events)
       expect(eventCalls.length).toBe(0)
     })
   })
@@ -551,9 +525,7 @@ describe('@headlessly/js — browser SDK (RED)', () => {
       vi.advanceTimersByTime(5000)
       await flushPromises()
       // Should have attempted more than once
-      const eventCalls = mockFetch.mock.calls.filter(
-        (c: unknown[]) => c[1]?.body && JSON.parse(c[1].body as string).events,
-      )
+      const eventCalls = mockFetch.mock.calls.filter((c: unknown[]) => c[1]?.body && JSON.parse(c[1].body as string).events)
       expect(eventCalls.length).toBeGreaterThanOrEqual(2)
     })
 
@@ -598,13 +570,13 @@ describe('@headlessly/js — browser SDK (RED)', () => {
       vi.advanceTimersByTime(10000)
       await flushPromises()
       // Should NOT have retried — only 1 event call
-      const eventCalls = mockFetch.mock.calls.filter(
-        (c: unknown[]) => {
-          try {
-            return c[1]?.body && JSON.parse(c[1].body as string).events
-          } catch { return false }
-        },
-      )
+      const eventCalls = mockFetch.mock.calls.filter((c: unknown[]) => {
+        try {
+          return c[1]?.body && JSON.parse(c[1].body as string).events
+        } catch {
+          return false
+        }
+      })
       // For 4xx, the SDK should NOT retry, so exactly 1 event call
       expect(eventCalls.length).toBe(1)
     })
@@ -627,22 +599,16 @@ describe('@headlessly/js — browser SDK (RED)', () => {
 
   describe('Feature flags', () => {
     it('getFeatureFlag fetches flags from the /flags endpoint', async () => {
-      mockFetch.mockResolvedValue(
-        new Response(JSON.stringify({ flags: { 'new-ui': true, 'beta': 'variant-a' } }), { status: 200 }),
-      )
+      mockFetch.mockResolvedValue(new Response(JSON.stringify({ flags: { 'new-ui': true, beta: 'variant-a' } }), { status: 200 }))
       mod.init({ apiKey: 'hl_test_123' })
       await flushPromises()
       // The init should have triggered a POST to /flags
-      const flagCalls = mockFetch.mock.calls.filter(
-        (c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('/flags'),
-      )
+      const flagCalls = mockFetch.mock.calls.filter((c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('/flags'))
       expect(flagCalls.length).toBeGreaterThanOrEqual(1)
     })
 
     it('caches feature flag values after initial fetch', async () => {
-      mockFetch.mockResolvedValue(
-        new Response(JSON.stringify({ flags: { 'cached-flag': 'yes' } }), { status: 200 }),
-      )
+      mockFetch.mockResolvedValue(new Response(JSON.stringify({ flags: { 'cached-flag': 'yes' } }), { status: 200 }))
       mod.init({ apiKey: 'hl_test_123' })
       await flushPromises()
       // Multiple reads should not trigger additional fetches
@@ -650,16 +616,12 @@ describe('@headlessly/js — browser SDK (RED)', () => {
       mod.getFeatureFlag('cached-flag')
       mod.getFeatureFlag('cached-flag')
       await flushPromises()
-      const flagFetchesAfter = mockFetch.mock.calls
-        .slice(before)
-        .filter((c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('/flags'))
+      const flagFetchesAfter = mockFetch.mock.calls.slice(before).filter((c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('/flags'))
       expect(flagFetchesAfter.length).toBe(0)
     })
 
     it('respects TTL and re-fetches after expiry', async () => {
-      mockFetch.mockResolvedValue(
-        new Response(JSON.stringify({ flags: { 'ttl-flag': true } }), { status: 200 }),
-      )
+      mockFetch.mockResolvedValue(new Response(JSON.stringify({ flags: { 'ttl-flag': true } }), { status: 200 }))
       mod.init({ apiKey: 'hl_test_123', flagsTTL: 30000 } as unknown as Parameters<typeof mod.init>[0])
       await flushPromises()
       const callsAfterInit = mockFetch.mock.calls.length
@@ -670,16 +632,12 @@ describe('@headlessly/js — browser SDK (RED)', () => {
       await flushPromises()
 
       // Should have re-fetched flags
-      const newFlagCalls = mockFetch.mock.calls
-        .slice(callsAfterInit)
-        .filter((c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('/flags'))
+      const newFlagCalls = mockFetch.mock.calls.slice(callsAfterInit).filter((c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes('/flags'))
       expect(newFlagCalls.length).toBeGreaterThanOrEqual(1)
     })
 
     it('isFeatureEnabled returns boolean for truthy values', async () => {
-      mockFetch.mockResolvedValue(
-        new Response(JSON.stringify({ flags: { 'enabled-flag': true, 'disabled-flag': false } }), { status: 200 }),
-      )
+      mockFetch.mockResolvedValue(new Response(JSON.stringify({ flags: { 'enabled-flag': true, 'disabled-flag': false } }), { status: 200 }))
       mod.init({ apiKey: 'hl_test_123' })
       await flushPromises()
       expect(mod.isFeatureEnabled('enabled-flag')).toBe(true)
@@ -691,17 +649,13 @@ describe('@headlessly/js — browser SDK (RED)', () => {
       const onFlagChange = (mod as unknown as { onFlagChange: (key: string, cb: (v: unknown) => void) => void }).onFlagChange
       expect(typeof onFlagChange).toBe('function')
 
-      mockFetch.mockResolvedValue(
-        new Response(JSON.stringify({ flags: { 'watched-flag': 'v1' } }), { status: 200 }),
-      )
+      mockFetch.mockResolvedValue(new Response(JSON.stringify({ flags: { 'watched-flag': 'v1' } }), { status: 200 }))
       mod.init({ apiKey: 'hl_test_123' })
       onFlagChange('watched-flag', callback)
       await flushPromises()
 
       // Simulate flag change via reload
-      mockFetch.mockResolvedValue(
-        new Response(JSON.stringify({ flags: { 'watched-flag': 'v2' } }), { status: 200 }),
-      )
+      mockFetch.mockResolvedValue(new Response(JSON.stringify({ flags: { 'watched-flag': 'v2' } }), { status: 200 }))
       await mod.reloadFeatureFlags()
       await flushPromises()
       expect(callback).toHaveBeenCalledWith('v2')
@@ -723,11 +677,13 @@ describe('@headlessly/js — browser SDK (RED)', () => {
       mod.init({ apiKey: 'hl_test_123', respectDoNotTrack: true } as unknown as Parameters<typeof mod.init>[0])
       mod.track('should_not_track')
       mod.flush()
-      const eventCalls = mockFetch.mock.calls.filter(
-        (c: unknown[]) => {
-          try { return c[1]?.body && JSON.parse(c[1].body as string).events } catch { return false }
-        },
-      )
+      const eventCalls = mockFetch.mock.calls.filter((c: unknown[]) => {
+        try {
+          return c[1]?.body && JSON.parse(c[1].body as string).events
+        } catch {
+          return false
+        }
+      })
       expect(eventCalls.length).toBe(0)
       // Restore navigator
       vi.stubGlobal('navigator', {
@@ -746,11 +702,13 @@ describe('@headlessly/js — browser SDK (RED)', () => {
       mod.identify('user_x')
       await mod.flush()
       await flushPromises()
-      const eventCalls = mockFetch.mock.calls.filter(
-        (c: unknown[]) => {
-          try { return c[1]?.body && JSON.parse(c[1].body as string).events } catch { return false }
-        },
-      )
+      const eventCalls = mockFetch.mock.calls.filter((c: unknown[]) => {
+        try {
+          return c[1]?.body && JSON.parse(c[1].body as string).events
+        } catch {
+          return false
+        }
+      })
       expect(eventCalls.length).toBe(0)
     })
 
@@ -772,11 +730,13 @@ describe('@headlessly/js — browser SDK (RED)', () => {
       instance.consentRevoked()
       mod.track('no_consent')
       // Should not track after consent is revoked
-      const eventCalls = mockFetch.mock.calls.filter(
-        (c: unknown[]) => {
-          try { return c[1]?.body && JSON.parse(c[1].body as string).events } catch { return false }
-        },
-      )
+      const eventCalls = mockFetch.mock.calls.filter((c: unknown[]) => {
+        try {
+          return c[1]?.body && JSON.parse(c[1].body as string).events
+        } catch {
+          return false
+        }
+      })
       expect(eventCalls.length).toBe(0)
     })
   })

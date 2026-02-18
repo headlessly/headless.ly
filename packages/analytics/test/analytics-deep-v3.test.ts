@@ -90,7 +90,10 @@ describe('@headlessly/analytics — deep coverage v3', () => {
     })
 
     it('updates funnel steps to reflect changes in user journey', async () => {
-      const steps1 = JSON.stringify([{ name: 'Landing', count: 500 }, { name: 'Signup', count: 100 }])
+      const steps1 = JSON.stringify([
+        { name: 'Landing', count: 500 },
+        { name: 'Signup', count: 100 },
+      ])
       const funnel = await Funnel.create({ name: 'V1 Funnel', steps: steps1, conversionRate: 0.2 })
 
       const steps2 = JSON.stringify([
@@ -209,11 +212,7 @@ describe('@headlessly/analytics — deep coverage v3', () => {
 
   describe('Metric aggregation and time series patterns', () => {
     it('creates multiple metric snapshots at different timestamps', async () => {
-      const timestamps = [
-        '2024-01-01T00:00:00Z',
-        '2024-02-01T00:00:00Z',
-        '2024-03-01T00:00:00Z',
-      ]
+      const timestamps = ['2024-01-01T00:00:00Z', '2024-02-01T00:00:00Z', '2024-03-01T00:00:00Z']
       const metrics = await Promise.all(
         timestamps.map((ts, i) =>
           Metric.create({
@@ -349,9 +348,7 @@ describe('@headlessly/analytics — deep coverage v3', () => {
     })
 
     it('concurrent metric creates produce distinct entities', async () => {
-      const promises = Array.from({ length: 20 }, (_, i) =>
-        Metric.create({ name: `concurrent_metric_${i}`, value: i * 10, type: 'Counter' }),
-      )
+      const promises = Array.from({ length: 20 }, (_, i) => Metric.create({ name: `concurrent_metric_${i}`, value: i * 10, type: 'Counter' }))
       const results = await Promise.all(promises)
       expect(results).toHaveLength(20)
 
@@ -362,9 +359,7 @@ describe('@headlessly/analytics — deep coverage v3', () => {
     it('concurrent goal creates and achieves do not interfere', async () => {
       // Create 5 goals concurrently
       const goals = await Promise.all(
-        Array.from({ length: 5 }, (_, i) =>
-          Goal.create({ name: `parallel_goal_${i}`, target: 100, current: 0, status: 'OnTrack' }),
-        ),
+        Array.from({ length: 5 }, (_, i) => Goal.create({ name: `parallel_goal_${i}`, target: 100, current: 0, status: 'OnTrack' })),
       )
       expect(goals).toHaveLength(5)
 
@@ -619,11 +614,7 @@ describe('@headlessly/analytics — deep coverage v3', () => {
     })
 
     it('bulk creates and deletes metrics', async () => {
-      const metrics = await Promise.all(
-        Array.from({ length: 10 }, (_, i) =>
-          Metric.create({ name: `bulk_metric_${i}`, value: i * 100, type: 'Counter' }),
-        ),
-      )
+      const metrics = await Promise.all(Array.from({ length: 10 }, (_, i) => Metric.create({ name: `bulk_metric_${i}`, value: i * 100, type: 'Counter' })))
       expect(metrics).toHaveLength(10)
 
       // Delete half
@@ -637,9 +628,7 @@ describe('@headlessly/analytics — deep coverage v3', () => {
 
     it('bulk update goals status in parallel', async () => {
       const goals = await Promise.all(
-        Array.from({ length: 8 }, (_, i) =>
-          Goal.create({ name: `bulk_goal_${i}`, target: 100, current: i * 12, status: 'OnTrack' }),
-        ),
+        Array.from({ length: 8 }, (_, i) => Goal.create({ name: `bulk_goal_${i}`, target: 100, current: i * 12, status: 'OnTrack' })),
       )
 
       // Update all to AtRisk concurrently

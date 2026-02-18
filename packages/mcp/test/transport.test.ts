@@ -63,9 +63,7 @@ describe('@headlessly/mcp — Transport', () => {
 
       const transport = new HttpTransport('https://crm.headless.ly/mcp', { fetch: mockFetch })
 
-      await expect(
-        transport.send({ jsonrpc: '2.0', method: 'initialize', params: {}, id: 1 }),
-      ).rejects.toThrow('MCP HTTP error: 500 Internal Server Error')
+      await expect(transport.send({ jsonrpc: '2.0', method: 'initialize', params: {}, id: 1 })).rejects.toThrow('MCP HTTP error: 500 Internal Server Error')
     })
 
     it('close is a no-op for HTTP transport', async () => {
@@ -183,9 +181,7 @@ describe('@headlessly/mcp — Transport', () => {
 
       const transport = new SseTransport('https://crm.headless.ly/mcp', { fetch: mockFetch })
 
-      await expect(
-        transport.send({ jsonrpc: '2.0', method: 'initialize', params: {}, id: 1 }),
-      ).rejects.toThrow('MCP SSE error: 503 Service Unavailable')
+      await expect(transport.send({ jsonrpc: '2.0', method: 'initialize', params: {}, id: 1 })).rejects.toThrow('MCP SSE error: 503 Service Unavailable')
     })
 
     it('throws when no response body for SSE', async () => {
@@ -197,9 +193,7 @@ describe('@headlessly/mcp — Transport', () => {
 
       const transport = new SseTransport('https://crm.headless.ly/mcp', { fetch: mockFetch })
 
-      await expect(
-        transport.send({ jsonrpc: '2.0', method: 'initialize', params: {}, id: 1 }),
-      ).rejects.toThrow('MCP SSE error: no response body')
+      await expect(transport.send({ jsonrpc: '2.0', method: 'initialize', params: {}, id: 1 })).rejects.toThrow('MCP SSE error: no response body')
     })
 
     it('parses SSE stream with JSON-RPC response', async () => {
@@ -308,9 +302,7 @@ describe('@headlessly/mcp — Transport', () => {
 
       const transport = new SseTransport('https://crm.headless.ly/mcp', { fetch: mockFetch })
 
-      await expect(
-        transport.send({ jsonrpc: '2.0', method: 'initialize', params: {}, id: 1 }),
-      ).rejects.toThrow('no JSON-RPC response received')
+      await expect(transport.send({ jsonrpc: '2.0', method: 'initialize', params: {}, id: 1 })).rejects.toThrow('no JSON-RPC response received')
     })
 
     it('close aborts any pending request', async () => {

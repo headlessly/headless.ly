@@ -8,12 +8,7 @@ import type { NounEvent, NounEventInput } from '../src/types'
 // Helpers
 // =============================================================================
 
-function eventInput(
-  entityType: string,
-  entityId: string,
-  verb: string,
-  after?: Record<string, unknown>,
-): NounEventInput {
+function eventInput(entityType: string, entityId: string, verb: string, after?: Record<string, unknown>): NounEventInput {
   const eventForm = verb.endsWith('e') ? `${verb}d` : `${verb}ed`
   return {
     $type: `${entityType}.${eventForm}`,
@@ -440,7 +435,13 @@ describe('verbEvent', () => {
   })
 
   it('creates a close verb event input', () => {
-    const input = verbEvent('close', 'Deal', 'd1', { action: 'close', activity: 'closing', event: 'closed' }, { after: { status: 'won' }, data: { reason: 'Champion signed' } })
+    const input = verbEvent(
+      'close',
+      'Deal',
+      'd1',
+      { action: 'close', activity: 'closing', event: 'closed' },
+      { after: { status: 'won' }, data: { reason: 'Champion signed' } },
+    )
     expect(input.$type).toBe('Deal.closed')
     expect(input.verb).toBe('close')
     expect(input.data).toEqual({ reason: 'Champion signed' })

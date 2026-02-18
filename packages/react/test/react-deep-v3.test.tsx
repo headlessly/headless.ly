@@ -99,7 +99,7 @@ afterEach(() => {
 })
 
 function Wrapper({ children }: { children: React.ReactNode }) {
-  return <HeadlessProvider apiKey="v3_test_key">{children}</HeadlessProvider>
+  return <HeadlessProvider apiKey='v3_test_key'>{children}</HeadlessProvider>
 }
 
 // ============================================================================
@@ -108,25 +108,23 @@ function Wrapper({ children }: { children: React.ReactNode }) {
 
 describe('Provider nesting and context override', () => {
   it('inner provider overrides outer provider context', async () => {
-    spies.getDistinctId
-      .mockReturnValueOnce('outer_id')
-      .mockReturnValueOnce('inner_id')
+    spies.getDistinctId.mockReturnValueOnce('outer_id').mockReturnValueOnce('inner_id')
 
     function InnerConsumer() {
       const ctx = useHeadless()
-      return <div data-testid="inner">{ctx.distinctId}</div>
+      return <div data-testid='inner'>{ctx.distinctId}</div>
     }
 
     function OuterConsumer() {
       const ctx = useHeadless()
-      return <div data-testid="outer">{ctx.distinctId}</div>
+      return <div data-testid='outer'>{ctx.distinctId}</div>
     }
 
     await act(async () => {
       render(
-        <HeadlessProvider apiKey="outer_key">
+        <HeadlessProvider apiKey='outer_key'>
           <OuterConsumer />
-          <HeadlessProvider apiKey="inner_key">
+          <HeadlessProvider apiKey='inner_key'>
             <InnerConsumer />
           </HeadlessProvider>
         </HeadlessProvider>,
@@ -141,8 +139,8 @@ describe('Provider nesting and context override', () => {
   it('nested provider calls init with its own apiKey', async () => {
     await act(async () => {
       render(
-        <HeadlessProvider apiKey="parent_key">
-          <HeadlessProvider apiKey="child_key">
+        <HeadlessProvider apiKey='parent_key'>
+          <HeadlessProvider apiKey='child_key'>
             <div>nested</div>
           </HeadlessProvider>
         </HeadlessProvider>,
@@ -150,12 +148,8 @@ describe('Provider nesting and context override', () => {
     })
 
     // init should have been called at least twice, once for each provider
-    expect(spies.init).toHaveBeenCalledWith(
-      expect.objectContaining({ apiKey: 'parent_key' }),
-    )
-    expect(spies.init).toHaveBeenCalledWith(
-      expect.objectContaining({ apiKey: 'child_key' }),
-    )
+    expect(spies.init).toHaveBeenCalledWith(expect.objectContaining({ apiKey: 'parent_key' }))
+    expect(spies.init).toHaveBeenCalledWith(expect.objectContaining({ apiKey: 'child_key' }))
   })
 
   it('unmounting inner provider calls shutdown without affecting outer', async () => {
@@ -164,7 +158,7 @@ describe('Provider nesting and context override', () => {
       return (
         <div>
           {show && (
-            <HeadlessProvider apiKey="removable_key">
+            <HeadlessProvider apiKey='removable_key'>
               <div>inner content</div>
             </HeadlessProvider>
           )}
@@ -175,7 +169,7 @@ describe('Provider nesting and context override', () => {
 
     await act(async () => {
       render(
-        <HeadlessProvider apiKey="stable_key">
+        <HeadlessProvider apiKey='stable_key'>
           <InnerWrapper />
         </HeadlessProvider>,
       )
@@ -202,11 +196,11 @@ describe('Multiple providers side-by-side', () => {
     await act(async () => {
       render(
         <div>
-          <HeadlessProvider apiKey="sibling_a">
-            <div data-testid="a">A</div>
+          <HeadlessProvider apiKey='sibling_a'>
+            <div data-testid='a'>A</div>
           </HeadlessProvider>
-          <HeadlessProvider apiKey="sibling_b">
-            <div data-testid="b">B</div>
+          <HeadlessProvider apiKey='sibling_b'>
+            <div data-testid='b'>B</div>
           </HeadlessProvider>
         </div>,
       )
@@ -214,12 +208,8 @@ describe('Multiple providers side-by-side', () => {
 
     expect(screen.getByTestId('a').textContent).toBe('A')
     expect(screen.getByTestId('b').textContent).toBe('B')
-    expect(spies.init).toHaveBeenCalledWith(
-      expect.objectContaining({ apiKey: 'sibling_a' }),
-    )
-    expect(spies.init).toHaveBeenCalledWith(
-      expect.objectContaining({ apiKey: 'sibling_b' }),
-    )
+    expect(spies.init).toHaveBeenCalledWith(expect.objectContaining({ apiKey: 'sibling_a' }))
+    expect(spies.init).toHaveBeenCalledWith(expect.objectContaining({ apiKey: 'sibling_b' }))
   })
 })
 
@@ -234,7 +224,7 @@ describe('useHeadless initialized field', () => {
     function Check() {
       const ctx = useHeadless()
       initialized = ctx.initialized
-      return <div data-testid="init">{String(ctx.initialized)}</div>
+      return <div data-testid='init'>{String(ctx.initialized)}</div>
     }
 
     await act(async () => {
@@ -297,9 +287,9 @@ describe('useEntity with include option', () => {
 
     function TestComponent() {
       const { data, loading, error } = useEntity('Contact', created.$id, { include: ['deals'] })
-      if (loading) return <div data-testid="s">loading</div>
-      if (error) return <div data-testid="s">error: {error.message}</div>
-      return <div data-testid="s">loaded</div>
+      if (loading) return <div data-testid='s'>loading</div>
+      if (error) return <div data-testid='s'>error: {error.message}</div>
+      return <div data-testid='s'>loaded</div>
     }
 
     await act(async () => {
@@ -318,8 +308,8 @@ describe('useEntity with include option', () => {
 
     function TestComponent() {
       const { data, loading } = useEntity('Contact', created.$id, { include: [] })
-      if (loading) return <div data-testid="s">loading</div>
-      return <div data-testid="s">name: {(data as Record<string, unknown>)?.name as string}</div>
+      if (loading) return <div data-testid='s'>loading</div>
+      return <div data-testid='s'>name: {(data as Record<string, unknown>)?.name as string}</div>
     }
 
     await act(async () => {
@@ -348,10 +338,15 @@ describe('useEntity type + id simultaneous change', () => {
 
       return (
         <div>
-          <div data-testid="s">
-            {loading ? 'loading' : JSON.stringify(data)}
-          </div>
-          <button onClick={() => { setType('Deal'); setId(deal.$id) }}>switch</button>
+          <div data-testid='s'>{loading ? 'loading' : JSON.stringify(data)}</div>
+          <button
+            onClick={() => {
+              setType('Deal')
+              setId(deal.$id)
+            }}
+          >
+            switch
+          </button>
         </div>
       )
     }
@@ -385,7 +380,7 @@ describe('useMutation loading transitions', () => {
     function TestComponent() {
       const { create, loading } = useMutation('Contact')
       createFn = create
-      return <div data-testid="s">{loading ? 'busy' : 'idle'}</div>
+      return <div data-testid='s'>{loading ? 'busy' : 'idle'}</div>
     }
 
     await act(async () => {
@@ -409,7 +404,7 @@ describe('useMutation loading transitions', () => {
     function TestComponent() {
       const { create, error } = useMutation('Contact')
       createFn = create
-      return <div data-testid="s">{error?.message ?? 'clean'}</div>
+      return <div data-testid='s'>{error?.message ?? 'clean'}</div>
     }
 
     await act(async () => {
@@ -435,7 +430,7 @@ describe('useMutation loading transitions', () => {
     function TestComponent() {
       const { create, error } = useMutation(currentMutationType)
       createFn = create
-      return <div data-testid="s">{error?.message ?? 'clean'}</div>
+      return <div data-testid='s'>{error?.message ?? 'clean'}</div>
     }
 
     // We cannot change the type prop dynamically in this pattern without rerender,
@@ -445,7 +440,11 @@ describe('useMutation loading transitions', () => {
     })
 
     await act(async () => {
-      try { await createFn!({ name: 'fail' }) } catch { /* expected */ }
+      try {
+        await createFn!({ name: 'fail' })
+      } catch {
+        /* expected */
+      }
     })
 
     await waitFor(() => {
@@ -464,8 +463,8 @@ describe('useRealtime polling interval mechanics', () => {
 
     function TestComponent() {
       const { data, connected } = useRealtime('Contact', created.$id, 200)
-      if (!connected) return <div data-testid="s">connecting</div>
-      return <div data-testid="s">{(data as Record<string, unknown>)?.name as string}</div>
+      if (!connected) return <div data-testid='s'>connecting</div>
+      return <div data-testid='s'>{(data as Record<string, unknown>)?.name as string}</div>
     }
 
     await act(async () => {
@@ -493,8 +492,8 @@ describe('useRealtime polling interval mechanics', () => {
 
     function TestComponent() {
       const { data, connected } = useRealtime('Contact', created.$id)
-      if (!connected) return <div data-testid="s">connecting</div>
-      return <div data-testid="s">connected</div>
+      if (!connected) return <div data-testid='s'>connecting</div>
+      return <div data-testid='s'>connected</div>
     }
 
     await act(async () => {
@@ -518,7 +517,7 @@ describe('useRealtime polling interval mechanics', () => {
 
       return (
         <div>
-          <div data-testid="s">{connected ? 'connected' : 'waiting'}</div>
+          <div data-testid='s'>{connected ? 'connected' : 'waiting'}</div>
           <button onClick={() => setInterval(2000)}>change interval</button>
         </div>
       )
@@ -548,8 +547,8 @@ describe('useRealtime polling interval mechanics', () => {
 
     function TestComponent() {
       const { data, connected } = useRealtime('Contact', created.$id, 100)
-      if (!connected) return <div data-testid="s">waiting</div>
-      return <div data-testid="s">{(data as Record<string, unknown>)?.stage as string}</div>
+      if (!connected) return <div data-testid='s'>waiting</div>
+      return <div data-testid='s'>{(data as Record<string, unknown>)?.stage as string}</div>
     }
 
     await act(async () => {
@@ -584,7 +583,7 @@ describe('useSearch debounce timing precision', () => {
 
     function TestComponent() {
       const { results, loading } = useSearch('Debounce', { types: ['Contact'], debounce: 300 })
-      return <div data-testid="s">{loading ? 'searching' : `found: ${results.length}`}</div>
+      return <div data-testid='s'>{loading ? 'searching' : `found: ${results.length}`}</div>
     }
 
     await act(async () => {
@@ -608,7 +607,7 @@ describe('useSearch debounce timing precision', () => {
 
     function TestComponent() {
       const { results, loading } = useSearch('DebounceComplete', { types: ['Contact'], debounce: 100 })
-      return <div data-testid="s">{loading ? 'searching' : `found: ${results.length}`}</div>
+      return <div data-testid='s'>{loading ? 'searching' : `found: ${results.length}`}</div>
     }
 
     await act(async () => {
@@ -633,7 +632,7 @@ describe('useSearch debounce timing precision', () => {
 
       return (
         <div>
-          <div data-testid="s">{loading ? 'searching' : `found: ${results.length}`}</div>
+          <div data-testid='s'>{loading ? 'searching' : `found: ${results.length}`}</div>
           <button onClick={() => setQuery('second')}>change query</button>
         </div>
       )
@@ -675,7 +674,7 @@ describe('useSearch debounce timing precision', () => {
   it('uses default 300ms debounce when not specified', async () => {
     function TestComponent() {
       const { loading } = useSearch('defaultDebounce', { types: ['Contact'] })
-      return <div data-testid="s">{loading ? 'searching' : 'done'}</div>
+      return <div data-testid='s'>{loading ? 'searching' : 'done'}</div>
     }
 
     await act(async () => {
@@ -713,8 +712,8 @@ describe('useSearch default behavior (no types)', () => {
 
     function TestComponent() {
       const { results, loading } = useSearch('DefaultSearch', { debounce: 10 })
-      if (loading) return <div data-testid="s">searching</div>
-      return <div data-testid="s">found: {results.length}</div>
+      if (loading) return <div data-testid='s'>searching</div>
+      return <div data-testid='s'>found: {results.length}</div>
     }
 
     await act(async () => {
@@ -748,8 +747,8 @@ describe('useAction concurrent invocations', () => {
       executeFn = execute
       return (
         <div>
-          <div data-testid="loading">{String(loading)}</div>
-          <div data-testid="error">{error?.message ?? 'none'}</div>
+          <div data-testid='loading'>{String(loading)}</div>
+          <div data-testid='error'>{error?.message ?? 'none'}</div>
         </div>
       )
     }
@@ -762,10 +761,7 @@ describe('useAction concurrent invocations', () => {
     let r1: unknown
     let r2: unknown
     await act(async () => {
-      ;[r1, r2] = await Promise.all([
-        executeFn!(c1.$id),
-        executeFn!(c2.$id),
-      ])
+      ;[r1, r2] = await Promise.all([executeFn!(c1.$id), executeFn!(c2.$id)])
     })
 
     expect(r1).toBeDefined()
@@ -816,8 +812,12 @@ describe('useEntities offset option', () => {
 
     function TestComponent() {
       const { data, loading, total } = useEntities('Form', undefined, { limit: 2, offset: 2 })
-      if (loading) return <div data-testid="s">loading</div>
-      return <div data-testid="s">count: {data.length}, total: {total}</div>
+      if (loading) return <div data-testid='s'>loading</div>
+      return (
+        <div data-testid='s'>
+          count: {data.length}, total: {total}
+        </div>
+      )
     }
 
     await act(async () => {
@@ -838,8 +838,12 @@ describe('useEntities offset option', () => {
 
     function TestComponent() {
       const { data, loading, hasMore } = useEntities('Goal')
-      if (loading) return <div data-testid="s">loading</div>
-      return <div data-testid="s">count: {data.length}, hasMore: {String(hasMore)}</div>
+      if (loading) return <div data-testid='s'>loading</div>
+      return (
+        <div data-testid='s'>
+          count: {data.length}, hasMore: {String(hasMore)}
+        </div>
+      )
     }
 
     await act(async () => {
@@ -859,8 +863,12 @@ describe('useEntities offset option', () => {
 
     function TestComponent() {
       const { data, loading, hasMore } = useEntities('Workflow', undefined, { limit: 100 })
-      if (loading) return <div data-testid="s">loading</div>
-      return <div data-testid="s">count: {data.length}, hasMore: {String(hasMore)}</div>
+      if (loading) return <div data-testid='s'>loading</div>
+      return (
+        <div data-testid='s'>
+          count: {data.length}, hasMore: {String(hasMore)}
+        </div>
+      )
     }
 
     await act(async () => {
@@ -885,7 +893,7 @@ describe('ErrorBoundary reset recovery', () => {
 
     function MaybeThrow() {
       if (shouldThrow) throw new Error('recoverable')
-      return <div data-testid="child">recovered</div>
+      return <div data-testid='child'>recovered</div>
     }
 
     await act(async () => {
@@ -894,8 +902,15 @@ describe('ErrorBoundary reset recovery', () => {
           <ErrorBoundary
             fallback={(error, reset) => (
               <div>
-                <span data-testid="err">{error.message}</span>
-                <button onClick={() => { shouldThrow = false; reset() }}>retry</button>
+                <span data-testid='err'>{error.message}</span>
+                <button
+                  onClick={() => {
+                    shouldThrow = false
+                    reset()
+                  }}
+                >
+                  retry
+                </button>
               </div>
             )}
           >
@@ -927,11 +942,7 @@ describe('Experiment with boolean and numeric flag values', () => {
     await act(async () => {
       render(
         <Wrapper>
-          <Experiment
-            flag="bool-exp"
-            variants={{ true: <span>truthy variant</span>, false: <span>falsy variant</span> }}
-            fallback={<span>fallback</span>}
-          />
+          <Experiment flag='bool-exp' variants={{ true: <span>truthy variant</span>, false: <span>falsy variant</span> }} fallback={<span>fallback</span>} />
         </Wrapper>,
       )
     })
@@ -945,11 +956,7 @@ describe('Experiment with boolean and numeric flag values', () => {
     await act(async () => {
       render(
         <Wrapper>
-          <Experiment
-            flag="bool-exp"
-            variants={{ true: <span>truthy</span>, false: <span>falsy variant</span> }}
-            fallback={<span>fallback</span>}
-          />
+          <Experiment flag='bool-exp' variants={{ true: <span>truthy</span>, false: <span>falsy variant</span> }} fallback={<span>fallback</span>} />
         </Wrapper>,
       )
     })
@@ -963,11 +970,7 @@ describe('Experiment with boolean and numeric flag values', () => {
     await act(async () => {
       render(
         <Wrapper>
-          <Experiment
-            flag="num-exp"
-            variants={{ '42': <span>the answer</span>, '0': <span>zero</span> }}
-            fallback={<span>fallback</span>}
-          />
+          <Experiment flag='num-exp' variants={{ '42': <span>the answer</span>, '0': <span>zero</span> }} fallback={<span>fallback</span>} />
         </Wrapper>,
       )
     })
@@ -986,7 +989,7 @@ describe('useFeatureFlag with numeric values', () => {
 
     function FlagNum() {
       const val = useFeatureFlag('num-flag')
-      return <div data-testid="s">{String(val)}</div>
+      return <div data-testid='s'>{String(val)}</div>
     }
 
     await act(async () => {
@@ -1001,7 +1004,7 @@ describe('useFeatureFlag with numeric values', () => {
 
     function FlagZero() {
       const val = useFeatureFlag('zero-flag')
-      return <div data-testid="s">{val === 0 ? 'zero' : 'other'}</div>
+      return <div data-testid='s'>{val === 0 ? 'zero' : 'other'}</div>
     }
 
     await act(async () => {
@@ -1027,7 +1030,7 @@ describe('Non-Error thrown objects in hooks', () => {
     function TestComponent() {
       const { create, error } = useMutation('NonExistent')
       createFn = create
-      return <div data-testid="s">{error?.message ?? 'clean'}</div>
+      return <div data-testid='s'>{error?.message ?? 'clean'}</div>
     }
 
     await act(async () => {
@@ -1035,7 +1038,11 @@ describe('Non-Error thrown objects in hooks', () => {
     })
 
     await act(async () => {
-      try { await createFn!({ data: 'test' }) } catch { /* expected */ }
+      try {
+        await createFn!({ data: 'test' })
+      } catch {
+        /* expected */
+      }
     })
 
     await waitFor(() => {
@@ -1057,10 +1064,10 @@ describe('EntityList loading state', () => {
 
     function TestComponent() {
       return (
-        <EntityList type="Contact">
+        <EntityList type='Contact'>
           {({ loading }) => {
             loadingValues.push(loading)
-            return <div data-testid="s">{loading ? 'loading' : 'done'}</div>
+            return <div data-testid='s'>{loading ? 'loading' : 'done'}</div>
           }}
         </EntityList>
       )
@@ -1084,10 +1091,14 @@ describe('EntityList loading state', () => {
     await act(async () => {
       render(
         <Wrapper>
-          <EntityList type="Contact">
+          <EntityList type='Contact'>
             {({ total, hasMore, loading }) => {
-              if (loading) return <div data-testid="s">loading</div>
-              return <div data-testid="s">total: {total}, hasMore: {String(hasMore)}</div>
+              if (loading) return <div data-testid='s'>loading</div>
+              return (
+                <div data-testid='s'>
+                  total: {total}, hasMore: {String(hasMore)}
+                </div>
+              )
             }}
           </EntityList>
         </Wrapper>,
@@ -1111,10 +1122,10 @@ describe('EntityDetail error propagation', () => {
     await act(async () => {
       render(
         <Wrapper>
-          <EntityDetail type="FakeEntity" id="fake_123">
+          <EntityDetail type='FakeEntity' id='fake_123'>
             {({ error, loading }) => {
-              if (loading) return <div data-testid="s">loading</div>
-              return <div data-testid="s">{error?.message ?? 'no error'}</div>
+              if (loading) return <div data-testid='s'>loading</div>
+              return <div data-testid='s'>{error?.message ?? 'no error'}</div>
             }}
           </EntityDetail>
         </Wrapper>,
@@ -1130,10 +1141,10 @@ describe('EntityDetail error propagation', () => {
     await act(async () => {
       render(
         <Wrapper>
-          <EntityDetail type="Contact" id="contact_nonexistent">
+          <EntityDetail type='Contact' id='contact_nonexistent'>
             {({ error, loading }) => {
-              if (loading) return <div data-testid="s">loading</div>
-              return <div data-testid="s">{error?.message ?? 'no error'}</div>
+              if (loading) return <div data-testid='s'>loading</div>
+              return <div data-testid='s'>{error?.message ?? 'no error'}</div>
             }}
           </EntityDetail>
         </Wrapper>,
@@ -1158,13 +1169,11 @@ describe('Hook cleanup on unmount', () => {
 
     function TestComponent() {
       const { data, loading } = useEntities('Contact')
-      if (loading) return <div data-testid="s">loading</div>
-      return <div data-testid="s">count: {data.length}</div>
+      if (loading) return <div data-testid='s'>loading</div>
+      return <div data-testid='s'>count: {data.length}</div>
     }
 
-    const { unmount } = await act(async () =>
-      render(<TestComponent />, { wrapper: Wrapper }),
-    )
+    const { unmount } = await act(async () => render(<TestComponent />, { wrapper: Wrapper }))
 
     // Unmount immediately -- no React state update warnings should occur
     unmount()
@@ -1175,13 +1184,11 @@ describe('Hook cleanup on unmount', () => {
 
     function TestComponent() {
       const { events, loading } = useEvents('Contact', created.$id)
-      if (loading) return <div data-testid="s">loading</div>
-      return <div data-testid="s">events: {events.length}</div>
+      if (loading) return <div data-testid='s'>loading</div>
+      return <div data-testid='s'>events: {events.length}</div>
     }
 
-    const { unmount } = await act(async () =>
-      render(<TestComponent />, { wrapper: Wrapper }),
-    )
+    const { unmount } = await act(async () => render(<TestComponent />, { wrapper: Wrapper }))
 
     unmount()
   })
@@ -1189,12 +1196,10 @@ describe('Hook cleanup on unmount', () => {
   it('useSearch cleanup prevents state updates after unmount', async () => {
     function TestComponent() {
       const { results, loading } = useSearch('cleanup-test', { debounce: 100 })
-      return <div data-testid="s">{loading ? 'searching' : `found: ${results.length}`}</div>
+      return <div data-testid='s'>{loading ? 'searching' : `found: ${results.length}`}</div>
     }
 
-    const { unmount } = await act(async () =>
-      render(<TestComponent />, { wrapper: Wrapper }),
-    )
+    const { unmount } = await act(async () => render(<TestComponent />, { wrapper: Wrapper }))
 
     // Unmount before debounce fires
     unmount()
@@ -1211,12 +1216,10 @@ describe('Hook cleanup on unmount', () => {
 
     function TestComponent() {
       const { connected } = useRealtime('Contact', created.$id, 100)
-      return <div data-testid="s">{connected ? 'yes' : 'no'}</div>
+      return <div data-testid='s'>{connected ? 'yes' : 'no'}</div>
     }
 
-    const { unmount } = await act(async () =>
-      render(<TestComponent />, { wrapper: Wrapper }),
-    )
+    const { unmount } = await act(async () => render(<TestComponent />, { wrapper: Wrapper }))
 
     await waitFor(() => {
       expect(screen.getByTestId('s').textContent).toBe('yes')
@@ -1247,7 +1250,7 @@ describe('Hook inside ErrorBoundary', () => {
     await act(async () => {
       render(
         <Wrapper>
-          <ErrorBoundary fallback={<div data-testid="s">caught</div>}>
+          <ErrorBoundary fallback={<div data-testid='s'>caught</div>}>
             <BadHookComponent />
           </ErrorBoundary>
         </Wrapper>,
@@ -1265,14 +1268,14 @@ describe('Hook inside ErrorBoundary', () => {
     // The ErrorBoundary should NOT catch this because useEntity handles it gracefully
     function EntityInBoundary() {
       const { error, loading } = useEntity('FakeType', 'id_x')
-      if (loading) return <div data-testid="s">loading</div>
-      return <div data-testid="s">{error?.message ?? 'ok'}</div>
+      if (loading) return <div data-testid='s'>loading</div>
+      return <div data-testid='s'>{error?.message ?? 'ok'}</div>
     }
 
     await act(async () => {
       render(
         <Wrapper>
-          <ErrorBoundary fallback={<div data-testid="boundary">boundary hit</div>}>
+          <ErrorBoundary fallback={<div data-testid='boundary'>boundary hit</div>}>
             <EntityInBoundary />
           </ErrorBoundary>
         </Wrapper>,
@@ -1372,8 +1375,8 @@ describe('Feature component with exact boolean true', () => {
     await act(async () => {
       render(
         <Wrapper>
-          <Feature flag="bool-flag">
-            <span data-testid="content">visible</span>
+          <Feature flag='bool-flag'>
+            <span data-testid='content'>visible</span>
           </Feature>
         </Wrapper>,
       )
@@ -1391,13 +1394,9 @@ describe('HeadlessContext.Consumer pattern', () => {
   it('Consumer receives context value from provider', async () => {
     await act(async () => {
       render(
-        <HeadlessProvider apiKey="consumer_test">
+        <HeadlessProvider apiKey='consumer_test'>
           <HeadlessContext.Consumer>
-            {(value) => (
-              <div data-testid="s">
-                {value ? `init: ${value.initialized}, did: ${value.distinctId}` : 'null'}
-              </div>
-            )}
+            {(value) => <div data-testid='s'>{value ? `init: ${value.initialized}, did: ${value.distinctId}` : 'null'}</div>}
           </HeadlessContext.Consumer>
         </HeadlessProvider>,
       )
@@ -1409,11 +1408,7 @@ describe('HeadlessContext.Consumer pattern', () => {
   })
 
   it('Consumer receives null outside provider', () => {
-    render(
-      <HeadlessContext.Consumer>
-        {(value) => <div data-testid="s">{value === null ? 'null' : 'not null'}</div>}
-      </HeadlessContext.Consumer>,
-    )
+    render(<HeadlessContext.Consumer>{(value) => <div data-testid='s'>{value === null ? 'null' : 'not null'}</div>}</HeadlessContext.Consumer>)
 
     expect(screen.getByTestId('s').textContent).toBe('null')
   })
@@ -1428,7 +1423,7 @@ describe('useRealtime error then recovery', () => {
     function TestComponent() {
       const { error, connected, data } = useRealtime('NonsenseType', 'id_1', 200)
       return (
-        <div data-testid="s">
+        <div data-testid='s'>
           error: {error?.message ?? 'none'}, connected: {String(connected)}, data: {data === null ? 'null' : 'present'}
         </div>
       )
@@ -1462,9 +1457,7 @@ describe('useEntities filter change behavior', () => {
 
       return (
         <div>
-          <div data-testid="s">
-            {loading ? 'loading' : data.map((d: unknown) => (d as Record<string, unknown>).name as string).join(',')}
-          </div>
+          <div data-testid='s'>{loading ? 'loading' : data.map((d: unknown) => (d as Record<string, unknown>).name as string).join(',')}</div>
           <button onClick={() => setStage('Qualified')}>switch</button>
         </div>
       )
@@ -1531,8 +1524,8 @@ describe('useEntity refetch while loading', () => {
       const { data, loading, refetch } = useEntity('Contact', created.$id)
       refetchFn = refetch
       renderCount++
-      if (loading) return <div data-testid="s">loading</div>
-      return <div data-testid="s">{(data as Record<string, unknown>)?.name as string}</div>
+      if (loading) return <div data-testid='s'>loading</div>
+      return <div data-testid='s'>{(data as Record<string, unknown>)?.name as string}</div>
     }
 
     await act(async () => {
@@ -1572,7 +1565,7 @@ describe('useAction error state management', () => {
       const { execute, error } = useAction('Contact', 'qualify')
       executeFn = execute
       errorVal = error
-      return <div data-testid="s">{error?.message ?? 'clean'}</div>
+      return <div data-testid='s'>{error?.message ?? 'clean'}</div>
     }
 
     await act(async () => {
@@ -1604,8 +1597,8 @@ describe('useSearch with multiple types', () => {
         types: ['Contact', 'Deal'],
         debounce: 10,
       })
-      if (loading) return <div data-testid="s">searching</div>
-      return <div data-testid="s">found: {results.length}</div>
+      if (loading) return <div data-testid='s'>searching</div>
+      return <div data-testid='s'>found: {results.length}</div>
     }
 
     await act(async () => {
@@ -1632,8 +1625,8 @@ describe('PageView renders null', () => {
     const { container } = await act(async () =>
       render(
         <Wrapper>
-          <div data-testid="parent">
-            <PageView name="test-page" properties={{ ref: 'twitter' }} />
+          <div data-testid='parent'>
+            <PageView name='test-page' properties={{ ref: 'twitter' }} />
           </div>
         </Wrapper>,
       ),
@@ -1660,8 +1653,12 @@ describe('useEntities loadMore accumulation', () => {
     function TestComponent() {
       const { data, loading, loadMore, hasMore } = useEntities('Integration', undefined, { limit: 3 })
       loadMoreFn = loadMore
-      if (loading) return <div data-testid="s">loading</div>
-      return <div data-testid="s">count: {data.length}, hasMore: {String(hasMore)}</div>
+      if (loading) return <div data-testid='s'>loading</div>
+      return (
+        <div data-testid='s'>
+          count: {data.length}, hasMore: {String(hasMore)}
+        </div>
+      )
     }
 
     await act(async () => {
@@ -1697,8 +1694,8 @@ describe('useEntity refetch stability', () => {
     function TestComponent() {
       const { refetch, loading } = useEntity('Contact', created.$id)
       refetchRefs.push(refetch)
-      if (loading) return <div data-testid="s">loading</div>
-      return <div data-testid="s">loaded</div>
+      if (loading) return <div data-testid='s'>loading</div>
+      return <div data-testid='s'>loaded</div>
     }
 
     await act(async () => {
@@ -1761,10 +1758,12 @@ describe('useFeatureEnabled with number values', () => {
 
     function FE() {
       const v = useFeatureEnabled('f')
-      return <div data-testid="e">{String(v)}</div>
+      return <div data-testid='e'>{String(v)}</div>
     }
 
-    await act(async () => { render(<FE />, { wrapper: Wrapper }) })
+    await act(async () => {
+      render(<FE />, { wrapper: Wrapper })
+    })
     expect(screen.getByTestId('e').textContent).toBe('false')
   })
 
@@ -1773,10 +1772,12 @@ describe('useFeatureEnabled with number values', () => {
 
     function FE() {
       const v = useFeatureEnabled('f')
-      return <div data-testid="e">{String(v)}</div>
+      return <div data-testid='e'>{String(v)}</div>
     }
 
-    await act(async () => { render(<FE />, { wrapper: Wrapper }) })
+    await act(async () => {
+      render(<FE />, { wrapper: Wrapper })
+    })
     expect(screen.getByTestId('e').textContent).toBe('false')
   })
 })
@@ -1798,8 +1799,8 @@ describe('useEntities refetch after loadMore', () => {
       const { data, loading, loadMore, refetch } = useEntities('Agent', undefined, { limit: 2 })
       loadMoreFn = loadMore
       refetchFn = refetch
-      if (loading) return <div data-testid="s">loading</div>
-      return <div data-testid="s">count: {data.length}</div>
+      if (loading) return <div data-testid='s'>loading</div>
+      return <div data-testid='s'>count: {data.length}</div>
     }
 
     await act(async () => {
@@ -1811,7 +1812,9 @@ describe('useEntities refetch after loadMore', () => {
     })
 
     // Load more to get 4 items
-    await act(async () => { loadMoreFn!() })
+    await act(async () => {
+      loadMoreFn!()
+    })
 
     await waitFor(() => {
       const text = screen.getByTestId('s').textContent!
@@ -1820,7 +1823,9 @@ describe('useEntities refetch after loadMore', () => {
     })
 
     // Refetch should reset to first page (2 items)
-    await act(async () => { refetchFn!() })
+    await act(async () => {
+      refetchFn!()
+    })
 
     await waitFor(() => {
       expect(screen.getByTestId('s').textContent).toContain('count: 2')

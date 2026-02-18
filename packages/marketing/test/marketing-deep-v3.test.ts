@@ -90,9 +90,7 @@ describe('@headlessly/marketing — deep v3', () => {
   // ===========================================================================
   describe('concurrent campaign operations', () => {
     it('creates 5 campaigns concurrently with Promise.all', async () => {
-      const promises = Array.from({ length: 5 }, (_, i) =>
-        Campaign.create({ name: `Concurrent ${i}`, type: 'Email' }),
-      )
+      const promises = Array.from({ length: 5 }, (_, i) => Campaign.create({ name: `Concurrent ${i}`, type: 'Email' }))
       const results = await Promise.all(promises)
       expect(results).toHaveLength(5)
       const ids = results.map((r) => r.$id)

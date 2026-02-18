@@ -82,7 +82,7 @@ afterEach(() => {
 })
 
 function Wrapper({ children }: { children: React.ReactNode }) {
-  return <HeadlessProvider apiKey="v4_test_key">{children}</HeadlessProvider>
+  return <HeadlessProvider apiKey='v4_test_key'>{children}</HeadlessProvider>
 }
 
 // ============================================================================
@@ -123,10 +123,10 @@ describe('useEntity across entity types', () => {
 
       function TestComponent() {
         const { data: entityData, loading, error } = useEntity(type, created.$id as string)
-        if (loading) return <div data-testid="s">loading</div>
-        if (error) return <div data-testid="s">error: {error.message}</div>
+        if (loading) return <div data-testid='s'>loading</div>
+        if (error) return <div data-testid='s'>error: {error.message}</div>
         const val = (entityData as Record<string, unknown>)?.[key]
-        return <div data-testid="s">value: {String(val)}</div>
+        return <div data-testid='s'>value: {String(val)}</div>
       }
 
       await act(async () => {
@@ -153,15 +153,11 @@ describe('useEntities sort + pagination combined', () => {
     await $.Contact.create({ name: 'Beta Combo', stage: 'Lead' })
 
     function TestComponent() {
-      const { data, loading, total, hasMore } = useEntities(
-        'Contact',
-        { stage: 'Lead' },
-        { sort: { name: 1 }, limit: 2 },
-      )
-      if (loading) return <div data-testid="s">loading</div>
+      const { data, loading, total, hasMore } = useEntities('Contact', { stage: 'Lead' }, { sort: { name: 1 }, limit: 2 })
+      if (loading) return <div data-testid='s'>loading</div>
       const names = data.map((d: unknown) => (d as Record<string, unknown>).name as string)
       return (
-        <div data-testid="s">
+        <div data-testid='s'>
           names: {names.join('|')}, total: {total}, hasMore: {String(hasMore)}
         </div>
       )
@@ -192,14 +188,10 @@ describe('useEntities sort + pagination combined', () => {
     await $.Deal.create({ title: 'D-Zeta', value: 400, stage: 'Open' })
 
     function TestComponent() {
-      const { data, loading } = useEntities(
-        'Deal',
-        { stage: 'Open' },
-        { sort: { title: -1 }, limit: 2, offset: 1 },
-      )
-      if (loading) return <div data-testid="s">loading</div>
+      const { data, loading } = useEntities('Deal', { stage: 'Open' }, { sort: { title: -1 }, limit: 2, offset: 1 })
+      if (loading) return <div data-testid='s'>loading</div>
       const titles = data.map((d: unknown) => (d as Record<string, unknown>).title as string)
-      return <div data-testid="s">{titles.join('|')}</div>
+      return <div data-testid='s'>{titles.join('|')}</div>
     }
 
     await act(async () => {
@@ -228,12 +220,8 @@ describe('useEntities multi-field sort', () => {
     await $.Contact.create({ name: 'Dave Multi', stage: 'Qualified' })
 
     function TestComponent() {
-      const { data, loading } = useEntities(
-        'Contact',
-        {},
-        { sort: { stage: 1, name: 1 } },
-      )
-      if (loading) return <div data-testid="s">loading</div>
+      const { data, loading } = useEntities('Contact', {}, { sort: { stage: 1, name: 1 } })
+      if (loading) return <div data-testid='s'>loading</div>
       const items = data
         .filter((d: unknown) => {
           const name = (d as Record<string, unknown>).name as string
@@ -243,7 +231,7 @@ describe('useEntities multi-field sort', () => {
           const r = d as Record<string, unknown>
           return `${r.stage}:${r.name}`
         })
-      return <div data-testid="s">{items.join('|')}</div>
+      return <div data-testid='s'>{items.join('|')}</div>
     }
 
     await act(async () => {
@@ -278,19 +266,15 @@ describe('EntityList + EntityDetail composition', () => {
 
       return (
         <div>
-          <EntityList type="Project">
+          <EntityList type='Project'>
             {({ data, loading }) => {
-              if (loading) return <div data-testid="list">loading</div>
+              if (loading) return <div data-testid='list'>loading</div>
               return (
-                <div data-testid="list">
+                <div data-testid='list'>
                   {data.map((d: unknown) => {
                     const item = d as Record<string, unknown>
                     return (
-                      <button
-                        key={item.$id as string}
-                        data-testid={`item-${item.$id}`}
-                        onClick={() => setSelectedId(item.$id as string)}
-                      >
+                      <button key={item.$id as string} data-testid={`item-${item.$id}`} onClick={() => setSelectedId(item.$id as string)}>
                         {item.name as string}
                       </button>
                     )
@@ -300,11 +284,11 @@ describe('EntityList + EntityDetail composition', () => {
             }}
           </EntityList>
           {selectedId && (
-            <EntityDetail type="Project" id={selectedId}>
+            <EntityDetail type='Project' id={selectedId}>
               {({ data, loading }) => {
-                if (loading) return <div data-testid="detail">loading</div>
-                if (!data) return <div data-testid="detail">not found</div>
-                return <div data-testid="detail">{(data as Record<string, unknown>).name as string}</div>
+                if (loading) return <div data-testid='detail'>loading</div>
+                if (!data) return <div data-testid='detail'>not found</div>
+                return <div data-testid='detail'>{(data as Record<string, unknown>).name as string}</div>
               }}
             </EntityDetail>
           )}
@@ -352,7 +336,7 @@ describe('useMutation for custom verbs', () => {
     function TestComponent() {
       const { execute, error } = useMutation('Message')
       executeFn = execute
-      return <div data-testid="s">{error?.message ?? 'ok'}</div>
+      return <div data-testid='s'>{error?.message ?? 'ok'}</div>
     }
 
     await act(async () => {
@@ -440,7 +424,7 @@ describe('useMutation sequential workflow', () => {
       const { create, update, error } = useMutation('Contact')
       createFn = create
       updateFn = update
-      return <div data-testid="s">{error?.message ?? 'ok'}</div>
+      return <div data-testid='s'>{error?.message ?? 'ok'}</div>
     }
 
     await act(async () => {
@@ -506,8 +490,8 @@ describe('useEvents across entity types', () => {
 
     function TestComponent() {
       const { events, loading } = useEvents('Deal')
-      if (loading) return <div data-testid="s">loading</div>
-      return <div data-testid="s">events: {events.length}</div>
+      if (loading) return <div data-testid='s'>loading</div>
+      return <div data-testid='s'>events: {events.length}</div>
     }
 
     await act(async () => {
@@ -530,8 +514,12 @@ describe('useEvents across entity types', () => {
 
     function TestComponent() {
       const { events, loading, error } = useEvents('Message', msg.$id)
-      if (loading) return <div data-testid="s">loading</div>
-      return <div data-testid="s">events: {events.length}, error: {error ? error.message : 'none'}</div>
+      if (loading) return <div data-testid='s'>loading</div>
+      return (
+        <div data-testid='s'>
+          events: {events.length}, error: {error ? error.message : 'none'}
+        </div>
+      )
     }
 
     await act(async () => {
@@ -555,8 +543,8 @@ describe('useRealtime edge cases', () => {
 
     function TestComponent() {
       const { data, connected } = useRealtime('Contact', created.$id, 50)
-      if (!connected) return <div data-testid="s">waiting</div>
-      return <div data-testid="s">{(data as Record<string, unknown>)?.name as string}</div>
+      if (!connected) return <div data-testid='s'>waiting</div>
+      return <div data-testid='s'>{(data as Record<string, unknown>)?.name as string}</div>
     }
 
     await act(async () => {
@@ -589,9 +577,7 @@ describe('useRealtime edge cases', () => {
 
       return (
         <div>
-          <div data-testid="s">
-            {connected ? (data as Record<string, unknown>)?.name as string : 'waiting'}
-          </div>
+          <div data-testid='s'>{connected ? ((data as Record<string, unknown>)?.name as string) : 'waiting'}</div>
           <button onClick={() => setId(c2.$id)}>switch</button>
         </div>
       )
@@ -625,8 +611,8 @@ describe('useSearch edge cases', () => {
 
     function TestComponent() {
       const { results, loading } = useSearch('EmptyTypes', { types: [], debounce: 10 })
-      if (loading) return <div data-testid="s">searching</div>
-      return <div data-testid="s">found: {results.length}</div>
+      if (loading) return <div data-testid='s'>searching</div>
+      return <div data-testid='s'>found: {results.length}</div>
     }
 
     await act(async () => {
@@ -646,7 +632,7 @@ describe('useSearch edge cases', () => {
   it('handles single-character query', async () => {
     function TestComponent() {
       const { loading } = useSearch('A', { types: ['Contact'], debounce: 10 })
-      return <div data-testid="s">{loading ? 'searching' : 'done'}</div>
+      return <div data-testid='s'>{loading ? 'searching' : 'done'}</div>
     }
 
     await act(async () => {
@@ -680,9 +666,7 @@ describe('Hook state under rapid re-renders', () => {
 
       return (
         <div>
-          <div data-testid="s">
-            {loading ? 'loading' : data.map((d: unknown) => (d as Record<string, unknown>).title as string).join(',')}
-          </div>
+          <div data-testid='s'>{loading ? 'loading' : data.map((d: unknown) => (d as Record<string, unknown>).title as string).join(',')}</div>
           <button onClick={() => setStatus('Closed')}>closed</button>
           <button onClick={() => setStatus('Open')}>open</button>
         </div>
@@ -728,9 +712,7 @@ describe('Hook state under rapid re-renders', () => {
 
       return (
         <div>
-          <div data-testid="s">
-            {loading ? 'loading' : (data as Record<string, unknown>)?.name as string}
-          </div>
+          <div data-testid='s'>{loading ? 'loading' : ((data as Record<string, unknown>)?.name as string)}</div>
           <button onClick={() => setId(c2.$id)}>b</button>
           <button onClick={() => setId(c1.$id)}>a</button>
         </div>
@@ -774,13 +756,18 @@ describe('Accessibility of rendered components', () => {
     await act(async () => {
       render(
         <Wrapper>
-          <EntityList type="Contact">
+          <EntityList type='Contact'>
             {({ data, loading }) => {
-              if (loading) return <div role="status" aria-busy="true">Loading...</div>
+              if (loading)
+                return (
+                  <div role='status' aria-busy='true'>
+                    Loading...
+                  </div>
+                )
               return (
-                <ul role="list" aria-label="Contacts">
+                <ul role='list' aria-label='Contacts'>
                   {data.map((d: unknown, i: number) => (
-                    <li key={i} role="listitem">
+                    <li key={i} role='listitem'>
                       {(d as Record<string, unknown>).name as string}
                     </li>
                   ))}
@@ -805,11 +792,16 @@ describe('Accessibility of rendered components', () => {
     await act(async () => {
       render(
         <Wrapper>
-          <EntityDetail type="Contact" id={created.$id}>
+          <EntityDetail type='Contact' id={created.$id}>
             {({ data, loading }) => {
-              if (loading) return <div role="status" aria-busy="true">Loading...</div>
+              if (loading)
+                return (
+                  <div role='status' aria-busy='true'>
+                    Loading...
+                  </div>
+                )
               return (
-                <article role="article" aria-label="Contact detail">
+                <article role='article' aria-label='Contact detail'>
                   <h1>{(data as Record<string, unknown>)?.name as string}</h1>
                 </article>
               )
@@ -833,11 +825,15 @@ describe('Accessibility of rendered components', () => {
 
     function TestComponent() {
       return (
-        <EntityList type="Contact">
+        <EntityList type='Contact'>
           {({ loading }) => {
             const ariaVal = loading ? 'true' : 'false'
             loadingStates.push(ariaVal)
-            return <div role="status" aria-busy={loading ? 'true' : undefined} data-testid="s">{loading ? 'Loading' : 'Loaded'}</div>
+            return (
+              <div role='status' aria-busy={loading ? 'true' : undefined} data-testid='s'>
+                {loading ? 'Loading' : 'Loaded'}
+              </div>
+            )
           }}
         </EntityList>
       )
@@ -867,7 +863,7 @@ describe('Feature and Experiment edge cases', () => {
     const { container } = await act(async () =>
       render(
         <Wrapper>
-          <Feature flag="null-children">{null}</Feature>
+          <Feature flag='null-children'>{null}</Feature>
         </Wrapper>,
       ),
     )
@@ -882,7 +878,7 @@ describe('Feature and Experiment edge cases', () => {
     await act(async () => {
       render(
         <Wrapper>
-          <Experiment flag="empty-variants" variants={{}} fallback={<span data-testid="s">no variants</span>} />
+          <Experiment flag='empty-variants' variants={{}} fallback={<span data-testid='s'>no variants</span>} />
         </Wrapper>,
       )
     })
@@ -896,10 +892,7 @@ describe('Feature and Experiment edge cases', () => {
     await act(async () => {
       render(
         <Wrapper>
-          <Experiment
-            flag="bool-key"
-            variants={{ true: <span data-testid="s">bool true</span> }}
-          />
+          <Experiment flag='bool-key' variants={{ true: <span data-testid='s'>bool true</span> }} />
         </Wrapper>,
       )
     })
@@ -913,8 +906,8 @@ describe('Feature and Experiment edge cases', () => {
     const { container } = await act(async () =>
       render(
         <Wrapper>
-          <div data-testid="parent">
-            <Feature flag="off-no-fallback">
+          <div data-testid='parent'>
+            <Feature flag='off-no-fallback'>
               <span>should not appear</span>
             </Feature>
           </div>
@@ -941,9 +934,9 @@ describe('Multiple hooks in same component', () => {
       const { data: contactData, loading: contactLoading } = useEntity('Contact', c.$id)
       const { data: deals, loading: dealsLoading } = useEntities('Deal')
 
-      if (contactLoading || dealsLoading) return <div data-testid="s">loading</div>
+      if (contactLoading || dealsLoading) return <div data-testid='s'>loading</div>
       return (
-        <div data-testid="s">
+        <div data-testid='s'>
           contact: {(contactData as Record<string, unknown>)?.name as string}, deals: {deals.length}
         </div>
       )
@@ -968,7 +961,7 @@ describe('Multiple hooks in same component', () => {
     function TestComponent() {
       trackFn = useTrack()
       const flagVal = useFeatureFlag('ui-version')
-      return <div data-testid="s">flag: {String(flagVal)}</div>
+      return <div data-testid='s'>flag: {String(flagVal)}</div>
     }
 
     await act(async () => {
@@ -994,8 +987,8 @@ describe('Multiple hooks in same component', () => {
       updateFn = update
       refetchFn = refetch
 
-      if (loading) return <div data-testid="s">loading</div>
-      return <div data-testid="s">{(data as Record<string, unknown>)?.name as string}</div>
+      if (loading) return <div data-testid='s'>loading</div>
+      return <div data-testid='s'>{(data as Record<string, unknown>)?.name as string}</div>
     }
 
     await act(async () => {
@@ -1037,9 +1030,9 @@ describe('Nested ErrorBoundary', () => {
     await act(async () => {
       render(
         <Wrapper>
-          <ErrorBoundary fallback={<div data-testid="outer">outer caught</div>}>
-            <div data-testid="sibling">safe content</div>
-            <ErrorBoundary fallback={<div data-testid="inner">inner caught</div>}>
+          <ErrorBoundary fallback={<div data-testid='outer'>outer caught</div>}>
+            <div data-testid='sibling'>safe content</div>
+            <ErrorBoundary fallback={<div data-testid='inner'>inner caught</div>}>
               <ThrowingChild />
             </ErrorBoundary>
           </ErrorBoundary>
@@ -1071,11 +1064,11 @@ describe('EntityList exposes refetch and loadMore', () => {
     await act(async () => {
       render(
         <Wrapper>
-          <EntityList type="Ticket">
+          <EntityList type='Ticket'>
             {({ data, loading, refetch }) => {
               refetchFn = refetch
-              if (loading) return <div data-testid="s">loading</div>
-              return <div data-testid="s">count: {data.length}</div>
+              if (loading) return <div data-testid='s'>loading</div>
+              return <div data-testid='s'>count: {data.length}</div>
             }}
           </EntityList>
         </Wrapper>,
@@ -1105,11 +1098,11 @@ describe('EntityList exposes refetch and loadMore', () => {
     await act(async () => {
       render(
         <Wrapper>
-          <EntityList type="Ticket">
+          <EntityList type='Ticket'>
             {({ loading, loadMore }) => {
               loadMoreFn = loadMore
-              if (loading) return <div data-testid="s">loading</div>
-              return <div data-testid="s">loaded</div>
+              if (loading) return <div data-testid='s'>loading</div>
+              return <div data-testid='s'>loaded</div>
             }}
           </EntityList>
         </Wrapper>,
@@ -1204,8 +1197,12 @@ describe('useEntities triple loadMore', () => {
     function TestComponent() {
       const { data, loading, loadMore, hasMore } = useEntities('Form', { status: 'Active' }, { limit: 3 })
       loadMoreFn = loadMore
-      if (loading) return <div data-testid="s">loading</div>
-      return <div data-testid="s">count: {data.length}, hasMore: {String(hasMore)}</div>
+      if (loading) return <div data-testid='s'>loading</div>
+      return (
+        <div data-testid='s'>
+          count: {data.length}, hasMore: {String(hasMore)}
+        </div>
+      )
     }
 
     await act(async () => {
@@ -1217,7 +1214,9 @@ describe('useEntities triple loadMore', () => {
     })
 
     // Load page 2
-    await act(async () => { loadMoreFn!() })
+    await act(async () => {
+      loadMoreFn!()
+    })
 
     await waitFor(() => {
       const text = screen.getByTestId('s').textContent!
@@ -1226,7 +1225,9 @@ describe('useEntities triple loadMore', () => {
     })
 
     // Load page 3
-    await act(async () => { loadMoreFn!() })
+    await act(async () => {
+      loadMoreFn!()
+    })
 
     await waitFor(() => {
       const text = screen.getByTestId('s').textContent!
@@ -1246,10 +1247,12 @@ describe('useFeatureEnabled with empty string', () => {
 
     function FE() {
       const v = useFeatureEnabled('f')
-      return <div data-testid="e">{String(v)}</div>
+      return <div data-testid='e'>{String(v)}</div>
     }
 
-    await act(async () => { render(<FE />, { wrapper: Wrapper }) })
+    await act(async () => {
+      render(<FE />, { wrapper: Wrapper })
+    })
     // Empty string is falsy so useFeatureEnabled returns false
     // because it's not true, not 'true', and it IS 'false' or 'control'? No...
     // Actually empty string: value === true (no), value === 'true' (no),
@@ -1272,7 +1275,7 @@ describe('Provider with additional config', () => {
   it('passes extra config properties through to headless.init', async () => {
     await act(async () => {
       render(
-        <HeadlessProvider apiKey="extra_config" host="https://custom.headless.ly">
+        <HeadlessProvider apiKey='extra_config' host='https://custom.headless.ly'>
           <div>child</div>
         </HeadlessProvider>,
       )
@@ -1325,10 +1328,10 @@ describe('useEntity with include relationship expansion', () => {
       const { data, loading, error } = useEntity('Contact', contact.$id, {
         include: ['deals', 'messages'],
       })
-      if (loading) return <div data-testid="s">loading</div>
-      if (error) return <div data-testid="s">error: {error.message}</div>
+      if (loading) return <div data-testid='s'>loading</div>
+      if (error) return <div data-testid='s'>error: {error.message}</div>
       // The data should have been fetched (may or may not have relationships populated)
-      return <div data-testid="s">fetched: {(data as Record<string, unknown>)?.name as string}</div>
+      return <div data-testid='s'>fetched: {(data as Record<string, unknown>)?.name as string}</div>
     }
 
     await act(async () => {
@@ -1356,8 +1359,8 @@ describe('useEntities function stability', () => {
     function TestComponent() {
       const { loading, refetch } = useEntities('Contact')
       refetchRefs.push(refetch)
-      if (loading) return <div data-testid="s">loading</div>
-      return <div data-testid="s">done</div>
+      if (loading) return <div data-testid='s'>loading</div>
+      return <div data-testid='s'>done</div>
     }
 
     await act(async () => {
@@ -1382,8 +1385,8 @@ describe('useEntities function stability', () => {
     function TestComponent() {
       const { loading, loadMore } = useEntities('Contact', undefined, { limit: 5 })
       loadMoreRefs.push(loadMore)
-      if (loading) return <div data-testid="s">loading</div>
-      return <div data-testid="s">done</div>
+      if (loading) return <div data-testid='s'>loading</div>
+      return <div data-testid='s'>done</div>
     }
 
     await act(async () => {
@@ -1411,7 +1414,7 @@ describe('useMutation error is proper Error', () => {
       hookError = error
       return (
         <div>
-          <div data-testid="s">{error?.message ?? 'clean'}</div>
+          <div data-testid='s'>{error?.message ?? 'clean'}</div>
           <button onClick={() => create({ x: 1 }).catch(() => {})}>go</button>
         </div>
       )
@@ -1449,7 +1452,7 @@ describe('useAction loading lifecycle', () => {
       const { execute, loading } = useAction('Contact', 'qualify')
       executeFn = execute
       loadingHistory.push(loading)
-      return <div data-testid="s">{loading ? 'busy' : 'idle'}</div>
+      return <div data-testid='s'>{loading ? 'busy' : 'idle'}</div>
     }
 
     await act(async () => {
@@ -1481,11 +1484,11 @@ describe('EntityDetail exposes refetch', () => {
     await act(async () => {
       render(
         <Wrapper>
-          <EntityDetail type="Ticket" id={ticket.$id}>
+          <EntityDetail type='Ticket' id={ticket.$id}>
             {({ data, loading, refetch }) => {
               refetchFn = refetch
-              if (loading) return <div data-testid="s">loading</div>
-              return <div data-testid="s">{(data as Record<string, unknown>)?.title as string}</div>
+              if (loading) return <div data-testid='s'>loading</div>
+              return <div data-testid='s'>{(data as Record<string, unknown>)?.title as string}</div>
             }}
           </EntityDetail>
         </Wrapper>,

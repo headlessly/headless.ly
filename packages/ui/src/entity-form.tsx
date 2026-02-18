@@ -98,9 +98,7 @@ export function EntityForm({ noun, id, onSubmit, onCancel, className }: EntityFo
 
   return (
     <form onSubmit={handleSubmit} className={`space-y-4 ${className ?? ''}`}>
-      <h2 className="text-lg font-semibold">
-        {isEdit ? `Edit ${schema.name}` : `Create ${schema.name}`}
-      </h2>
+      <h2 className='text-lg font-semibold'>{isEdit ? `Edit ${schema.name}` : `Create ${schema.name}`}</h2>
 
       {fields.map((field) => {
         const inputType = fieldInputType(field)
@@ -109,19 +107,15 @@ export function EntityForm({ noun, id, onSubmit, onCancel, className }: EntityFo
         const error = errors[field.name]
 
         return (
-          <div key={field.name} className="space-y-1">
-            <label className="block text-sm font-medium">
+          <div key={field.name} className='space-y-1'>
+            <label className='block text-sm font-medium'>
               {formatLabel(field.name)}
-              {required && <span className="text-destructive ml-1">*</span>}
+              {required && <span className='text-destructive ml-1'>*</span>}
             </label>
 
             {inputType === 'select' && field.enumValues ? (
-              <select
-                value={String(value)}
-                onChange={(e) => handleChange(field.name, e.target.value)}
-                className="w-full rounded-md border px-3 py-2 text-sm"
-              >
-                {!required && <option value="">—</option>}
+              <select value={String(value)} onChange={(e) => handleChange(field.name, e.target.value)} className='w-full rounded-md border px-3 py-2 text-sm'>
+                {!required && <option value=''>—</option>}
                 {field.enumValues.map((v) => (
                   <option key={v} value={v}>
                     {v}
@@ -129,17 +123,12 @@ export function EntityForm({ noun, id, onSubmit, onCancel, className }: EntityFo
                 ))}
               </select>
             ) : inputType === 'checkbox' ? (
-              <input
-                type="checkbox"
-                checked={!!value}
-                onChange={(e) => handleChange(field.name, e.target.checked)}
-                className="rounded border"
-              />
+              <input type='checkbox' checked={!!value} onChange={(e) => handleChange(field.name, e.target.checked)} className='rounded border' />
             ) : inputType === 'textarea' ? (
               <textarea
                 value={String(value)}
                 onChange={(e) => handleChange(field.name, e.target.value)}
-                className="w-full rounded-md border px-3 py-2 text-sm"
+                className='w-full rounded-md border px-3 py-2 text-sm'
                 rows={4}
               />
             ) : (
@@ -148,21 +137,21 @@ export function EntityForm({ noun, id, onSubmit, onCancel, className }: EntityFo
                 value={String(value)}
                 onChange={(e) => handleChange(field.name, inputType === 'number' ? Number(e.target.value) : e.target.value)}
                 required={required}
-                className="w-full rounded-md border px-3 py-2 text-sm"
+                className='w-full rounded-md border px-3 py-2 text-sm'
               />
             )}
 
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {error && <p className='text-sm text-destructive'>{error}</p>}
           </div>
         )
       })}
 
-      <div className="flex gap-2 pt-2">
-        <button type="submit" disabled={isSubmitting} className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50">
+      <div className='flex gap-2 pt-2'>
+        <button type='submit' disabled={isSubmitting} className='rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50'>
           {isSubmitting ? 'Saving...' : isEdit ? 'Update' : 'Create'}
         </button>
         {onCancel && (
-          <button type="button" onClick={onCancel} className="rounded-md border px-4 py-2 text-sm">
+          <button type='button' onClick={onCancel} className='rounded-md border px-4 py-2 text-sm'>
             Cancel
           </button>
         )}

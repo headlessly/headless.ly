@@ -645,11 +645,7 @@ describe('@headlessly/marketing — deep v4', () => {
       const f = await Form.create({ name: 'Verb F', status: 'Draft' })
       const s = await Segment.create({ name: 'Update S', memberCount: 0 })
 
-      const [launched, published, updated] = await Promise.all([
-        Campaign.launch(c.$id),
-        Form.publish(f.$id),
-        Segment.update(s.$id, { memberCount: 100 }),
-      ])
+      const [launched, published, updated] = await Promise.all([Campaign.launch(c.$id), Form.publish(f.$id), Segment.update(s.$id, { memberCount: 100 })])
       expect(launched.status).toBe('Launched')
       expect(published.status).toBe('Published')
       expect(updated.memberCount).toBe(100)

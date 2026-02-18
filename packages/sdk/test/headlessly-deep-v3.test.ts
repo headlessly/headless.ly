@@ -61,9 +61,21 @@ describe('headlessly-deep-v3 — 74 new tests', () => {
     it('multiple BEFORE hooks execute in registration order', async () => {
       const org = Headlessly({ tenant: 'hooks' }) as OrgWithEntities
       const order: number[] = []
-      trackHook(org.Contact.creating(() => { order.push(1) }))
-      trackHook(org.Contact.creating(() => { order.push(2) }))
-      trackHook(org.Contact.creating(() => { order.push(3) }))
+      trackHook(
+        org.Contact.creating(() => {
+          order.push(1)
+        }),
+      )
+      trackHook(
+        org.Contact.creating(() => {
+          order.push(2)
+        }),
+      )
+      trackHook(
+        org.Contact.creating(() => {
+          order.push(3)
+        }),
+      )
       await org.Contact.create({ name: 'Multi' })
       expect(order).toEqual([1, 2, 3])
     })
@@ -197,8 +209,16 @@ describe('headlessly-deep-v3 — 74 new tests', () => {
     it('multiple AFTER hooks execute in registration order', async () => {
       const org = Headlessly({ tenant: 'hooks' }) as OrgWithEntities
       const order: number[] = []
-      trackHook(org.Contact.created(() => { order.push(1) }))
-      trackHook(org.Contact.created(() => { order.push(2) }))
+      trackHook(
+        org.Contact.created(() => {
+          order.push(1)
+        }),
+      )
+      trackHook(
+        org.Contact.created(() => {
+          order.push(2)
+        }),
+      )
       await org.Contact.create({ name: 'MultiAfter' })
       expect(order).toEqual([1, 2])
     })
@@ -262,8 +282,14 @@ describe('headlessly-deep-v3 — 74 new tests', () => {
     it('unsubscribing one hook does not affect other hooks', async () => {
       const org = Headlessly({ tenant: 'hooks' }) as OrgWithEntities
       const calls: string[] = []
-      const unsub1 = org.Contact.created(() => { calls.push('hook1') })
-      trackHook(org.Contact.created(() => { calls.push('hook2') }))
+      const unsub1 = org.Contact.created(() => {
+        calls.push('hook1')
+      })
+      trackHook(
+        org.Contact.created(() => {
+          calls.push('hook2')
+        }),
+      )
       unsub1()
       await org.Contact.create({ name: 'PartialUnsub' })
       expect(calls).toEqual(['hook2'])
@@ -482,9 +508,7 @@ describe('headlessly-deep-v3 — 74 new tests', () => {
 
     it('all unique $ids across concurrent creates', async () => {
       const org = Headlessly({ tenant: 'concurrent' }) as OrgWithEntities
-      const results = await Promise.all(
-        Array.from({ length: 20 }, (_, i) => org.Contact.create({ name: `Batch${i}` })),
-      )
+      const results = await Promise.all(Array.from({ length: 20 }, (_, i) => org.Contact.create({ name: `Batch${i}` })))
       const ids = results.map((r: any) => r.$id)
       const uniqueIds = new Set(ids)
       expect(uniqueIds.size).toBe(20)

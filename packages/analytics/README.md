@@ -11,7 +11,9 @@ await Event.create({ name: 'signup', source: 'Browser', url: 'https://acme.co/si
 Goal.achieved(async (goal, $) => {
   await $.Campaign.create({ name: `Celebrate ${goal.name}`, type: 'Email' })
   const leads = await $.Contact.find({ stage: 'Lead' })
-  for (const c of leads) { await $.Contact.qualify(c.$id) }
+  for (const c of leads) {
+    await $.Contact.qualify(c.$id)
+  }
   await $.Event.create({ name: 'goal.achieved', source: 'API', properties: { goal: goal.$id } })
 })
 ```
@@ -27,7 +29,7 @@ None of them know about your CRM contacts, billing subscriptions, or support tic
 You want to know which contacts from a specific campaign converted to paid subscriptions and then opened support tickets? That's three systems, three APIs, three data models, and a data warehouse to join them. Your agent needs a PhD in ETL to answer a simple business question.
 
 ```typescript
-Event.creating(event => {
+Event.creating((event) => {
   if (!event.name) throw new Error('Events require a name')
   if (!event.source) throw new Error('Events require a source')
 })

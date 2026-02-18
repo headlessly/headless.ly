@@ -36,7 +36,7 @@
   "dependencies": {
     "digital-objects": "workspace:*",
     "@headlessly/events": "workspace:*",
-    "rpc.do": "^0.2.0"
+    "rpc.do": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.7.2",

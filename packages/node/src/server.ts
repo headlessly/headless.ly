@@ -236,10 +236,7 @@ export function createServer(options: CreateServerOptions) {
 
     // Auth check
     if (options.apiKey) {
-      const authHeader =
-        (req.headers as Record<string, string>)?.authorization ||
-        (req.headers as Record<string, string>)?.Authorization ||
-        ''
+      const authHeader = (req.headers as Record<string, string>)?.authorization || (req.headers as Record<string, string>)?.Authorization || ''
       const token = authHeader.replace('Bearer ', '')
       if (token !== options.apiKey) {
         if (res.writeHead && res.end) {

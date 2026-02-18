@@ -30,7 +30,7 @@ None of them were built for an AI agent to operate.
 Your agent doesn't need a sprint board. It needs `Issue.close()`. It doesn't need a backlog grooming UI. It needs `Issue.assign()`. It doesn't need a "workflow automation" GUI with drag-and-drop triggers. It needs a BEFORE hook:
 
 ```typescript
-Issue.closing(issue => {
+Issue.closing((issue) => {
   if (!issue.assignee) throw new Error('Cannot close unassigned issue')
 })
 ```
@@ -163,7 +163,7 @@ Your agent connects to one MCP endpoint. It can operate your entire project mana
 ```
 
 ```ts title="projects.headless.ly/mcp#do"
-const unassigned = await $.Issue.find({ status: 'Open', assignee: { '$exists': false } })
+const unassigned = await $.Issue.find({ status: 'Open', assignee: { $exists: false } })
 for (const issue of unassigned) {
   await $.Issue.assign(issue.$id)
   await $.Comment.create({

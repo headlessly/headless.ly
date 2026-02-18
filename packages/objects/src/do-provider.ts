@@ -160,8 +160,15 @@ export class DONounProvider implements NounProvider {
   private async initBatchedTransport(batchOpts: { windowMs?: number; maxBatchSize?: number }): Promise<void> {
     try {
       const [{ http }, { withBatching }] = await Promise.all([
-        import('rpc.do/transports') as Promise<{ http: (url: string, opts?: { auth?: string }) => { call: (method: string, args: unknown[]) => Promise<unknown>; close?: () => void } }>,
-        import('rpc.do/middleware') as Promise<{ withBatching: (transport: { call: (method: string, args: unknown[]) => Promise<unknown>; close?: () => void }, opts?: { windowMs?: number; maxBatchSize?: number }) => { call: (method: string, args: unknown[]) => Promise<unknown>; close?: () => void } }>,
+        import('rpc.do/transports') as Promise<{
+          http: (url: string, opts?: { auth?: string }) => { call: (method: string, args: unknown[]) => Promise<unknown>; close?: () => void }
+        }>,
+        import('rpc.do/middleware') as Promise<{
+          withBatching: (
+            transport: { call: (method: string, args: unknown[]) => Promise<unknown>; close?: () => void },
+            opts?: { windowMs?: number; maxBatchSize?: number },
+          ) => { call: (method: string, args: unknown[]) => Promise<unknown>; close?: () => void }
+        }>,
       ])
       const baseTransport = http(this.rpcUrl, this.rpcOptions.auth ? { auth: this.rpcOptions.auth as string } : undefined)
       const batchedTransport = withBatching(baseTransport, {
@@ -263,9 +270,7 @@ export class DONounProvider implements NounProvider {
     const ns = this.rpc()[collection] as Record<string, (...args: unknown[]) => Promise<unknown>>
     // Try collection.perform(id, verb, data) first (capnweb CollectionTarget),
     // fall back to collection[verb](id, data) for direct verb methods
-    const result = typeof ns.perform === 'function'
-      ? await ns.perform(id, verb, data ?? {})
-      : await ns[verb](id, data ?? {})
+    const result = typeof ns.perform === 'function' ? await ns.perform(id, verb, data ?? {}) : await ns[verb](id, data ?? {})
     return toNounInstance(result)
   }
 }

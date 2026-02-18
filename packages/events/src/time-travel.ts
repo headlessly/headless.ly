@@ -192,10 +192,7 @@ export class TimeTraveler {
    * Get a timeline of all intermediate states for an entity.
    * Returns one entry per event with the state at that point plus metadata.
    */
-  async timeline(
-    entityType: string,
-    entityId: string,
-  ): Promise<Array<{ version: number; state: ReconstructedState; event: NounEvent; timestamp: string }>> {
+  async timeline(entityType: string, entityId: string): Promise<Array<{ version: number; state: ReconstructedState; event: NounEvent; timestamp: string }>> {
     const allEvents = await this.eventLog.getEntityHistory(entityType, entityId)
     const result: Array<{ version: number; state: ReconstructedState; event: NounEvent; timestamp: string }> = []
 
@@ -253,12 +250,7 @@ export class TimeTraveler {
   /**
    * Find the event that caused a specific field to change to a given value.
    */
-  async causedBy(
-    entityType: string,
-    entityId: string,
-    field: string,
-    value: unknown,
-  ): Promise<NounEvent | undefined> {
+  async causedBy(entityType: string, entityId: string, field: string, value: unknown): Promise<NounEvent | undefined> {
     const allEvents = await this.eventLog.getEntityHistory(entityType, entityId)
 
     for (const event of allEvents) {

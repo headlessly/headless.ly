@@ -9,13 +9,7 @@ import type { NounEvent, NounEventInput } from '../src/types'
 // Helpers
 // =============================================================================
 
-function eventInput(
-  entityType: string,
-  entityId: string,
-  verb: string,
-  after?: Record<string, unknown>,
-  before?: Record<string, unknown>,
-): NounEventInput {
+function eventInput(entityType: string, entityId: string, verb: string, after?: Record<string, unknown>, before?: Record<string, unknown>): NounEventInput {
   const eventForm = verb.endsWith('e') ? `${verb}d` : `${verb}ed`
   return {
     $type: `${entityType}.${eventForm}`,

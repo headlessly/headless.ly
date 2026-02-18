@@ -124,10 +124,10 @@ Tags and context are shared across analytics, errors, and feature flags. Set it 
 ## Privacy Controls
 
 ```typescript
-headless.optOut()          // Stop all tracking immediately
-headless.optIn()           // Resume tracking
-headless.hasOptedOut()     // Check opt-out status
-headless.reset()           // Clear all local state and identity
+headless.optOut() // Stop all tracking immediately
+headless.optIn() // Resume tracking
+headless.hasOptedOut() // Check opt-out status
+headless.reset() // Clear all local state and identity
 ```
 
 One opt-out controls everything. Not three separate consent flows.
@@ -135,15 +135,15 @@ One opt-out controls everything. Not three separate consent flows.
 ## Lifecycle
 
 ```typescript
-headless.flush()           // Send all pending events now
-headless.shutdown()        // Flush and clean up
+headless.flush() // Send all pending events now
+headless.shutdown() // Flush and clean up
 ```
 
 ## Session
 
 ```typescript
-headless.getDistinctId()   // Current distinct ID
-headless.getSessionId()    // Current session ID
+headless.getDistinctId() // Current distinct ID
+headless.getSessionId() // Current session ID
 ```
 
 ## Advanced
@@ -160,60 +160,60 @@ const staging = new HeadlessClient({ apiKey: 'hl_staging_xxx' })
 
 ### Init & Identity
 
-| Method | Description |
-|---|---|
-| `init(config)` | Initialize with API key and options |
-| `identify(userId, traits?)` | Identify a user |
-| `alias(userId, previousId?)` | Alias two user IDs |
-| `group(groupId, traits?)` | Associate user with a group |
-| `setUser(user)` | Set or clear the current user |
+| Method                       | Description                         |
+| ---------------------------- | ----------------------------------- |
+| `init(config)`               | Initialize with API key and options |
+| `identify(userId, traits?)`  | Identify a user                     |
+| `alias(userId, previousId?)` | Alias two user IDs                  |
+| `group(groupId, traits?)`    | Associate user with a group         |
+| `setUser(user)`              | Set or clear the current user       |
 
 ### Analytics
 
-| Method | Description |
-|---|---|
-| `page(name?, properties?)` | Track a page view |
-| `track(event, properties?)` | Track a custom event |
+| Method                      | Description           |
+| --------------------------- | --------------------- |
+| `page(name?, properties?)`  | Track a page view     |
+| `track(event, properties?)` | Track a custom event  |
 | `captureWebVitals(metrics)` | Capture LCP, FID, CLS |
 
 ### Errors
 
-| Method | Description |
-|---|---|
+| Method                              | Description                               |
+| ----------------------------------- | ----------------------------------------- |
 | `captureException(error, context?)` | Capture an error with tags and extra data |
-| `captureMessage(message, level?)` | Capture a message at a severity level |
-| `addBreadcrumb(crumb)` | Add a breadcrumb for error context |
+| `captureMessage(message, level?)`   | Capture a message at a severity level     |
+| `addBreadcrumb(crumb)`              | Add a breadcrumb for error context        |
 
 ### Feature Flags
 
-| Method | Description |
-|---|---|
-| `getFeatureFlag(key)` | Get a flag value (boolean, string, number, or object) |
-| `isFeatureEnabled(key)` | Check if a flag is enabled |
-| `getAllFlags()` | Get all feature flags |
-| `reloadFeatureFlags()` | Refresh flags from the server |
+| Method                  | Description                                           |
+| ----------------------- | ----------------------------------------------------- |
+| `getFeatureFlag(key)`   | Get a flag value (boolean, string, number, or object) |
+| `isFeatureEnabled(key)` | Check if a flag is enabled                            |
+| `getAllFlags()`         | Get all feature flags                                 |
+| `reloadFeatureFlags()`  | Refresh flags from the server                         |
 
 ### Context
 
-| Method | Description |
-|---|---|
-| `setTag(key, value)` | Set a context tag |
-| `setTags(tags)` | Set multiple tags |
+| Method                 | Description            |
+| ---------------------- | ---------------------- |
+| `setTag(key, value)`   | Set a context tag      |
+| `setTags(tags)`        | Set multiple tags      |
 | `setExtra(key, value)` | Set extra context data |
 
 ### Lifecycle
 
-| Method | Description |
-|---|---|
-| `flush()` | Flush pending events immediately |
-| `shutdown()` | Flush and clean up |
-| `optOut()` | Stop all tracking |
-| `optIn()` | Resume tracking |
-| `hasOptedOut()` | Check opt-out status |
-| `reset()` | Clear all state |
-| `getDistinctId()` | Get the current distinct ID |
-| `getSessionId()` | Get the current session ID |
-| `getInstance()` | Get the underlying HeadlessClient instance |
+| Method            | Description                                |
+| ----------------- | ------------------------------------------ |
+| `flush()`         | Flush pending events immediately           |
+| `shutdown()`      | Flush and clean up                         |
+| `optOut()`        | Stop all tracking                          |
+| `optIn()`         | Resume tracking                            |
+| `hasOptedOut()`   | Check opt-out status                       |
+| `reset()`         | Clear all state                            |
+| `getDistinctId()` | Get the current distinct ID                |
+| `getSessionId()`  | Get the current session ID                 |
+| `getInstance()`   | Get the underlying HeadlessClient instance |
 
 ## License
 

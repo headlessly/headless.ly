@@ -28,7 +28,6 @@ async function getModule() {
 }
 
 describe('@headlessly/react — RED TDD tests', () => {
-
   // =========================================================================
   // 1. HeadlessProvider — initialization and context provisioning
   // =========================================================================

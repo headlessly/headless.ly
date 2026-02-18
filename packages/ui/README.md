@@ -5,7 +5,7 @@
 ```tsx
 import { HeadlessUIProvider, EntityTable, EntityForm, VerbButton } from '@headlessly/ui'
 
-<HeadlessUIProvider config={{ baseUrl: 'https://db.headless.ly' }}>
+;<HeadlessUIProvider config={{ baseUrl: 'https://db.headless.ly' }}>
   <EntityTable noun='Contact' />
   <EntityForm noun='Deal' onSubmit={(data) => console.log(data)} />
   <VerbButton noun='Contact' entityId='contact_fX9bL5nRd' verb='qualify' />
@@ -30,6 +30,7 @@ export const Contact = Noun('Contact', {
 ```
 
 From this definition, `@headlessly/ui` knows:
+
 - **`name`** is required text -- renders as a required text input
 - **`email`** is optional and indexed -- renders as an optional email input
 - **`stage`** is an enum -- renders as a select dropdown with 5 options
@@ -90,7 +91,7 @@ Read-only detail view with all fields and relationships.
 ```tsx
 import { EntityDetail } from '@headlessly/ui'
 
-<EntityDetail noun='Contact' entityId='contact_fX9bL5nRd' />
+;<EntityDetail noun='Contact' entityId='contact_fX9bL5nRd' />
 ```
 
 Fields are labeled, formatted, and grouped. Relationships render as navigable links. The `$version`, `$createdAt`, and `$updatedAt` meta-fields are shown in a metadata section.
@@ -118,7 +119,7 @@ Event timeline showing the full history of an entity -- every mutation, every ve
 ```tsx
 import { EntityTimeline } from '@headlessly/ui'
 
-<EntityTimeline noun='Contact' entityId='contact_fX9bL5nRd' />
+;<EntityTimeline noun='Contact' entityId='contact_fX9bL5nRd' />
 ```
 
 Because every mutation is an immutable event, the timeline is complete. Nothing is ever lost.
@@ -130,7 +131,7 @@ Visual graph of entity relationships -- follow links across the typed graph.
 ```tsx
 import { RelationshipGraph } from '@headlessly/ui'
 
-<RelationshipGraph rootNoun='Contact' rootId='contact_fX9bL5nRd' depth={2} />
+;<RelationshipGraph rootNoun='Contact' rootId='contact_fX9bL5nRd' depth={2} />
 ```
 
 Starting from a Contact, see their Company, their Deals, the Subscriptions from those Deals, the Invoices from those Subscriptions -- all traversed from the schema's relationship definitions.
@@ -142,7 +143,7 @@ Composable dashboard cards from entity aggregations.
 ```tsx
 import { Dashboard } from '@headlessly/ui'
 
-<Dashboard
+;<Dashboard
   cards={[
     { type: 'metric', noun: 'Contact', aggregate: 'count' },
     { type: 'metric', noun: 'Deal', field: 'value', aggregate: 'sum' },
@@ -158,10 +159,7 @@ Cross-entity search with typeahead, searching across all entity types.
 ```tsx
 import { SearchBar } from '@headlessly/ui'
 
-<SearchBar
-  nouns={['Contact', 'Deal', 'Company']}
-  onSelect={(entity) => navigate(`/${entity.$type}/${entity.$id}`)}
-/>
+;<SearchBar nouns={['Contact', 'Deal', 'Company']} onSelect={(entity) => navigate(`/${entity.$type}/${entity.$id}`)} />
 ```
 
 ## Hooks
@@ -170,7 +168,11 @@ import { SearchBar } from '@headlessly/ui'
 import { useEntity, useEntities, useSearch, useRealtime } from '@headlessly/ui'
 
 // Single entity
-const { data: contact, loading, error } = useEntity({
+const {
+  data: contact,
+  loading,
+  error,
+} = useEntity({
   noun: 'Contact',
   id: 'contact_fX9bL5nRd',
 })
@@ -224,26 +226,26 @@ Additional utilities: `deriveAllVerbs(schema)`, `fieldInputType(field)`, `isRequ
 
 ### Components
 
-| Component | Props | Description |
-|---|---|---|
-| `<EntityTable>` | `noun`, `pageSize?`, `defaultSort?` | Auto-generated sortable, paginated table |
-| `<EntityForm>` | `noun`, `entityId?`, `onSubmit?` | Auto-generated create/edit form with validation |
-| `<EntityDetail>` | `noun`, `entityId` | Read-only entity detail view |
-| `<EntityTimeline>` | `noun`, `entityId` | Event timeline for an entity |
-| `<Dashboard>` | `cards`, `layout?` | Configurable metric and entity dashboard |
-| `<SearchBar>` | `nouns?`, `onSelect?` | Cross-entity search with typeahead |
-| `<VerbButton>` | `noun`, `entityId`, `verb` | Button to execute a custom verb |
-| `<RelationshipGraph>` | `rootNoun`, `rootId`, `depth?` | Visual relationship graph |
+| Component             | Props                               | Description                                     |
+| --------------------- | ----------------------------------- | ----------------------------------------------- |
+| `<EntityTable>`       | `noun`, `pageSize?`, `defaultSort?` | Auto-generated sortable, paginated table        |
+| `<EntityForm>`        | `noun`, `entityId?`, `onSubmit?`    | Auto-generated create/edit form with validation |
+| `<EntityDetail>`      | `noun`, `entityId`                  | Read-only entity detail view                    |
+| `<EntityTimeline>`    | `noun`, `entityId`                  | Event timeline for an entity                    |
+| `<Dashboard>`         | `cards`, `layout?`                  | Configurable metric and entity dashboard        |
+| `<SearchBar>`         | `nouns?`, `onSelect?`               | Cross-entity search with typeahead              |
+| `<VerbButton>`        | `noun`, `entityId`, `verb`          | Button to execute a custom verb                 |
+| `<RelationshipGraph>` | `rootNoun`, `rootId`, `depth?`      | Visual relationship graph                       |
 
 ### Hooks
 
-| Hook | Description |
-|---|---|
-| `useEntity(options)` | Fetch and manage a single entity |
+| Hook                   | Description                                      |
+| ---------------------- | ------------------------------------------------ |
+| `useEntity(options)`   | Fetch and manage a single entity                 |
 | `useEntities(options)` | Fetch and manage a list of entities with filters |
-| `useSearch(options)` | Cross-entity search with debouncing |
-| `useRealtime(options)` | Subscribe to real-time entity updates |
-| `useHeadlessUI()` | Access the UI provider context |
+| `useSearch(options)`   | Cross-entity search with debouncing              |
+| `useRealtime(options)` | Subscribe to real-time entity updates            |
+| `useHeadlessUI()`      | Access the UI provider context                   |
 
 ### Types
 

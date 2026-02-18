@@ -7,20 +7,7 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 import { setProvider, MemoryNounProvider, clearRegistry } from 'digital-objects'
-import {
-  $,
-  crm,
-  billing,
-  projects,
-  content,
-  support,
-  analytics,
-  marketing,
-  experiments,
-  platform,
-  entityNames,
-  resolveEntity,
-} from '../src/index'
+import { $, crm, billing, projects, content, support, analytics, marketing, experiments, platform, entityNames, resolveEntity } from '../src/index'
 import type { NounSchema } from 'digital-objects'
 
 describe('@headlessly/sdk — cross-domain integration', () => {
@@ -190,16 +177,40 @@ describe('@headlessly/sdk — cross-domain integration', () => {
   describe('entity registry completeness', () => {
     it('all 35 entities are accessible from $', () => {
       const expectedEntities = [
-        'User', 'ApiKey',
-        'Organization', 'Contact', 'Lead', 'Deal', 'Activity', 'Pipeline',
-        'Customer', 'Product', 'Plan', 'Price', 'Subscription', 'Invoice', 'Payment',
-        'Project', 'Issue', 'Comment',
-        'Content', 'Asset', 'Site',
+        'User',
+        'ApiKey',
+        'Organization',
+        'Contact',
+        'Lead',
+        'Deal',
+        'Activity',
+        'Pipeline',
+        'Customer',
+        'Product',
+        'Plan',
+        'Price',
+        'Subscription',
+        'Invoice',
+        'Payment',
+        'Project',
+        'Issue',
+        'Comment',
+        'Content',
+        'Asset',
+        'Site',
         'Ticket',
-        'Event', 'Metric', 'Funnel', 'Goal',
-        'Campaign', 'Segment', 'Form',
-        'Experiment', 'FeatureFlag',
-        'Workflow', 'Integration', 'Agent',
+        'Event',
+        'Metric',
+        'Funnel',
+        'Goal',
+        'Campaign',
+        'Segment',
+        'Form',
+        'Experiment',
+        'FeatureFlag',
+        'Workflow',
+        'Integration',
+        'Agent',
         'Message',
       ]
 
@@ -353,19 +364,19 @@ describe('@headlessly/sdk — cross-domain integration', () => {
   // ===========================================================================
   describe('domain namespace isolation', () => {
     it('crm namespace contains exactly 6 entities', () => {
-      const crmEntities = Object.keys(crm).filter(k => crm[k]?.$name)
+      const crmEntities = Object.keys(crm).filter((k) => crm[k]?.$name)
       expect(crmEntities).toHaveLength(6)
       expect(crmEntities.sort()).toEqual(['Activity', 'Contact', 'Deal', 'Lead', 'Organization', 'Pipeline'])
     })
 
     it('billing namespace contains exactly 7 entities', () => {
-      const billingEntities = Object.keys(billing).filter(k => billing[k]?.$name)
+      const billingEntities = Object.keys(billing).filter((k) => billing[k]?.$name)
       expect(billingEntities).toHaveLength(7)
       expect(billingEntities.sort()).toEqual(['Customer', 'Invoice', 'Payment', 'Plan', 'Price', 'Product', 'Subscription'])
     })
 
     it('projects namespace contains exactly 3 entities', () => {
-      const projEntities = Object.keys(projects).filter(k => projects[k]?.$name)
+      const projEntities = Object.keys(projects).filter((k) => projects[k]?.$name)
       expect(projEntities).toHaveLength(3)
       expect(projEntities.sort()).toEqual(['Comment', 'Issue', 'Project'])
     })
@@ -389,12 +400,12 @@ describe('@headlessly/sdk — cross-domain integration', () => {
     })
 
     it('content, support, analytics, marketing, experiments, platform have correct counts', () => {
-      expect(Object.keys(content).filter(k => content[k]?.$name).length).toBe(3)
-      expect(Object.keys(support).filter(k => support[k]?.$name).length).toBe(1)
-      expect(Object.keys(analytics).filter(k => analytics[k]?.$name).length).toBe(4)
-      expect(Object.keys(marketing).filter(k => marketing[k]?.$name).length).toBe(3)
-      expect(Object.keys(experiments).filter(k => experiments[k]?.$name).length).toBe(2)
-      expect(Object.keys(platform).filter(k => platform[k]?.$name).length).toBe(3)
+      expect(Object.keys(content).filter((k) => content[k]?.$name).length).toBe(3)
+      expect(Object.keys(support).filter((k) => support[k]?.$name).length).toBe(1)
+      expect(Object.keys(analytics).filter((k) => analytics[k]?.$name).length).toBe(4)
+      expect(Object.keys(marketing).filter((k) => marketing[k]?.$name).length).toBe(3)
+      expect(Object.keys(experiments).filter((k) => experiments[k]?.$name).length).toBe(2)
+      expect(Object.keys(platform).filter((k) => platform[k]?.$name).length).toBe(3)
     })
   })
 
@@ -411,9 +422,9 @@ describe('@headlessly/sdk — cross-domain integration', () => {
       const customers = await $.Customer.find()
       const projectsList = await $.Project.find()
 
-      expect(contacts.every(c => c.$type === 'Contact')).toBe(true)
-      expect(customers.every(c => c.$type === 'Customer')).toBe(true)
-      expect(projectsList.every(p => p.$type === 'Project')).toBe(true)
+      expect(contacts.every((c) => c.$type === 'Contact')).toBe(true)
+      expect(customers.every((c) => c.$type === 'Customer')).toBe(true)
+      expect(projectsList.every((p) => p.$type === 'Project')).toBe(true)
     })
 
     it('search with filter across CRM and Billing via shared organization', async () => {

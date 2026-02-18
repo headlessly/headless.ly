@@ -47,10 +47,12 @@ export class MCPClient {
 
   constructor(endpoint: string, options?: MCPClientOptions) {
     this.endpoint = endpoint
-    this.transport = options?.transport ?? new HttpTransport(endpoint, {
-      headers: options?.headers,
-      fetch: options?.fetch,
-    })
+    this.transport =
+      options?.transport ??
+      new HttpTransport(endpoint, {
+        headers: options?.headers,
+        fetch: options?.fetch,
+      })
   }
 
   /** Connect to the MCP server (performs initialize handshake) */

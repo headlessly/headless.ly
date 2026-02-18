@@ -70,11 +70,7 @@ function PricingPage() {
     page('pricing', { source: 'nav' })
   }, [])
 
-  return (
-    <button onClick={() => track('plan_selected', { plan: 'pro' })}>
-      Choose Pro
-    </button>
-  )
+  return <button onClick={() => track('plan_selected', { plan: 'pro' })}>Choose Pro</button>
 }
 ```
 
@@ -126,11 +122,7 @@ function Dashboard() {
   const variant = useFeatureFlag('dashboard-layout')
   const showBeta = useFeatureEnabled('beta-features')
 
-  return (
-    <div className={variant === 'compact' ? 'compact' : 'full'}>
-      {showBeta && <BetaBanner />}
-    </div>
-  )
+  return <div className={variant === 'compact' ? 'compact' : 'full'}>{showBeta && <BetaBanner />}</div>
 }
 ```
 
@@ -141,7 +133,7 @@ Flag evaluations are automatically tracked as analytics events. No manual `track
 ```tsx
 import { ErrorBoundary } from '@headlessly/react'
 
-<ErrorBoundary
+;<ErrorBoundary
   fallback={(error, reset) => (
     <div>
       <p>Something went wrong: {error.message}</p>
@@ -226,26 +218,26 @@ function PaymentForm() {
 
 ### Hooks
 
-| Hook | Returns | Description |
-|---|---|---|
-| `useTrack()` | `track(event, properties?)` | Track a custom event |
-| `usePage()` | `page(name?, properties?)` | Track a page view |
-| `useIdentify()` | `identify(userId, traits?)` | Identify a user |
-| `useFeatureFlag(key)` | `boolean \| string \| number \| object \| undefined` | Get a flag value |
-| `useFeatureEnabled(key)` | `boolean` | Check if a flag is enabled |
-| `useCaptureException()` | `captureException(error, context?)` | Capture an error |
-| `useUser()` | `{ setUser }` | Set the current user |
-| `useBreadcrumb()` | `addBreadcrumb(crumb)` | Add a breadcrumb for error context |
-| `useHeadless()` | `{ initialized, distinctId, sessionId }` | Access raw context |
+| Hook                     | Returns                                              | Description                        |
+| ------------------------ | ---------------------------------------------------- | ---------------------------------- |
+| `useTrack()`             | `track(event, properties?)`                          | Track a custom event               |
+| `usePage()`              | `page(name?, properties?)`                           | Track a page view                  |
+| `useIdentify()`          | `identify(userId, traits?)`                          | Identify a user                    |
+| `useFeatureFlag(key)`    | `boolean \| string \| number \| object \| undefined` | Get a flag value                   |
+| `useFeatureEnabled(key)` | `boolean`                                            | Check if a flag is enabled         |
+| `useCaptureException()`  | `captureException(error, context?)`                  | Capture an error                   |
+| `useUser()`              | `{ setUser }`                                        | Set the current user               |
+| `useBreadcrumb()`        | `addBreadcrumb(crumb)`                               | Add a breadcrumb for error context |
+| `useHeadless()`          | `{ initialized, distinctId, sessionId }`             | Access raw context                 |
 
 ### Components
 
-| Component | Props | Description |
-|---|---|---|
-| `<Feature>` | `flag`, `children`, `fallback?` | Conditional rendering based on a feature flag |
-| `<Experiment>` | `flag`, `variants`, `fallback?` | Render a variant based on a flag value |
-| `<PageView>` | `name?`, `properties?` | Track a page view on mount |
-| `<ErrorBoundary>` | `fallback`, `onError?` | Catch errors, report to headless.ly, render fallback |
+| Component         | Props                           | Description                                          |
+| ----------------- | ------------------------------- | ---------------------------------------------------- |
+| `<Feature>`       | `flag`, `children`, `fallback?` | Conditional rendering based on a feature flag        |
+| `<Experiment>`    | `flag`, `variants`, `fallback?` | Render a variant based on a flag value               |
+| `<PageView>`      | `name?`, `properties?`          | Track a page view on mount                           |
+| `<ErrorBoundary>` | `fallback`, `onError?`          | Catch errors, report to headless.ly, render fallback |
 
 ### Re-exports
 

@@ -122,18 +122,18 @@ Point your agent at the local MCP endpoint and it gets access to the entire enti
 
 ## Commands
 
-| Command | Description |
-|---|---|
-| `search <type>` | Search for entities across the graph |
-| `fetch <type> <id>` | Fetch a specific entity by type and ID |
-| `do <code>` | Execute an action or code with full entity access |
-| `login` | Authenticate with headless.ly |
-| `init` | Initialize a new headless.ly project |
-| `status` | Show current org and connection status |
-| `schema [noun]` | Display schema definitions |
-| `mcp` | Start an MCP server |
-| `help` | Show usage information |
-| `--version` | Show version |
+| Command             | Description                                       |
+| ------------------- | ------------------------------------------------- |
+| `search <type>`     | Search for entities across the graph              |
+| `fetch <type> <id>` | Fetch a specific entity by type and ID            |
+| `do <code>`         | Execute an action or code with full entity access |
+| `login`             | Authenticate with headless.ly                     |
+| `init`              | Initialize a new headless.ly project              |
+| `status`            | Show current org and connection status            |
+| `schema [noun]`     | Display schema definitions                        |
+| `mcp`               | Start an MCP server                               |
+| `help`              | Show usage information                            |
+| `--version`         | Show version                                      |
 
 ## Programmatic API
 

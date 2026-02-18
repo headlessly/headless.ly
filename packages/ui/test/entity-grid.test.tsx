@@ -14,7 +14,7 @@ function registerTestNoun() {
 describe('EntityGrid', () => {
   it('renders a grid table with schema-derived column headers', async () => {
     registerTestNoun()
-    render(<EntityGrid noun="Contact" />)
+    render(<EntityGrid noun='Contact' />)
 
     await waitFor(() => {
       expect(screen.getByRole('grid')).toBeInTheDocument()
@@ -31,7 +31,7 @@ describe('EntityGrid', () => {
     await Contact.create({ name: 'Alice', email: 'alice@test.com', stage: 'Lead' })
     await Contact.create({ name: 'Bob', email: 'bob@test.com', stage: 'Qualified' })
 
-    render(<EntityGrid noun="Contact" />)
+    render(<EntityGrid noun='Contact' />)
 
     await waitFor(() => {
       expect(screen.getByText('Alice')).toBeInTheDocument()
@@ -43,7 +43,7 @@ describe('EntityGrid', () => {
 
   it('shows loading skeleton initially', () => {
     registerTestNoun()
-    render(<EntityGrid noun="Contact" />)
+    render(<EntityGrid noun='Contact' />)
 
     // Real Skeleton from @mdxui/primitives renders with data-slot="skeleton"
     const skeletons = document.querySelectorAll('[data-slot="skeleton"]')
@@ -54,7 +54,7 @@ describe('EntityGrid', () => {
     const Contact = registerTestNoun()
     const alice = await Contact.create({ name: 'Alice', email: 'alice@test.com', stage: 'Lead' })
 
-    render(<EntityGrid noun="Contact" />)
+    render(<EntityGrid noun='Contact' />)
 
     await waitFor(() => {
       expect(screen.getByText('Alice')).toBeInTheDocument()
@@ -69,7 +69,7 @@ describe('EntityGrid', () => {
 
   it('row insert actually creates an entity in the backend', async () => {
     const Contact = registerTestNoun()
-    render(<EntityGrid noun="Contact" />)
+    render(<EntityGrid noun='Contact' />)
 
     // Create via the real backend
     await Contact.create({ name: 'Charlie', stage: 'Lead' })
@@ -93,7 +93,7 @@ describe('EntityGrid', () => {
 
   it('shows empty message when no data', async () => {
     registerTestNoun()
-    render(<EntityGrid noun="Contact" />)
+    render(<EntityGrid noun='Contact' />)
 
     await waitFor(() => {
       expect(screen.getByText('No contacts found')).toBeInTheDocument()
@@ -101,13 +101,13 @@ describe('EntityGrid', () => {
   })
 
   it('handles unknown noun gracefully', () => {
-    render(<EntityGrid noun="UnknownEntity" />)
+    render(<EntityGrid noun='UnknownEntity' />)
     expect(screen.getByText('Unknown entity: UnknownEntity')).toBeInTheDocument()
   })
 
   it('renders column headers for $id meta column', async () => {
     registerTestNoun()
-    render(<EntityGrid noun="Contact" />)
+    render(<EntityGrid noun='Contact' />)
 
     await waitFor(() => {
       expect(screen.getByRole('grid')).toBeInTheDocument()
@@ -121,7 +121,7 @@ describe('EntityGrid', () => {
     const Contact = registerTestNoun()
     await Contact.create({ name: 'Alice', stage: 'Lead' })
 
-    render(<EntityGrid noun="Contact" editable={false} />)
+    render(<EntityGrid noun='Contact' editable={false} />)
 
     await waitFor(() => {
       expect(screen.getByText('Alice')).toBeInTheDocument()
@@ -135,7 +135,7 @@ describe('EntityGrid', () => {
     const Contact = registerTestNoun()
     await Contact.create({ name: 'Alice', email: 'alice@test.com', stage: 'Lead' })
 
-    render(<EntityGrid noun="Contact" />)
+    render(<EntityGrid noun='Contact' />)
 
     await waitFor(() => {
       expect(screen.getByText('Alice')).toBeInTheDocument()
@@ -151,7 +151,7 @@ describe('EntityGrid', () => {
     await Contact.create({ name: 'Bob', stage: 'Qualified' })
     await Contact.create({ name: 'Charlie', stage: 'Customer' })
 
-    render(<EntityGrid noun="Contact" />)
+    render(<EntityGrid noun='Contact' />)
 
     await waitFor(() => {
       expect(screen.getByText('Alice')).toBeInTheDocument()

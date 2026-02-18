@@ -803,10 +803,7 @@ describe('@headlessly/experiments — deep coverage v3', () => {
       const exp1 = await Experiment.create({ name: 'Concurrent 1', status: 'Draft' })
       const exp2 = await Experiment.create({ name: 'Concurrent 2', status: 'Draft' })
 
-      const [updated1, updated2] = await Promise.all([
-        Experiment.update(exp1.$id, { status: 'Running' }),
-        Experiment.update(exp2.$id, { status: 'Completed' }),
-      ])
+      const [updated1, updated2] = await Promise.all([Experiment.update(exp1.$id, { status: 'Running' }), Experiment.update(exp2.$id, { status: 'Completed' })])
 
       expect(updated1.status).toBe('Running')
       expect(updated2.status).toBe('Completed')

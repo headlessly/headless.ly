@@ -6,14 +6,7 @@
  */
 
 import { describe, it, expect, afterEach } from 'vitest'
-import {
-  HeadlessNodeClient,
-  createClient,
-  headlessly,
-  expressMiddleware,
-  honoMiddleware,
-  Headlessly,
-} from '../src/index.js'
+import { HeadlessNodeClient, createClient, headlessly, expressMiddleware, honoMiddleware, Headlessly } from '../src/index.js'
 import type { NodeConfig } from '../src/index.js'
 
 // =============================================================================
@@ -155,9 +148,16 @@ describe('expressMiddleware()', () => {
 
     let nextCalled = false
     const req = { method: 'GET', url: '/test', path: '/test', headers: {} as Record<string, string> }
-    const res = { statusCode: 200, on: (_event: string, cb: () => void) => { if (_event === 'finish') cb() } }
+    const res = {
+      statusCode: 200,
+      on: (_event: string, cb: () => void) => {
+        if (_event === 'finish') cb()
+      },
+    }
 
-    mw(req, res, () => { nextCalled = true })
+    mw(req, res, () => {
+      nextCalled = true
+    })
     expect(nextCalled).toBe(true)
   })
 })

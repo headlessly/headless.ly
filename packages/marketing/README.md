@@ -30,7 +30,7 @@ Your agent doesn't need a drag-and-drop email builder. It needs `Campaign.launch
 And the real problem: your marketing data is an island. Campaigns live in Mailchimp. Contacts live in HubSpot. Subscriptions live in Stripe. Analytics live in Google Analytics. You spend more time syncing audiences and mapping fields than actually running campaigns:
 
 ```typescript
-Campaign.launching(campaign => {
+Campaign.launching((campaign) => {
   if (campaign.budget > 10000 && !campaign.approvedBy) {
     throw new Error('Campaigns over $10k require approval')
   }

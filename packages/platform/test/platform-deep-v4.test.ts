@@ -103,10 +103,24 @@ describe('@headlessly/platform — deep v4', () => {
     it('Workflow raw definition has every property key from the source', () => {
       const raw = Workflow.$schema.raw
       const expectedKeys = [
-        'name', 'description', 'organization', 'triggerEvent', 'steps',
-        'retryPolicy', 'errorHandling', 'timeout', 'status', 'version',
-        'lastRunAt', 'runCount', 'successCount', 'failureCount',
-        'activate', 'pause', 'trigger', 'archive',
+        'name',
+        'description',
+        'organization',
+        'triggerEvent',
+        'steps',
+        'retryPolicy',
+        'errorHandling',
+        'timeout',
+        'status',
+        'version',
+        'lastRunAt',
+        'runCount',
+        'successCount',
+        'failureCount',
+        'activate',
+        'pause',
+        'trigger',
+        'archive',
       ]
       for (const key of expectedKeys) {
         expect(raw).toHaveProperty(key)
@@ -117,9 +131,23 @@ describe('@headlessly/platform — deep v4', () => {
     it('Integration raw definition has every property key from the source', () => {
       const raw = Integration.$schema.raw
       const expectedKeys = [
-        'name', 'slug', 'description', 'provider', 'providerUrl', 'providerLogo',
-        'category', 'authType', 'oauthScopes', 'configSchema', 'status',
-        'featured', 'apiBaseUrl', 'webhookSupport', 'connect', 'disconnect', 'sync',
+        'name',
+        'slug',
+        'description',
+        'provider',
+        'providerUrl',
+        'providerLogo',
+        'category',
+        'authType',
+        'oauthScopes',
+        'configSchema',
+        'status',
+        'featured',
+        'apiBaseUrl',
+        'webhookSupport',
+        'connect',
+        'disconnect',
+        'sync',
       ]
       for (const key of expectedKeys) {
         expect(raw).toHaveProperty(key)
@@ -130,13 +158,48 @@ describe('@headlessly/platform — deep v4', () => {
     it('Agent raw definition has every property key from the source', () => {
       const raw = Agent.$schema.raw
       const expectedKeys = [
-        'name', 'slug', 'description', 'avatar', 'organization', 'owner',
-        'model', 'systemPrompt', 'instructions', 'persona', 'type', 'status',
-        'visibility', 'temperature', 'maxTokens', 'tools', 'functions',
-        'knowledgeBases', 'memory', 'memoryWindow', 'totalTokens', 'totalCost',
-        'averageLatency', 'successRate', 'rating', 'ratingCount', 'version',
-        'publishedAt', 'tags', 'do', 'ask', 'decide', 'approve', 'notify',
-        'delegate', 'escalate', 'learn', 'reflect', 'deploy', 'pause', 'stop', 'retire',
+        'name',
+        'slug',
+        'description',
+        'avatar',
+        'organization',
+        'owner',
+        'model',
+        'systemPrompt',
+        'instructions',
+        'persona',
+        'type',
+        'status',
+        'visibility',
+        'temperature',
+        'maxTokens',
+        'tools',
+        'functions',
+        'knowledgeBases',
+        'memory',
+        'memoryWindow',
+        'totalTokens',
+        'totalCost',
+        'averageLatency',
+        'successRate',
+        'rating',
+        'ratingCount',
+        'version',
+        'publishedAt',
+        'tags',
+        'do',
+        'ask',
+        'decide',
+        'approve',
+        'notify',
+        'delegate',
+        'escalate',
+        'learn',
+        'reflect',
+        'deploy',
+        'pause',
+        'stop',
+        'retire',
       ]
       for (const key of expectedKeys) {
         expect(raw).toHaveProperty(key)
@@ -451,8 +514,12 @@ describe('@headlessly/platform — deep v4', () => {
 
     it('deleting fires before deleted for Integration', async () => {
       const callOrder: string[] = []
-      Integration.deleting(() => { callOrder.push('deleting') })
-      Integration.deleted(() => { callOrder.push('deleted') })
+      Integration.deleting(() => {
+        callOrder.push('deleting')
+      })
+      Integration.deleted(() => {
+        callOrder.push('deleted')
+      })
 
       const int = await Integration.create({ name: 'Delete Order Int', provider: 'test' })
       await Integration.delete(int.$id)
@@ -614,11 +681,7 @@ describe('@headlessly/platform — deep v4', () => {
       const wf2 = await Workflow.create({ name: 'Concurrent Activate 2', trigger: 'b', status: 'Draft' })
       const wf3 = await Workflow.create({ name: 'Concurrent Activate 3', trigger: 'c', status: 'Draft' })
 
-      const [r1, r2, r3] = await Promise.all([
-        Workflow.activate(wf1.$id),
-        Workflow.activate(wf2.$id),
-        Workflow.activate(wf3.$id),
-      ])
+      const [r1, r2, r3] = await Promise.all([Workflow.activate(wf1.$id), Workflow.activate(wf2.$id), Workflow.activate(wf3.$id)])
       expect(r1.status).toBe('Activated')
       expect(r2.status).toBe('Activated')
       expect(r3.status).toBe('Activated')
@@ -628,10 +691,7 @@ describe('@headlessly/platform — deep v4', () => {
       const a1 = await Agent.create({ name: 'Deploy 1', status: 'Draft' })
       const a2 = await Agent.create({ name: 'Deploy 2', status: 'Draft' })
 
-      const [d1, d2] = await Promise.all([
-        Agent.deploy(a1.$id),
-        Agent.deploy(a2.$id),
-      ])
+      const [d1, d2] = await Promise.all([Agent.deploy(a1.$id), Agent.deploy(a2.$id)])
       expect(d1.status).toBe('Deployed')
       expect(d2.status).toBe('Deployed')
     })
@@ -640,17 +700,11 @@ describe('@headlessly/platform — deep v4', () => {
       const int1 = await Integration.create({ name: 'ConcInt1', provider: 'a' })
       const int2 = await Integration.create({ name: 'ConcInt2', provider: 'b' })
 
-      const [c1, c2] = await Promise.all([
-        Integration.connect(int1.$id),
-        Integration.connect(int2.$id),
-      ])
+      const [c1, c2] = await Promise.all([Integration.connect(int1.$id), Integration.connect(int2.$id)])
       expect(c1.status).toBe('Connected')
       expect(c2.status).toBe('Connected')
 
-      const [d1, d2] = await Promise.all([
-        Integration.disconnect(int1.$id),
-        Integration.disconnect(int2.$id),
-      ])
+      const [d1, d2] = await Promise.all([Integration.disconnect(int1.$id), Integration.disconnect(int2.$id)])
       expect(d1.status).toBe('Disconnected')
       expect(d2.status).toBe('Disconnected')
     })

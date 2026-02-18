@@ -20,7 +20,7 @@ describe('EntityForm', () => {
 
   it('renders form fields for a noun schema in create mode', () => {
     registerTestNoun()
-    render(<EntityForm noun="Contact" />)
+    render(<EntityForm noun='Contact' />)
 
     expect(screen.getByText('Create Contact')).toBeInTheDocument()
     expect(screen.getByText('Name')).toBeInTheDocument()
@@ -30,31 +30,31 @@ describe('EntityForm', () => {
 
   it('shows Create button in create mode', () => {
     registerTestNoun()
-    render(<EntityForm noun="Contact" />)
+    render(<EntityForm noun='Contact' />)
     expect(screen.getByRole('button', { name: 'Create' })).toBeInTheDocument()
   })
 
   it('renders text input for string fields', () => {
     registerTestNoun()
-    render(<EntityForm noun="Contact" />)
+    render(<EntityForm noun='Contact' />)
     expect(screen.getAllByRole('textbox').length).toBeGreaterThan(0)
   })
 
   it('renders number input for number fields', () => {
     registerTestNoun()
-    render(<EntityForm noun="Contact" />)
+    render(<EntityForm noun='Contact' />)
     expect(screen.getByRole('spinbutton')).toBeInTheDocument()
   })
 
   it('renders checkbox for boolean fields', () => {
     registerTestNoun()
-    render(<EntityForm noun="Contact" />)
+    render(<EntityForm noun='Contact' />)
     expect(screen.getByRole('checkbox')).toBeInTheDocument()
   })
 
   it('renders select for enum fields with all options', () => {
     registerTestNoun()
-    render(<EntityForm noun="Contact" />)
+    render(<EntityForm noun='Contact' />)
     const select = screen.getByRole('combobox')
     expect(select).toBeInTheDocument()
     expect(screen.getByText('Lead')).toBeInTheDocument()
@@ -64,14 +64,14 @@ describe('EntityForm', () => {
 
   it('shows required indicator for required fields', () => {
     registerTestNoun()
-    render(<EntityForm noun="Contact" />)
+    render(<EntityForm noun='Contact' />)
     const stars = screen.getAllByText('*')
     expect(stars.length).toBeGreaterThan(0)
   })
 
   it('submit actually creates an entity in the backend', async () => {
     const Contact = registerTestNoun()
-    render(<EntityForm noun="Contact" />)
+    render(<EntityForm noun='Contact' />)
 
     // Fill in name (required)
     const nameInput = screen.getAllByRole('textbox')[0]
@@ -90,7 +90,7 @@ describe('EntityForm', () => {
 
   it('submit strips $-prefixed meta fields from data', async () => {
     const Contact = registerTestNoun()
-    render(<EntityForm noun="Contact" />)
+    render(<EntityForm noun='Contact' />)
 
     const nameInput = screen.getAllByRole('textbox')[0]
     fireEvent.change(nameInput, { target: { value: 'Alice' } })
@@ -113,7 +113,7 @@ describe('EntityForm', () => {
   it('validates required fields before submitting', async () => {
     const Contact = registerTestNoun()
 
-    render(<EntityForm noun="Contact" />)
+    render(<EntityForm noun='Contact' />)
 
     // Submit without filling name
     const form = screen.getByRole('button', { name: 'Create' }).closest('form')!
@@ -131,7 +131,7 @@ describe('EntityForm', () => {
   it('fires onSubmit callback with the created entity', async () => {
     registerTestNoun()
     const onSubmit = vi.fn()
-    render(<EntityForm noun="Contact" onSubmit={onSubmit} />)
+    render(<EntityForm noun='Contact' onSubmit={onSubmit} />)
 
     const nameInput = screen.getAllByRole('textbox')[0]
     fireEvent.change(nameInput, { target: { value: 'Alice' } })
@@ -156,7 +156,7 @@ describe('EntityForm', () => {
     const Contact = registerTestNoun()
     const alice = await Contact.create({ name: 'Alice', email: 'alice@test.com', stage: 'Lead', score: 85, active: true })
 
-    render(<EntityForm noun="Contact" id={alice.$id} />)
+    render(<EntityForm noun='Contact' id={alice.$id} />)
 
     await waitFor(() => {
       expect(screen.getByText('Edit Contact')).toBeInTheDocument()
@@ -167,7 +167,7 @@ describe('EntityForm', () => {
   it('shows loading state while entity loads in edit mode', () => {
     registerTestNoun()
     // Render with a non-existent id — hook will be loading initially
-    render(<EntityForm noun="Contact" id="contact_xxx" />)
+    render(<EntityForm noun='Contact' id='contact_xxx' />)
     expect(screen.getByText('Loading...')).toBeInTheDocument()
   })
 
@@ -175,7 +175,7 @@ describe('EntityForm', () => {
     const Contact = registerTestNoun()
     const alice = await Contact.create({ name: 'Alice', email: 'alice@test.com', stage: 'Lead', score: 0, active: false })
 
-    render(<EntityForm noun="Contact" id={alice.$id} />)
+    render(<EntityForm noun='Contact' id={alice.$id} />)
 
     await waitFor(() => {
       expect(screen.getByText('Edit Contact')).toBeInTheDocument()
@@ -198,7 +198,7 @@ describe('EntityForm', () => {
   it('calls onCancel when cancel button is clicked', () => {
     registerTestNoun()
     const onCancel = vi.fn()
-    render(<EntityForm noun="Contact" onCancel={onCancel} />)
+    render(<EntityForm noun='Contact' onCancel={onCancel} />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(onCancel).toHaveBeenCalled()
@@ -206,7 +206,7 @@ describe('EntityForm', () => {
 
   it('does not render cancel button when onCancel is not provided', () => {
     registerTestNoun()
-    render(<EntityForm noun="Contact" />)
+    render(<EntityForm noun='Contact' />)
     expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
   })
 
@@ -215,13 +215,13 @@ describe('EntityForm', () => {
   // -------------------------------------------------------------------------
 
   it('handles unknown noun gracefully', () => {
-    render(<EntityForm noun="UnknownEntity" />)
+    render(<EntityForm noun='UnknownEntity' />)
     expect(screen.getByText('Unknown entity: UnknownEntity')).toBeInTheDocument()
   })
 
   it('passes className to the form wrapper', () => {
     registerTestNoun()
-    const { container } = render(<EntityForm noun="Contact" className="my-form" />)
+    const { container } = render(<EntityForm noun='Contact' className='my-form' />)
     const form = container.querySelector('form')
     expect(form?.className).toContain('my-form')
   })

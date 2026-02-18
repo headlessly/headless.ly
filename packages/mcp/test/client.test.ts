@@ -153,9 +153,7 @@ describe('@headlessly/mcp — MCPClient', () => {
 
       expect(tools1).toBe(tools2) // Same reference (cached)
       // send called only once for tools/list (connect sends initialize + notifications/initialized)
-      const toolsCalls = sendSpy.mock.calls.filter(
-        (call) => (call[0] as JsonRpcRequest).method === 'tools/list',
-      )
+      const toolsCalls = sendSpy.mock.calls.filter((call) => (call[0] as JsonRpcRequest).method === 'tools/list')
       expect(toolsCalls).toHaveLength(1)
     })
 
@@ -168,9 +166,7 @@ describe('@headlessly/mcp — MCPClient', () => {
       await client.close()
       // After close, listTools should re-fetch
       const tools = await client.listTools()
-      const toolsCalls = sendSpy.mock.calls.filter(
-        (call) => (call[0] as JsonRpcRequest).method === 'tools/list',
-      )
+      const toolsCalls = sendSpy.mock.calls.filter((call) => (call[0] as JsonRpcRequest).method === 'tools/list')
       expect(toolsCalls).toHaveLength(2)
     })
 

@@ -24,9 +24,7 @@ describe('Concurrent SDK operations', () => {
 
   describe('concurrent CRUD via MemoryNounProvider', () => {
     it('10 concurrent creates all succeed with unique IDs', async () => {
-      const results = await Promise.all(
-        Array.from({ length: 10 }, (_, i) => $.Contact.create({ name: `User ${i}`, stage: 'Lead' })),
-      )
+      const results = await Promise.all(Array.from({ length: 10 }, (_, i) => $.Contact.create({ name: `User ${i}`, stage: 'Lead' })))
 
       expect(results.length).toBe(10)
 
@@ -60,10 +58,7 @@ describe('Concurrent SDK operations', () => {
       await $.Contact.create({ name: 'Seed', stage: 'Lead' })
 
       // Concurrently create more and find existing
-      const [newContact, found] = await Promise.all([
-        $.Contact.create({ name: 'New', stage: 'Lead' }),
-        $.Contact.find(),
-      ])
+      const [newContact, found] = await Promise.all([$.Contact.create({ name: 'New', stage: 'Lead' }), $.Contact.find()])
 
       expect(newContact.$type).toBe('Contact')
       // found should have at least the seeded contact
@@ -73,9 +68,7 @@ describe('Concurrent SDK operations', () => {
     it('concurrent get calls on the same entity return consistent data', async () => {
       const created = await $.Contact.create({ name: 'Alice', email: 'alice@test.com' })
 
-      const results = await Promise.all(
-        Array.from({ length: 10 }, () => $.Contact.get(created.$id)),
-      )
+      const results = await Promise.all(Array.from({ length: 10 }, () => $.Contact.get(created.$id)))
 
       for (const result of results) {
         expect(result).toBeDefined()
@@ -86,14 +79,10 @@ describe('Concurrent SDK operations', () => {
 
     it('create then immediately update in parallel for different entities', async () => {
       // Create 5 entities first
-      const entities = await Promise.all(
-        Array.from({ length: 5 }, (_, i) => $.Contact.create({ name: `User ${i}`, stage: 'Lead' })),
-      )
+      const entities = await Promise.all(Array.from({ length: 5 }, (_, i) => $.Contact.create({ name: `User ${i}`, stage: 'Lead' })))
 
       // Update all 5 concurrently
-      const updated = await Promise.all(
-        entities.map((e) => $.Contact.update(e.$id, { stage: 'Qualified' })),
-      )
+      const updated = await Promise.all(entities.map((e) => $.Contact.update(e.$id, { stage: 'Qualified' })))
 
       for (const u of updated) {
         expect(u.stage).toBe('Qualified')
@@ -102,13 +91,9 @@ describe('Concurrent SDK operations', () => {
     })
 
     it('concurrent deletes of different entities all succeed', async () => {
-      const entities = await Promise.all(
-        Array.from({ length: 5 }, (_, i) => $.Contact.create({ name: `Deletable ${i}` })),
-      )
+      const entities = await Promise.all(Array.from({ length: 5 }, (_, i) => $.Contact.create({ name: `Deletable ${i}` })))
 
-      const results = await Promise.all(
-        entities.map((e) => $.Contact.delete(e.$id)),
-      )
+      const results = await Promise.all(entities.map((e) => $.Contact.delete(e.$id)))
 
       for (const r of results) {
         expect(r).toBe(true)
@@ -147,14 +132,10 @@ describe('Concurrent SDK operations', () => {
   describe('concurrent verb execution', () => {
     it('concurrent custom verbs on different entities', async () => {
       // Create contacts with 'Lead' stage
-      const contacts = await Promise.all(
-        Array.from({ length: 5 }, (_, i) => $.Contact.create({ name: `Lead ${i}`, stage: 'Lead' })),
-      )
+      const contacts = await Promise.all(Array.from({ length: 5 }, (_, i) => $.Contact.create({ name: `Lead ${i}`, stage: 'Lead' })))
 
       // Qualify all concurrently (custom verb defined on Contact)
-      const qualified = await Promise.all(
-        contacts.map((c) => $.Contact.qualify(c.$id)),
-      )
+      const qualified = await Promise.all(contacts.map((c) => $.Contact.qualify(c.$id)))
 
       for (const q of qualified) {
         expect(q.stage).toBe('Qualified')
@@ -166,11 +147,7 @@ describe('Concurrent SDK operations', () => {
       const ticket = await $.Ticket.create({ subject: 'Help', status: 'Open' })
       const message = await $.Message.create({ body: 'Hello', channel: 'Email', status: 'Draft' })
 
-      const [suspended, resolved, sent] = await Promise.all([
-        $.User.suspend(user.$id),
-        $.Ticket.resolve(ticket.$id),
-        $.Message.send(message.$id),
-      ])
+      const [suspended, resolved, sent] = await Promise.all([$.User.suspend(user.$id), $.Ticket.resolve(ticket.$id), $.Message.send(message.$id)])
 
       expect(suspended.status).toBe('Suspended')
       expect(resolved.status).toBe('Resolved')
@@ -206,9 +183,7 @@ describe('Concurrent SDK operations', () => {
       })
 
       // Fire 5 concurrent creates
-      await Promise.all(
-        Array.from({ length: 5 }, (_, i) => $.Contact.create({ name: `User ${i}`, stage: 'Lead' })),
-      )
+      await Promise.all(Array.from({ length: 5 }, (_, i) => $.Contact.create({ name: `User ${i}`, stage: 'Lead' })))
 
       // All 5 create events should have been captured
       expect(events.length).toBe(5)
@@ -218,9 +193,7 @@ describe('Concurrent SDK operations', () => {
       const events: unknown[] = []
 
       // Create entities first
-      const entities = await Promise.all(
-        Array.from({ length: 3 }, (_, i) => $.Contact.create({ name: `User ${i}`, stage: 'Lead' })),
-      )
+      const entities = await Promise.all(Array.from({ length: 3 }, (_, i) => $.Contact.create({ name: `User ${i}`, stage: 'Lead' })))
 
       // Subscribe to updated events
       $.Contact.updated((entity: any) => {
@@ -228,9 +201,7 @@ describe('Concurrent SDK operations', () => {
       })
 
       // Update all concurrently
-      await Promise.all(
-        entities.map((e) => $.Contact.update(e.$id, { stage: 'Qualified' })),
-      )
+      await Promise.all(entities.map((e) => $.Contact.update(e.$id, { stage: 'Qualified' })))
 
       expect(events.length).toBe(3)
     })
@@ -238,17 +209,13 @@ describe('Concurrent SDK operations', () => {
     it('deleted events fire for all concurrent deletes', async () => {
       const events: unknown[] = []
 
-      const entities = await Promise.all(
-        Array.from({ length: 4 }, (_, i) => $.Contact.create({ name: `User ${i}` })),
-      )
+      const entities = await Promise.all(Array.from({ length: 4 }, (_, i) => $.Contact.create({ name: `User ${i}` })))
 
       $.Contact.deleted((entity: any) => {
         events.push(entity)
       })
 
-      await Promise.all(
-        entities.map((e) => $.Contact.delete(e.$id)),
-      )
+      await Promise.all(entities.map((e) => $.Contact.delete(e.$id)))
 
       expect(events.length).toBe(4)
     })
@@ -280,17 +247,13 @@ describe('Concurrent SDK operations', () => {
 
   describe('provider consistency', () => {
     it('no lost writes: all concurrent creates are findable', async () => {
-      const created = await Promise.all(
-        Array.from({ length: 20 }, (_, i) => $.Contact.create({ name: `User ${i}`, stage: 'Lead' })),
-      )
+      const created = await Promise.all(Array.from({ length: 20 }, (_, i) => $.Contact.create({ name: `User ${i}`, stage: 'Lead' })))
 
       const all = await $.Contact.find()
       expect(all.length).toBe(20)
 
       // Verify each created entity is findable by ID
-      const fetchResults = await Promise.all(
-        created.map((c) => $.Contact.get(c.$id)),
-      )
+      const fetchResults = await Promise.all(created.map((c) => $.Contact.get(c.$id)))
 
       for (let i = 0; i < fetchResults.length; i++) {
         expect(fetchResults[i]).toBeDefined()
@@ -299,19 +262,13 @@ describe('Concurrent SDK operations', () => {
     })
 
     it('no phantom reads: deleted entities stay deleted', async () => {
-      const entities = await Promise.all(
-        Array.from({ length: 10 }, (_, i) => $.Contact.create({ name: `User ${i}` })),
-      )
+      const entities = await Promise.all(Array.from({ length: 10 }, (_, i) => $.Contact.create({ name: `User ${i}` })))
 
       // Delete all concurrently
-      await Promise.all(
-        entities.map((e) => $.Contact.delete(e.$id)),
-      )
+      await Promise.all(entities.map((e) => $.Contact.delete(e.$id)))
 
       // Verify all are gone with concurrent reads
-      const reads = await Promise.all(
-        entities.map((e) => $.Contact.get(e.$id)),
-      )
+      const reads = await Promise.all(entities.map((e) => $.Contact.get(e.$id)))
 
       for (const r of reads) {
         expect(r).toBeNull()
@@ -348,29 +305,17 @@ describe('Concurrent SDK operations', () => {
       ])
 
       // Verify counts
-      const [contactList, dealList, ticketList] = await Promise.all([
-        $.Contact.find(),
-        $.Deal.find(),
-        $.Ticket.find(),
-      ])
+      const [contactList, dealList, ticketList] = await Promise.all([$.Contact.find(), $.Deal.find(), $.Ticket.find()])
 
       expect(contactList.length).toBe(5)
       expect(dealList.length).toBe(3)
       expect(ticketList.length).toBe(4)
 
       // Delete some concurrently across types
-      await Promise.all([
-        $.Contact.delete(contacts[0].$id),
-        $.Deal.delete(deals[0].$id),
-        $.Ticket.delete(tickets[0].$id),
-      ])
+      await Promise.all([$.Contact.delete(contacts[0].$id), $.Deal.delete(deals[0].$id), $.Ticket.delete(tickets[0].$id)])
 
       // Verify updated counts
-      const [contactList2, dealList2, ticketList2] = await Promise.all([
-        $.Contact.find(),
-        $.Deal.find(),
-        $.Ticket.find(),
-      ])
+      const [contactList2, dealList2, ticketList2] = await Promise.all([$.Contact.find(), $.Deal.find(), $.Ticket.find()])
 
       expect(contactList2.length).toBe(4)
       expect(dealList2.length).toBe(2)
@@ -379,14 +324,10 @@ describe('Concurrent SDK operations', () => {
 
     it('$.search returns consistent results after concurrent mutations', async () => {
       // Create entities concurrently
-      await Promise.all(
-        Array.from({ length: 8 }, (_, i) => $.Contact.create({ name: `Searchable ${i}`, stage: 'Lead' })),
-      )
+      await Promise.all(Array.from({ length: 8 }, (_, i) => $.Contact.create({ name: `Searchable ${i}`, stage: 'Lead' })))
 
       // Concurrent searches should all return the same count
-      const searches = await Promise.all(
-        Array.from({ length: 5 }, () => $.search({ type: 'Contact' })),
-      )
+      const searches = await Promise.all(Array.from({ length: 5 }, () => $.search({ type: 'Contact' })))
 
       for (const result of searches) {
         expect(result.length).toBe(8)
@@ -408,13 +349,9 @@ describe('Concurrent SDK operations', () => {
     })
 
     it('$.fetch returns correct entity during concurrent fetches', async () => {
-      const entities = await Promise.all(
-        Array.from({ length: 10 }, (_, i) => $.Contact.create({ name: `Fetch ${i}` })),
-      )
+      const entities = await Promise.all(Array.from({ length: 10 }, (_, i) => $.Contact.create({ name: `Fetch ${i}` })))
 
-      const fetched = await Promise.all(
-        entities.map((e) => $.fetch({ type: 'Contact', id: e.$id })),
-      )
+      const fetched = await Promise.all(entities.map((e) => $.fetch({ type: 'Contact', id: e.$id })))
 
       for (let i = 0; i < fetched.length; i++) {
         expect(fetched[i]).toBeDefined()

@@ -146,7 +146,7 @@ await headless.flush()
 
 ```typescript
 process.on('SIGTERM', async () => {
-  await headless.shutdown()  // Flushes all pending events, stops timers
+  await headless.shutdown() // Flushes all pending events, stops timers
   process.exit(0)
 })
 ```
@@ -155,18 +155,18 @@ process.on('SIGTERM', async () => {
 
 ```typescript
 const headless = createClient({
-  apiKey: 'hl_xxx',              // Required -- API key
-  endpoint: 'https://headless.ly/e',  // Event endpoint (default)
-  environment: 'production',     // Environment name
-  release: '2.1.0',             // Release/version identifier
-  serverName: 'api-1',          // Server hostname
-  batchSize: 20,                // Events per batch (default: 20)
-  flushInterval: 10000,         // Auto-flush interval in ms (default: 10s)
-  maxRetries: 3,                // Max retry attempts (default: 3)
-  timeout: 30000,               // Request timeout in ms (default: 30s)
-  debug: false,                 // Enable debug logging
-  tags: { service: 'api' },     // Default tags for all events
-  onError: (err) => log(err),   // Error callback
+  apiKey: 'hl_xxx', // Required -- API key
+  endpoint: 'https://headless.ly/e', // Event endpoint (default)
+  environment: 'production', // Environment name
+  release: '2.1.0', // Release/version identifier
+  serverName: 'api-1', // Server hostname
+  batchSize: 20, // Events per batch (default: 20)
+  flushInterval: 10000, // Auto-flush interval in ms (default: 10s)
+  maxRetries: 3, // Max retry attempts (default: 3)
+  timeout: 30000, // Request timeout in ms (default: 30s)
+  debug: false, // Enable debug logging
+  tags: { service: 'api' }, // Default tags for all events
+  onError: (err) => log(err), // Error callback
 })
 ```
 
@@ -174,44 +174,44 @@ const headless = createClient({
 
 ### Analytics
 
-| Method | Description |
-|---|---|
-| `track(event, properties?, distinctId?)` | Track a server-side event |
-| `identify(userId, traits?)` | Identify a user |
-| `group(groupId, traits?, distinctId?)` | Associate a user with a group |
+| Method                                   | Description                   |
+| ---------------------------------------- | ----------------------------- |
+| `track(event, properties?, distinctId?)` | Track a server-side event     |
+| `identify(userId, traits?)`              | Identify a user               |
+| `group(groupId, traits?, distinctId?)`   | Associate a user with a group |
 
 ### Errors
 
-| Method | Description |
-|---|---|
-| `captureException(error, distinctId?, context?)` | Capture an error with stack trace, returns event ID |
-| `captureMessage(message, level?, distinctId?)` | Capture a message at a severity level, returns event ID |
+| Method                                           | Description                                             |
+| ------------------------------------------------ | ------------------------------------------------------- |
+| `captureException(error, distinctId?, context?)` | Capture an error with stack trace, returns event ID     |
+| `captureMessage(message, level?, distinctId?)`   | Capture a message at a severity level, returns event ID |
 
 ### Feature Flags
 
-| Method | Description |
-|---|---|
-| `getFeatureFlag(key, distinctId)` | Get a flag value with 5-minute caching |
-| `isFeatureEnabled(key, distinctId)` | Check if a flag is enabled |
+| Method                              | Description                            |
+| ----------------------------------- | -------------------------------------- |
+| `getFeatureFlag(key, distinctId)`   | Get a flag value with 5-minute caching |
+| `isFeatureEnabled(key, distinctId)` | Check if a flag is enabled             |
 
 ### Context
 
-| Method | Description |
-|---|---|
-| `setTag(key, value)` | Set a global tag |
-| `setTags(tags)` | Set multiple global tags |
+| Method               | Description              |
+| -------------------- | ------------------------ |
+| `setTag(key, value)` | Set a global tag         |
+| `setTags(tags)`      | Set multiple global tags |
 
 ### Middleware
 
-| Method | Description |
-|---|---|
+| Method         | Description                                                              |
+| -------------- | ------------------------------------------------------------------------ |
 | `middleware()` | Express/Hono middleware for automatic request tracking and error capture |
 
 ### Lifecycle
 
-| Method | Description |
-|---|---|
-| `flush()` | Flush pending events immediately |
+| Method       | Description                                     |
+| ------------ | ----------------------------------------------- |
+| `flush()`    | Flush pending events immediately                |
 | `shutdown()` | Stop the flush timer and flush remaining events |
 
 ## License

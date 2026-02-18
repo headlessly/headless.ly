@@ -53,7 +53,7 @@ Ticket.created(async (ticket, $) => {
   const subs = await $.Subscription.find({ customer: ticket.organization, status: 'Active' })
   const deals = await $.Deal.find({ contact: ticket.requester })
 
-  if (subs.some(s => s.plan === 'enterprise')) {
+  if (subs.some((s) => s.plan === 'enterprise')) {
     await $.Ticket.update(ticket.$id, { priority: 'Urgent' })
   }
 
@@ -121,7 +121,7 @@ Your agent connects to one MCP endpoint. It can triage, resolve, and escalate yo
 const open = await $.Ticket.find({ status: 'Open', priority: 'Urgent' })
 for (const ticket of open) {
   const subs = await $.Subscription.find({ customer: ticket.organization, status: 'Active' })
-  if (subs.some(s => s.plan === 'enterprise')) {
+  if (subs.some((s) => s.plan === 'enterprise')) {
     await $.Ticket.escalate(ticket.$id)
   } else {
     await $.Ticket.update(ticket.$id, { status: 'InProgress', assignee: 'contact_mN8pZwKj' })
@@ -140,7 +140,7 @@ const urgent = await Ticket.find({ priority: 'Urgent', status: 'Open' })
 for (const ticket of urgent) {
   const contact = await Contact.get(ticket.requester)
   const deals = await Deal.find({ contact: contact.$id })
-  const active = deals.filter(d => d.stage !== 'ClosedLost')
+  const active = deals.filter((d) => d.stage !== 'ClosedLost')
   if (active.length > 0) {
     await Ticket.escalate(ticket.$id)
   }

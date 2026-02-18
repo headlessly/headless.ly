@@ -27,7 +27,7 @@ None of them were built for an AI agent to operate.
 Your agent doesn't need a WYSIWYG editor. It needs `Content.publish()`. It doesn't need a media library with drag-and-drop uploads. It needs `Asset.create()`. It doesn't need a "content model builder" GUI. It needs a BEFORE hook:
 
 ```typescript
-Content.publishing(content => {
+Content.publishing((content) => {
   if (!content.seoTitle || !content.seoDescription) throw new Error('SEO metadata required before publishing')
 })
 ```

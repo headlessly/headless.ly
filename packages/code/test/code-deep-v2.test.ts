@@ -256,8 +256,7 @@ describe('Exec — command execution', () => {
   })
 
   it('returns full ExecResult with all fields', async () => {
-    fetchResponder = () =>
-      execOk({ exitCode: 0, stdout: 'output\n', stderr: 'warning\n', command: 'mycommand', duration: 42 })
+    fetchResponder = () => execOk({ exitCode: 0, stdout: 'output\n', stderr: 'warning\n', command: 'mycommand', duration: 42 })
     const client = createCodeClient({ apiKey: 'key' })
     const result = await client.exec('sb_1', 'mycommand')
     expect(result.exitCode).toBe(0)
@@ -559,8 +558,7 @@ describe('parseExecStream — advanced SSE parsing', () => {
   })
 
   it('handles multiple events in a single chunk with blank line separators', async () => {
-    const chunk =
-      'data: {"type":"stdout","data":"a"}\n\ndata: {"type":"stdout","data":"b"}\n\ndata: {"type":"stdout","data":"c"}\n\n'
+    const chunk = 'data: {"type":"stdout","data":"a"}\n\ndata: {"type":"stdout","data":"b"}\n\ndata: {"type":"stdout","data":"c"}\n\n'
     const res = sseResponse(chunk)
     const events = await collectStream(parseExecStream(res))
     expect(events).toHaveLength(3)
@@ -625,11 +623,7 @@ describe('Concurrent & sequential operations', () => {
       return execOk({ stdout: cmd, command: cmd })
     }
     const client = createCodeClient({ apiKey: 'key' })
-    const results = await Promise.all([
-      client.exec('sb_1', 'cmd1'),
-      client.exec('sb_1', 'cmd2'),
-      client.exec('sb_1', 'cmd3'),
-    ])
+    const results = await Promise.all([client.exec('sb_1', 'cmd1'), client.exec('sb_1', 'cmd2'), client.exec('sb_1', 'cmd3')])
     expect(fetchCalls).toHaveLength(3)
     expect(results[0]!.stdout).toBe('cmd1')
     expect(results[1]!.stdout).toBe('cmd2')
@@ -656,11 +650,7 @@ describe('Concurrent & sequential operations', () => {
   it('concurrent file operations on different paths all succeed', async () => {
     fetchResponder = () => ok(null)
     const client = createCodeClient({ apiKey: 'key' })
-    await Promise.all([
-      client.writeFile('sb_1', '/a.txt', 'aaa'),
-      client.writeFile('sb_1', '/b.txt', 'bbb'),
-      client.writeFile('sb_1', '/c.txt', 'ccc'),
-    ])
+    await Promise.all([client.writeFile('sb_1', '/a.txt', 'aaa'), client.writeFile('sb_1', '/b.txt', 'bbb'), client.writeFile('sb_1', '/c.txt', 'ccc')])
     expect(fetchCalls).toHaveLength(3)
     const paths = fetchCalls.map((c) => (c.body as { path: string }).path)
     expect(paths).toContain('/a.txt')

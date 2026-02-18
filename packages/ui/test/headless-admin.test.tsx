@@ -70,7 +70,7 @@ describe('HeadlessAdmin', () => {
 
   it('defaultEntity prop pre-selects an entity', async () => {
     registerTestNouns()
-    render(<HeadlessAdmin defaultEntity="Deal" />)
+    render(<HeadlessAdmin defaultEntity='Deal' />)
 
     expect(screen.queryByText('Select an entity from the sidebar')).not.toBeInTheDocument()
 
@@ -93,7 +93,7 @@ describe('HeadlessAdmin', () => {
 
   it('passes className to wrapper', () => {
     registerTestNouns()
-    const { container } = render(<HeadlessAdmin className="my-admin" />)
+    const { container } = render(<HeadlessAdmin className='my-admin' />)
     expect(container.firstElementChild?.className).toContain('my-admin')
   })
 
@@ -112,7 +112,7 @@ describe('HeadlessAdmin', () => {
     })
     await Contact.create({ name: 'Alice', stage: 'Lead' })
 
-    render(<HeadlessAdmin defaultEntity="Contact" />)
+    render(<HeadlessAdmin defaultEntity='Contact' />)
 
     await waitFor(() => {
       expect(screen.getByText('Alice')).toBeInTheDocument()
@@ -133,7 +133,7 @@ describe('HeadlessAdmin', () => {
     await Contact.create({ name: 'Alice', email: 'alice@test.com', stage: 'Lead' })
     await Contact.create({ name: 'Bob', email: 'bob@test.com', stage: 'Qualified' })
 
-    render(<HeadlessAdmin defaultEntity="Contact" />)
+    render(<HeadlessAdmin defaultEntity='Contact' />)
 
     await waitFor(() => {
       expect(screen.getByText('Alice')).toBeInTheDocument()

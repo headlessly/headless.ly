@@ -436,11 +436,7 @@ describe('@headlessly/content — deep-v3 coverage', () => {
       const c2 = await Content.create({ title: 'Concurrent 2', status: 'Draft' })
       const c3 = await Content.create({ title: 'Concurrent 3', status: 'Draft' })
 
-      const [p1, p2, p3] = await Promise.all([
-        Content.publish(c1.$id),
-        Content.publish(c2.$id),
-        Content.publish(c3.$id),
-      ])
+      const [p1, p2, p3] = await Promise.all([Content.publish(c1.$id), Content.publish(c2.$id), Content.publish(c3.$id)])
 
       expect(p1.status).toBe('Published')
       expect(p2.status).toBe('Published')
@@ -462,11 +458,7 @@ describe('@headlessly/content — deep-v3 coverage', () => {
       const p = await Content.create({ title: 'Will Archive', status: 'Published' })
       const s = await Content.create({ title: 'Will Schedule', status: 'Draft' })
 
-      const [pub, arch, sched] = await Promise.all([
-        Content.publish(d.$id),
-        Content.archive(p.$id),
-        Content.schedule(s.$id),
-      ])
+      const [pub, arch, sched] = await Promise.all([Content.publish(d.$id), Content.archive(p.$id), Content.schedule(s.$id)])
 
       expect(pub.status).toBe('Published')
       expect(arch.status).toBe('Archived')
@@ -790,9 +782,24 @@ describe('@headlessly/content — deep-v3 coverage', () => {
 
     it('all Content field names are present in fields map', () => {
       const expected = [
-        'title', 'slug', 'excerpt', 'body', 'type', 'categories', 'tags',
-        'status', 'publishedAt', 'scheduledAt', 'seoTitle', 'seoDescription',
-        'ogImage', 'noIndex', 'canonicalUrl', 'readingTime', 'viewCount', 'visibility',
+        'title',
+        'slug',
+        'excerpt',
+        'body',
+        'type',
+        'categories',
+        'tags',
+        'status',
+        'publishedAt',
+        'scheduledAt',
+        'seoTitle',
+        'seoDescription',
+        'ogImage',
+        'noIndex',
+        'canonicalUrl',
+        'readingTime',
+        'viewCount',
+        'visibility',
       ]
       const fieldKeys = Array.from(Content.$schema.fields.keys())
       for (const key of expected) {

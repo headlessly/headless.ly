@@ -12,8 +12,7 @@ interface FetchCall {
 }
 
 const fetchCalls: FetchCall[] = []
-let fetchResponder: (url: string, init?: RequestInit) => Response | Promise<Response> = () =>
-  new Response(JSON.stringify({ ok: true }), { status: 200 })
+let fetchResponder: (url: string, init?: RequestInit) => Response | Promise<Response> = () => new Response(JSON.stringify({ ok: true }), { status: 200 })
 
 function resetFetch() {
   fetchCalls.length = 0
@@ -253,8 +252,7 @@ describe('@headlessly/node — deep v3', () => {
 
     it('handles object-typed flag values', async () => {
       fetchResponder = (url) => {
-        if (url.includes('/flags'))
-          return new Response(JSON.stringify({ flags: { config: { color: 'blue', limit: 100 } } }), { status: 200 })
+        if (url.includes('/flags')) return new Response(JSON.stringify({ flags: { config: { color: 'blue', limit: 100 } } }), { status: 200 })
         return new Response(JSON.stringify({ ok: true }), { status: 200 })
       }
 
@@ -275,8 +273,7 @@ describe('@headlessly/node — deep v3', () => {
 
     it('isFeatureEnabled with object flag returns false', async () => {
       fetchResponder = (url) => {
-        if (url.includes('/flags'))
-          return new Response(JSON.stringify({ flags: { flag: { variant: 'a' } } }), { status: 200 })
+        if (url.includes('/flags')) return new Response(JSON.stringify({ flags: { flag: { variant: 'a' } } }), { status: 200 })
         return new Response(JSON.stringify({ ok: true }), { status: 200 })
       }
 

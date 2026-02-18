@@ -112,12 +112,7 @@ const v3 = await traveler.asOf('Contact', 'contact_fX9bL5nRd', {
 See exactly what changed between any two points:
 
 ```typescript
-const diff = await traveler.diff(
-  'Contact',
-  'contact_fX9bL5nRd',
-  { asOf: '2025-01-01T00:00:00Z' },
-  { asOf: '2025-06-01T00:00:00Z' },
-)
+const diff = await traveler.diff('Contact', 'contact_fX9bL5nRd', { asOf: '2025-01-01T00:00:00Z' }, { asOf: '2025-06-01T00:00:00Z' })
 console.log(diff.changes)
 // [{ field: 'stage', from: 'Lead', to: 'Customer' },
 //  { field: 'leadScore', from: 45, to: 92 }]
@@ -128,11 +123,7 @@ console.log(diff.changes)
 Rollback doesn't rewrite history — it creates a new event that restores a previous state:
 
 ```typescript
-const { rollbackEvent, restoredState } = await traveler.rollback(
-  'Contact',
-  'contact_fX9bL5nRd',
-  { atVersion: 2 },
-)
+const { rollbackEvent, restoredState } = await traveler.rollback('Contact', 'contact_fX9bL5nRd', { atVersion: 2 })
 // rollbackEvent.$type = 'Contact.rolledBack'
 // The event log now has v1, v2, v3, v4 (rollback to v2 state)
 ```

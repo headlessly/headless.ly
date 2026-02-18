@@ -223,10 +223,7 @@ describe('Multi-sandbox isolation', () => {
   it('writeFile to different sandboxes includes correct sandboxId', async () => {
     fetchResponder = () => ok(null)
     const client = createCodeClient({ apiKey: 'key' })
-    await Promise.all([
-      client.writeFile('sb_a', '/file.txt', 'content_a'),
-      client.writeFile('sb_b', '/file.txt', 'content_b'),
-    ])
+    await Promise.all([client.writeFile('sb_a', '/file.txt', 'content_a'), client.writeFile('sb_b', '/file.txt', 'content_b')])
 
     const bodies = fetchCalls.map((c) => c.body as { sandboxId: string; content: string })
     const bodyA = bodies.find((b) => b.sandboxId === 'sb_a')
@@ -318,9 +315,7 @@ describe('File system edge cases', () => {
   it('listFiles returns symlink type in file info', async () => {
     fetchResponder = () =>
       ok({
-        files: [
-          { name: 'link.txt', absolutePath: '/app/link.txt', type: 'symlink', size: 0, modifiedAt: '2025-01-01T00:00:00Z', permissions: '0777' },
-        ],
+        files: [{ name: 'link.txt', absolutePath: '/app/link.txt', type: 'symlink', size: 0, modifiedAt: '2025-01-01T00:00:00Z', permissions: '0777' }],
       })
     const client = createCodeClient({ apiKey: 'key' })
     const files = await client.listFiles('sb_1', '/app')
@@ -648,9 +643,7 @@ describe('Concurrent execution and ordering', () => {
     }
 
     const client = createCodeClient({ apiKey: 'key' })
-    const results = await Promise.all(
-      Array.from({ length: 5 }, (_, i) => client.exec('sb_1', `cmd-${i + 1}`)),
-    )
+    const results = await Promise.all(Array.from({ length: 5 }, (_, i) => client.exec('sb_1', `cmd-${i + 1}`)))
     expect(results).toHaveLength(5)
     expect(fetchCalls).toHaveLength(5)
   })
@@ -689,11 +682,7 @@ describe('Concurrent execution and ordering', () => {
     }
 
     const client = createCodeClient({ apiKey: 'key' })
-    const results = await Promise.allSettled([
-      client.exec('sb_1', 'cmd1'),
-      client.exec('sb_1', 'cmd2'),
-      client.exec('sb_1', 'cmd3'),
-    ])
+    const results = await Promise.allSettled([client.exec('sb_1', 'cmd1'), client.exec('sb_1', 'cmd2'), client.exec('sb_1', 'cmd3')])
 
     expect(results[0]!.status).toBe('fulfilled')
     expect(results[1]!.status).toBe('rejected')
@@ -708,11 +697,7 @@ describe('Concurrent execution and ordering', () => {
     }
 
     const client = createCodeClient({ apiKey: 'key' })
-    const [running, stopped, missing] = await Promise.all([
-      client.getSandbox('sb_running'),
-      client.getSandbox('sb_stopped'),
-      client.getSandbox('sb_missing'),
-    ])
+    const [running, stopped, missing] = await Promise.all([client.getSandbox('sb_running'), client.getSandbox('sb_stopped'), client.getSandbox('sb_missing')])
 
     expect(running!.status).toBe('running')
     expect(stopped!.status).toBe('stopped')
@@ -726,11 +711,7 @@ describe('Concurrent execution and ordering', () => {
     }
 
     const client = createCodeClient({ apiKey: 'key' })
-    const [c1, c2, c3] = await Promise.all([
-      client.readFile('sb_1', '/a.txt'),
-      client.readFile('sb_1', '/b.txt'),
-      client.readFile('sb_1', '/c.txt'),
-    ])
+    const [c1, c2, c3] = await Promise.all([client.readFile('sb_1', '/a.txt'), client.readFile('sb_1', '/b.txt'), client.readFile('sb_1', '/c.txt')])
 
     expect(c1).toBe('content-of-/a.txt')
     expect(c2).toBe('content-of-/b.txt')
@@ -744,10 +725,7 @@ describe('Concurrent execution and ordering', () => {
 
 describe('Resource cleanup on errors', () => {
   it('stream reader is released even when parser encounters error event', async () => {
-    const res = sseResponse(
-      'data: {"type":"stdout","data":"before-error"}\n\n',
-      'data: {"type":"error","message":"sandbox crashed"}\n\n',
-    )
+    const res = sseResponse('data: {"type":"stdout","data":"before-error"}\n\n', 'data: {"type":"error","message":"sandbox crashed"}\n\n')
     const events = await collectParse(res)
     expect(events).toHaveLength(2)
     expect(events[1]!.type).toBe('error')
@@ -892,10 +870,7 @@ describe('Exec options edge cases', () => {
 
 describe('API response shape handling', () => {
   it('listFiles handles direct array data (no wrapper)', async () => {
-    fetchResponder = () =>
-      ok([
-        { name: 'x.txt', absolutePath: '/x.txt', type: 'file', size: 5, modifiedAt: '2025-01-01T00:00:00Z', permissions: '0644' },
-      ])
+    fetchResponder = () => ok([{ name: 'x.txt', absolutePath: '/x.txt', type: 'file', size: 5, modifiedAt: '2025-01-01T00:00:00Z', permissions: '0644' }])
     const client = createCodeClient({ apiKey: 'key' })
     const files = await client.listFiles('sb_1', '/')
     expect(files).toHaveLength(1)

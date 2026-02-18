@@ -584,10 +584,7 @@ describe('@headlessly/objects -- deep-v2 provider tests', () => {
       bridge.subscribe('Contact.qualify', () => callOrder.push('qualify'))
       bridge.subscribe('Contact.qualified', () => callOrder.push('qualified'))
 
-      await executeVerb(
-        { type: 'Contact', verb: 'qualify', entityId: created.$id, data: { stage: 'Qualified' } },
-        { provider, events: bridge },
-      )
+      await executeVerb({ type: 'Contact', verb: 'qualify', entityId: created.$id, data: { stage: 'Qualified' } }, { provider, events: bridge })
 
       expect(callOrder).toEqual(['qualifying', 'qualify', 'qualified'])
     })
@@ -607,10 +604,7 @@ describe('@headlessly/objects -- deep-v2 provider tests', () => {
         stateAtBefore = current?.stage as string
       })
 
-      await executeVerb(
-        { type: 'Deal', verb: 'close', entityId: deal.$id, data: { stage: 'Won' } },
-        { provider, events: bridge },
-      )
+      await executeVerb({ type: 'Deal', verb: 'close', entityId: deal.$id, data: { stage: 'Won' } }, { provider, events: bridge })
 
       expect(stateAtBefore).toBe('Open')
     })
@@ -631,10 +625,7 @@ describe('@headlessly/objects -- deep-v2 provider tests', () => {
       bridge.subscribe('Contact.qualified', afterHandler)
 
       await expect(
-        executeVerb(
-          { type: 'Contact', verb: 'qualify', entityId: created.$id, data: { stage: 'Qualified' } },
-          { provider, events: bridge },
-        ),
+        executeVerb({ type: 'Contact', verb: 'qualify', entityId: created.$id, data: { stage: 'Qualified' } }, { provider, events: bridge }),
       ).rejects.toThrow('Blocked by policy')
 
       // AFTER event should not have fired
@@ -664,9 +655,7 @@ describe('@headlessly/objects -- deep-v2 provider tests', () => {
 
       const entry = await provider.create('Ledger', { amount: '100.00' })
 
-      await expect(
-        executeVerb({ type: 'Ledger', verb: 'update', entityId: entry.$id, data: { amount: '200.00' } }, { provider }),
-      ).rejects.toThrow(/disabled/)
+      await expect(executeVerb({ type: 'Ledger', verb: 'update', entityId: entry.$id, data: { amount: '200.00' } }, { provider })).rejects.toThrow(/disabled/)
     })
 
     it('throws for unknown verb when schema is registered', async () => {
@@ -676,9 +665,7 @@ describe('@headlessly/objects -- deep-v2 provider tests', () => {
 
       const contact = await provider.create('Contact', { name: 'Test' })
 
-      await expect(
-        executeVerb({ type: 'Contact', verb: 'nonexistentverb', entityId: contact.$id }, { provider }),
-      ).rejects.toThrow(/[Uu]nknown verb/)
+      await expect(executeVerb({ type: 'Contact', verb: 'nonexistentverb', entityId: contact.$id }, { provider })).rejects.toThrow(/[Uu]nknown verb/)
     })
   })
 
@@ -692,10 +679,7 @@ describe('@headlessly/objects -- deep-v2 provider tests', () => {
       const created = await provider.create('Unregistered', { field: 'value' })
 
       // No Noun() call -- schema is undefined, should skip validation
-      const result = await executeVerb(
-        { type: 'Unregistered', verb: 'touch', entityId: created.$id },
-        { provider },
-      )
+      const result = await executeVerb({ type: 'Unregistered', verb: 'touch', entityId: created.$id }, { provider })
 
       expect(result.$id).toBe(created.$id)
     })
@@ -810,9 +794,7 @@ describe('@headlessly/objects -- deep-v2 provider tests', () => {
       // In legacy doFetch mode, the proxy only defines find/get/put/create/delete.
       // Calling perform() with a custom verb hits ns[verb]() which is undefined,
       // so it throws a TypeError.
-      await expect(
-        provider.perform('Contact', 'qualify', 'contact_abc', { stage: 'Qualified' }),
-      ).rejects.toThrow()
+      await expect(provider.perform('Contact', 'qualify', 'contact_abc', { stage: 'Qualified' })).rejects.toThrow()
     })
   })
 
@@ -1034,10 +1016,7 @@ describe('@headlessly/objects -- deep-v2 provider tests', () => {
       const events: NounEvent[] = []
       bridge.subscribe('*', (e) => events.push(e))
 
-      await executeVerb(
-        { type: 'Deal', verb: 'close', entityId: deal.$id, data: { stage: 'Won' } },
-        { provider, events: bridge },
-      )
+      await executeVerb({ type: 'Deal', verb: 'close', entityId: deal.$id, data: { stage: 'Won' } }, { provider, events: bridge })
 
       const types = events.map((e) => e.$type)
       expect(types).toContain('Deal.closing')
@@ -1056,10 +1035,7 @@ describe('@headlessly/objects -- deep-v2 provider tests', () => {
       const events: NounEvent[] = []
       bridge.subscribe('*', (e) => events.push(e))
 
-      await executeVerb(
-        { type: 'Contact', verb: 'qualify', entityId: contact.$id, data: { stage: 'Qualified' } },
-        { provider, events: bridge },
-      )
+      await executeVerb({ type: 'Contact', verb: 'qualify', entityId: contact.$id, data: { stage: 'Qualified' } }, { provider, events: bridge })
 
       const types = events.map((e) => e.$type)
       expect(types).toContain('Contact.qualifying')

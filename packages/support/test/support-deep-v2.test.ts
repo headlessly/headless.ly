@@ -543,9 +543,7 @@ describe('@headlessly/support deep-v2 tests', () => {
     })
 
     it('concurrent creates produce unique IDs', async () => {
-      const tickets = await Promise.all(
-        Array.from({ length: 20 }, (_, i) => Ticket.create({ subject: `Concurrent ${i}` })),
-      )
+      const tickets = await Promise.all(Array.from({ length: 20 }, (_, i) => Ticket.create({ subject: `Concurrent ${i}` })))
       const ids = tickets.map((t) => t.$id)
       const unique = new Set(ids)
       expect(unique.size).toBe(20)

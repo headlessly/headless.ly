@@ -15,13 +15,7 @@ vi.stubGlobal('fetch', mockFetch)
 const processOnSpy = vi.spyOn(process, 'on')
 const processOnceSpy = vi.spyOn(process, 'once')
 
-import {
-  Headlessly,
-  createClient,
-  HeadlessNodeClient,
-  expressMiddleware,
-  honoMiddleware,
-} from '../src/index'
+import { Headlessly, createClient, HeadlessNodeClient, expressMiddleware, honoMiddleware } from '../src/index'
 import type { NodeConfig } from '../src/index'
 
 // ---------------------------------------------------------------------------
@@ -280,7 +274,9 @@ describe('Express middleware', () => {
     const req = { method: 'GET', url: '/api/crash', path: '/api/crash', headers: {} }
     const res = { statusCode: 500, on: vi.fn() }
     const error = new Error('downstream crash')
-    const next = vi.fn(() => { throw error })
+    const next = vi.fn(() => {
+      throw error
+    })
 
     expect(() => mw(req as any, res as any, next)).toThrow('downstream crash')
 
@@ -411,7 +407,7 @@ describe('Hono middleware', () => {
         method: 'GET',
         path: '/',
         url: 'https://db.headless.ly/',
-        header: vi.fn((name: string) => name === 'user-agent' ? 'HonoBot/2.0' : undefined),
+        header: vi.fn((name: string) => (name === 'user-agent' ? 'HonoBot/2.0' : undefined)),
       },
       res: { status: 200 },
     }
@@ -560,12 +556,15 @@ describe('flush()', () => {
 
   it('returns a promise that resolves after the network call', async () => {
     let resolved = false
-    mockFetch.mockImplementation(() => new Promise((resolve) => {
-      setTimeout(() => {
-        resolved = true
-        resolve(okResponse())
-      }, 10)
-    }))
+    mockFetch.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(() => {
+            resolved = true
+            resolve(okResponse())
+          }, 10)
+        }),
+    )
 
     client.track('test_event')
     await client.flush()
@@ -687,9 +686,7 @@ describe('Feature flag evaluation', () => {
     await client.flush()
 
     // Find the fetch call that sent events (not the /flags call)
-    const eventCall = mockFetch.mock.calls.find(
-      ([url]) => !(url as string).includes('/flags'),
-    )
+    const eventCall = mockFetch.mock.calls.find(([url]) => !(url as string).includes('/flags'))
     expect(eventCall).toBeDefined()
     const body = JSON.parse(eventCall![1]?.body as string)
     const flagEvent = body.events.find((e: any) => e.event === '$feature_flag_called')
@@ -771,9 +768,7 @@ describe('Graceful shutdown', () => {
     await client.shutdown()
 
     expect(mockFetch).toHaveBeenCalled()
-    const allEvents = mockFetch.mock.calls
-      .map(([, init]) => JSON.parse(init?.body as string).events)
-      .flat()
+    const allEvents = mockFetch.mock.calls.map(([, init]) => JSON.parse(init?.body as string).events).flat()
 
     expect(allEvents).toHaveLength(50)
   })
@@ -819,10 +814,7 @@ describe('Error handling', () => {
 
   it('retries failed requests up to maxRetries with exponential backoff', async () => {
     vi.useFakeTimers()
-    mockFetch
-      .mockRejectedValueOnce(new Error('fail 1'))
-      .mockRejectedValueOnce(new Error('fail 2'))
-      .mockResolvedValueOnce(okResponse())
+    mockFetch.mockRejectedValueOnce(new Error('fail 1')).mockRejectedValueOnce(new Error('fail 2')).mockResolvedValueOnce(okResponse())
 
     const client = createClient({ apiKey: 'hly_sk_test123', maxRetries: 3, flushInterval: 60000, batchSize: 100 })
     client.track('event')

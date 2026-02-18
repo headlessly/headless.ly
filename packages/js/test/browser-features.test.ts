@@ -1,11 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { HeadlessClient } from '../src/client.js'
-import {
-  ForwardingManager,
-  GoogleAnalyticsForwarder,
-  SegmentForwarder,
-  PostHogForwarder,
-} from '../src/forwarding.js'
+import { ForwardingManager, GoogleAnalyticsForwarder, SegmentForwarder, PostHogForwarder } from '../src/forwarding.js'
 import type { EventForwarder } from '../src/forwarding.js'
 import { RealtimeManager } from '../src/realtime.js'
 import type { SubscriptionMessage, RealtimeState } from '../src/realtime.js'
@@ -22,8 +17,7 @@ interface FetchCall {
 }
 
 const fetchCalls: FetchCall[] = []
-let fetchResponder: (url: string, init?: RequestInit) => Response | Promise<Response> = () =>
-  new Response(JSON.stringify({ ok: true }), { status: 200 })
+let fetchResponder: (url: string, init?: RequestInit) => Response | Promise<Response> = () => new Response(JSON.stringify({ ok: true }), { status: 200 })
 
 beforeEach(() => {
   fetchCalls.length = 0
@@ -235,12 +229,16 @@ describe('@headlessly/js — browser features', () => {
           ts: 'now',
         })
 
-        expect(gtagSpy).toHaveBeenCalledWith('event', 'page_view', expect.objectContaining({
-          page_title: 'About',
-          page_location: 'https://example.com/about',
-          page_path: '/about',
-          send_to: 'G-XXXXX',
-        }))
+        expect(gtagSpy).toHaveBeenCalledWith(
+          'event',
+          'page_view',
+          expect.objectContaining({
+            page_title: 'About',
+            page_location: 'https://example.com/about',
+            page_path: '/about',
+            send_to: 'G-XXXXX',
+          }),
+        )
 
         delete (window as unknown as Record<string, unknown>).gtag
       })
@@ -259,10 +257,14 @@ describe('@headlessly/js — browser features', () => {
           ts: 'now',
         })
 
-        expect(gtagSpy).toHaveBeenCalledWith('event', 'purchase', expect.objectContaining({
-          value: 99,
-          send_to: 'G-XXXXX',
-        }))
+        expect(gtagSpy).toHaveBeenCalledWith(
+          'event',
+          'purchase',
+          expect.objectContaining({
+            value: 99,
+            send_to: 'G-XXXXX',
+          }),
+        )
 
         delete (window as unknown as Record<string, unknown>).gtag
       })
@@ -280,10 +282,14 @@ describe('@headlessly/js — browser features', () => {
           exception: { type: 'Error', value: 'boom' },
         })
 
-        expect(gtagSpy).toHaveBeenCalledWith('event', 'exception', expect.objectContaining({
-          description: 'boom',
-          fatal: false,
-        }))
+        expect(gtagSpy).toHaveBeenCalledWith(
+          'event',
+          'exception',
+          expect.objectContaining({
+            description: 'boom',
+            fatal: false,
+          }),
+        )
 
         delete (window as unknown as Record<string, unknown>).gtag
       })
@@ -460,12 +466,15 @@ describe('@headlessly/js — browser features', () => {
           ts: 'now',
         })
 
-        expect(captureSpy).toHaveBeenCalledWith('$pageview', expect.objectContaining({
-          $current_url: 'https://example.com/home',
-          $pathname: '/home',
-          $title: 'Home',
-          $referrer: 'https://google.com',
-        }))
+        expect(captureSpy).toHaveBeenCalledWith(
+          '$pageview',
+          expect.objectContaining({
+            $current_url: 'https://example.com/home',
+            $pathname: '/home',
+            $title: 'Home',
+            $referrer: 'https://google.com',
+          }),
+        )
         delete (window as unknown as Record<string, unknown>).posthog
       })
 
@@ -487,11 +496,14 @@ describe('@headlessly/js — browser features', () => {
           exception: { type: 'TypeError', value: 'bad input' },
         })
 
-        expect(captureSpy).toHaveBeenCalledWith('$exception', expect.objectContaining({
-          $exception_type: 'TypeError',
-          $exception_message: 'bad input',
-          $exception_level: 'error',
-        }))
+        expect(captureSpy).toHaveBeenCalledWith(
+          '$exception',
+          expect.objectContaining({
+            $exception_type: 'TypeError',
+            $exception_message: 'bad input',
+            $exception_level: 'error',
+          }),
+        )
         delete (window as unknown as Record<string, unknown>).posthog
       })
 
@@ -590,10 +602,14 @@ describe('@headlessly/js — browser features', () => {
         await client.flush()
         await flushMicrotasks()
 
-        expect(gtagSpy).toHaveBeenCalledWith('event', 'via_config', expect.objectContaining({
-          item: 'test',
-          send_to: 'G-TEST',
-        }))
+        expect(gtagSpy).toHaveBeenCalledWith(
+          'event',
+          'via_config',
+          expect.objectContaining({
+            item: 'test',
+            send_to: 'G-TEST',
+          }),
+        )
 
         delete (window as unknown as Record<string, unknown>).gtag
       })
@@ -643,15 +659,18 @@ describe('@headlessly/js — browser features', () => {
       it('tracks subscribed entity types', () => {
         const rt = new RealtimeManager()
         // Mock WebSocket to prevent actual connection
-        vi.stubGlobal('WebSocket', vi.fn().mockImplementation(() => ({
-          readyState: 0,
-          onopen: null,
-          onmessage: null,
-          onclose: null,
-          onerror: null,
-          close: vi.fn(),
-          send: vi.fn(),
-        })))
+        vi.stubGlobal(
+          'WebSocket',
+          vi.fn().mockImplementation(() => ({
+            readyState: 0,
+            onopen: null,
+            onmessage: null,
+            onclose: null,
+            onerror: null,
+            close: vi.fn(),
+            send: vi.fn(),
+          })),
+        )
 
         const unsub1 = rt.subscribe('Contact', vi.fn())
         const unsub2 = rt.subscribe('Deal', vi.fn())
@@ -673,18 +692,21 @@ describe('@headlessly/js — browser features', () => {
 
         // Mock WebSocket
         let wsInstance: Record<string, unknown> = {}
-        vi.stubGlobal('WebSocket', vi.fn().mockImplementation(() => {
-          wsInstance = {
-            readyState: 0,
-            onopen: null,
-            onmessage: null,
-            onclose: null,
-            onerror: null,
-            close: vi.fn(),
-            send: vi.fn(),
-          }
-          return wsInstance
-        }))
+        vi.stubGlobal(
+          'WebSocket',
+          vi.fn().mockImplementation(() => {
+            wsInstance = {
+              readyState: 0,
+              onopen: null,
+              onmessage: null,
+              onclose: null,
+              onerror: null,
+              close: vi.fn(),
+              send: vi.fn(),
+            }
+            return wsInstance
+          }),
+        )
 
         rt.connect()
         expect(states).toContain('connecting')
@@ -700,15 +722,18 @@ describe('@headlessly/js — browser features', () => {
 
       it('shutdown clears all subscriptions and state', () => {
         const rt = new RealtimeManager()
-        vi.stubGlobal('WebSocket', vi.fn().mockImplementation(() => ({
-          readyState: 0,
-          onopen: null,
-          onmessage: null,
-          onclose: null,
-          onerror: null,
-          close: vi.fn(),
-          send: vi.fn(),
-        })))
+        vi.stubGlobal(
+          'WebSocket',
+          vi.fn().mockImplementation(() => ({
+            readyState: 0,
+            onopen: null,
+            onmessage: null,
+            onclose: null,
+            onerror: null,
+            close: vi.fn(),
+            send: vi.fn(),
+          })),
+        )
 
         rt.subscribe('Contact', vi.fn())
         rt.subscribe('Deal', vi.fn())
@@ -724,22 +749,25 @@ describe('@headlessly/js — browser features', () => {
         const handler = vi.fn()
 
         let wsInstance: Record<string, unknown> = {}
-        vi.stubGlobal('WebSocket', vi.fn().mockImplementation(() => {
-          wsInstance = {
-            readyState: 1,
-            onopen: null,
-            onmessage: null,
-            onclose: null,
-            onerror: null,
-            close: vi.fn(),
-            send: vi.fn(),
-            OPEN: 1,
-            CONNECTING: 0,
-          }
-          // Fake WebSocket constants
-          Object.defineProperty(wsInstance, 'readyState', { value: 1, writable: true })
-          return wsInstance
-        }))
+        vi.stubGlobal(
+          'WebSocket',
+          vi.fn().mockImplementation(() => {
+            wsInstance = {
+              readyState: 1,
+              onopen: null,
+              onmessage: null,
+              onclose: null,
+              onerror: null,
+              close: vi.fn(),
+              send: vi.fn(),
+              OPEN: 1,
+              CONNECTING: 0,
+            }
+            // Fake WebSocket constants
+            Object.defineProperty(wsInstance, 'readyState', { value: 1, writable: true })
+            return wsInstance
+          }),
+        )
 
         rt.subscribe('Contact', handler)
 
@@ -755,7 +783,7 @@ describe('@headlessly/js — browser features', () => {
           ts: new Date().toISOString(),
         }
         if (wsInstance.onmessage) {
-          (wsInstance.onmessage as (event: { data: string }) => void)({
+          ;(wsInstance.onmessage as (event: { data: string }) => void)({
             data: JSON.stringify(msg),
           })
         }
@@ -768,19 +796,22 @@ describe('@headlessly/js — browser features', () => {
         const wildcardHandler = vi.fn()
 
         let wsInstance: Record<string, unknown> = {}
-        vi.stubGlobal('WebSocket', vi.fn().mockImplementation(() => {
-          wsInstance = {
-            readyState: 1,
-            onopen: null,
-            onmessage: null,
-            onclose: null,
-            onerror: null,
-            close: vi.fn(),
-            send: vi.fn(),
-          }
-          Object.defineProperty(wsInstance, 'readyState', { value: 1, writable: true })
-          return wsInstance
-        }))
+        vi.stubGlobal(
+          'WebSocket',
+          vi.fn().mockImplementation(() => {
+            wsInstance = {
+              readyState: 1,
+              onopen: null,
+              onmessage: null,
+              onclose: null,
+              onerror: null,
+              close: vi.fn(),
+              send: vi.fn(),
+            }
+            Object.defineProperty(wsInstance, 'readyState', { value: 1, writable: true })
+            return wsInstance
+          }),
+        )
 
         rt.subscribe('*', wildcardHandler)
         // Need a typed subscription for the entity to trigger handlers
@@ -796,7 +827,7 @@ describe('@headlessly/js — browser features', () => {
           ts: new Date().toISOString(),
         }
         if (wsInstance.onmessage) {
-          (wsInstance.onmessage as (event: { data: string }) => void)({
+          ;(wsInstance.onmessage as (event: { data: string }) => void)({
             data: JSON.stringify(msg),
           })
         }
@@ -808,15 +839,18 @@ describe('@headlessly/js — browser features', () => {
         const rt = new RealtimeManager()
         const handler = vi.fn()
 
-        vi.stubGlobal('WebSocket', vi.fn().mockImplementation(() => ({
-          readyState: 1,
-          onopen: null,
-          onmessage: null,
-          onclose: null,
-          onerror: null,
-          close: vi.fn(),
-          send: vi.fn(),
-        })))
+        vi.stubGlobal(
+          'WebSocket',
+          vi.fn().mockImplementation(() => ({
+            readyState: 1,
+            onopen: null,
+            onmessage: null,
+            onclose: null,
+            onerror: null,
+            close: vi.fn(),
+            send: vi.fn(),
+          })),
+        )
 
         const unsub = rt.subscribe('Contact', handler)
         unsub()
@@ -830,15 +864,18 @@ describe('@headlessly/js — browser features', () => {
       })
 
       it('subscribe creates a realtime manager lazily', () => {
-        vi.stubGlobal('WebSocket', vi.fn().mockImplementation(() => ({
-          readyState: 0,
-          onopen: null,
-          onmessage: null,
-          onclose: null,
-          onerror: null,
-          close: vi.fn(),
-          send: vi.fn(),
-        })))
+        vi.stubGlobal(
+          'WebSocket',
+          vi.fn().mockImplementation(() => ({
+            readyState: 0,
+            onopen: null,
+            onmessage: null,
+            onclose: null,
+            onerror: null,
+            close: vi.fn(),
+            send: vi.fn(),
+          })),
+        )
 
         client.init({ apiKey: 'test_key' })
         const handler = vi.fn()
@@ -853,15 +890,18 @@ describe('@headlessly/js — browser features', () => {
       })
 
       it('connectRealtime and disconnectRealtime are callable', () => {
-        vi.stubGlobal('WebSocket', vi.fn().mockImplementation(() => ({
-          readyState: 0,
-          onopen: null,
-          onmessage: null,
-          onclose: null,
-          onerror: null,
-          close: vi.fn(),
-          send: vi.fn(),
-        })))
+        vi.stubGlobal(
+          'WebSocket',
+          vi.fn().mockImplementation(() => ({
+            readyState: 0,
+            onopen: null,
+            onmessage: null,
+            onclose: null,
+            onerror: null,
+            close: vi.fn(),
+            send: vi.fn(),
+          })),
+        )
 
         client.init({ apiKey: 'test_key' })
         expect(() => client.connectRealtime()).not.toThrow()
@@ -869,15 +909,18 @@ describe('@headlessly/js — browser features', () => {
       })
 
       it('shutdown cleans up realtime connection', async () => {
-        vi.stubGlobal('WebSocket', vi.fn().mockImplementation(() => ({
-          readyState: 0,
-          onopen: null,
-          onmessage: null,
-          onclose: null,
-          onerror: null,
-          close: vi.fn(),
-          send: vi.fn(),
-        })))
+        vi.stubGlobal(
+          'WebSocket',
+          vi.fn().mockImplementation(() => ({
+            readyState: 0,
+            onopen: null,
+            onmessage: null,
+            onclose: null,
+            onerror: null,
+            close: vi.fn(),
+            send: vi.fn(),
+          })),
+        )
 
         client.init({ apiKey: 'test_key', batchSize: 100 })
         client.subscribe('Contact', vi.fn())
@@ -926,11 +969,14 @@ describe('@headlessly/js — browser features', () => {
         const event = new MouseEvent('click', { bubbles: true })
         button.dispatchEvent(event)
 
-        expect(tracker.track).toHaveBeenCalledWith('$click', expect.objectContaining({
-          $tag_name: 'button',
-          $text: 'Click me',
-          $attr_id: 'test-btn',
-        }))
+        expect(tracker.track).toHaveBeenCalledWith(
+          '$click',
+          expect.objectContaining({
+            $tag_name: 'button',
+            $text: 'Click me',
+            $attr_id: 'test-btn',
+          }),
+        )
 
         document.body.removeChild(button)
         ac.stop()
@@ -949,10 +995,13 @@ describe('@headlessly/js — browser features', () => {
         const event = new Event('submit', { bubbles: true })
         form.dispatchEvent(event)
 
-        expect(tracker.track).toHaveBeenCalledWith('$form_submit', expect.objectContaining({
-          $tag_name: 'form',
-          $attr_id: 'test-form',
-        }))
+        expect(tracker.track).toHaveBeenCalledWith(
+          '$form_submit',
+          expect.objectContaining({
+            $tag_name: 'form',
+            $attr_id: 'test-form',
+          }),
+        )
 
         document.body.removeChild(form)
         ac.stop()
@@ -1155,19 +1204,22 @@ describe('@headlessly/js — browser features', () => {
 
       let wsInstance: Record<string, unknown> = {}
       let wsCreateCount = 0
-      vi.stubGlobal('WebSocket', vi.fn().mockImplementation(() => {
-        wsCreateCount++
-        wsInstance = {
-          readyState: 0,
-          onopen: null,
-          onmessage: null,
-          onclose: null,
-          onerror: null,
-          close: vi.fn(),
-          send: vi.fn(),
-        }
-        return wsInstance
-      }))
+      vi.stubGlobal(
+        'WebSocket',
+        vi.fn().mockImplementation(() => {
+          wsCreateCount++
+          wsInstance = {
+            readyState: 0,
+            onopen: null,
+            onmessage: null,
+            onclose: null,
+            onerror: null,
+            close: vi.fn(),
+            send: vi.fn(),
+          }
+          return wsInstance
+        }),
+      )
 
       rt.connect()
       expect(wsCreateCount).toBe(1)
@@ -1187,23 +1239,26 @@ describe('@headlessly/js — browser features', () => {
       const rt = new RealtimeManager({ reconnectDelay: 50, maxReconnectAttempts: 2 })
 
       let wsCreateCount = 0
-      vi.stubGlobal('WebSocket', vi.fn().mockImplementation(() => {
-        wsCreateCount++
-        const ws: Record<string, unknown> = {
-          readyState: 0,
-          onopen: null,
-          onmessage: null,
-          onclose: null,
-          onerror: null,
-          close: vi.fn(),
-          send: vi.fn(),
-        }
-        // Simulate immediate close
-        setTimeout(() => {
-          if (ws.onclose) (ws.onclose as () => void)()
-        }, 1)
-        return ws
-      }))
+      vi.stubGlobal(
+        'WebSocket',
+        vi.fn().mockImplementation(() => {
+          wsCreateCount++
+          const ws: Record<string, unknown> = {
+            readyState: 0,
+            onopen: null,
+            onmessage: null,
+            onclose: null,
+            onerror: null,
+            close: vi.fn(),
+            send: vi.fn(),
+          }
+          // Simulate immediate close
+          setTimeout(() => {
+            if (ws.onclose) (ws.onclose as () => void)()
+          }, 1)
+          return ws
+        }),
+      )
 
       rt.connect()
       // Run through all reconnect attempts
@@ -1221,18 +1276,21 @@ describe('@headlessly/js — browser features', () => {
       const rt = new RealtimeManager({ reconnectDelay: 50, maxReconnectAttempts: 5 })
 
       let wsInstance: Record<string, unknown> = {}
-      vi.stubGlobal('WebSocket', vi.fn().mockImplementation(() => {
-        wsInstance = {
-          readyState: 0,
-          onopen: null,
-          onmessage: null,
-          onclose: null,
-          onerror: null,
-          close: vi.fn(),
-          send: vi.fn(),
-        }
-        return wsInstance
-      }))
+      vi.stubGlobal(
+        'WebSocket',
+        vi.fn().mockImplementation(() => {
+          wsInstance = {
+            readyState: 0,
+            onopen: null,
+            onmessage: null,
+            onclose: null,
+            onerror: null,
+            close: vi.fn(),
+            send: vi.fn(),
+          }
+          return wsInstance
+        }),
+      )
 
       rt.connect()
       // Simulate successful connection
@@ -1259,18 +1317,21 @@ describe('@headlessly/js — browser features', () => {
   describe('WebSocket endpoint', () => {
     it('uses default wss://db.headless.ly/ws endpoint', () => {
       let capturedUrl = ''
-      vi.stubGlobal('WebSocket', vi.fn().mockImplementation((url: string) => {
-        capturedUrl = url
-        return {
-          readyState: 0,
-          onopen: null,
-          onmessage: null,
-          onclose: null,
-          onerror: null,
-          close: vi.fn(),
-          send: vi.fn(),
-        }
-      }))
+      vi.stubGlobal(
+        'WebSocket',
+        vi.fn().mockImplementation((url: string) => {
+          capturedUrl = url
+          return {
+            readyState: 0,
+            onopen: null,
+            onmessage: null,
+            onclose: null,
+            onerror: null,
+            close: vi.fn(),
+            send: vi.fn(),
+          }
+        }),
+      )
 
       const rt = new RealtimeManager()
       rt.connect()
@@ -1280,18 +1341,21 @@ describe('@headlessly/js — browser features', () => {
 
     it('uses custom endpoint when configured', () => {
       let capturedUrl = ''
-      vi.stubGlobal('WebSocket', vi.fn().mockImplementation((url: string) => {
-        capturedUrl = url
-        return {
-          readyState: 0,
-          onopen: null,
-          onmessage: null,
-          onclose: null,
-          onerror: null,
-          close: vi.fn(),
-          send: vi.fn(),
-        }
-      }))
+      vi.stubGlobal(
+        'WebSocket',
+        vi.fn().mockImplementation((url: string) => {
+          capturedUrl = url
+          return {
+            readyState: 0,
+            onopen: null,
+            onmessage: null,
+            onclose: null,
+            onerror: null,
+            close: vi.fn(),
+            send: vi.fn(),
+          }
+        }),
+      )
 
       const rt = new RealtimeManager({ endpoint: 'wss://custom.example.com/ws' })
       rt.connect()
@@ -1301,18 +1365,21 @@ describe('@headlessly/js — browser features', () => {
 
     it('includes API key as query parameter when provided', () => {
       let capturedUrl = ''
-      vi.stubGlobal('WebSocket', vi.fn().mockImplementation((url: string) => {
-        capturedUrl = url
-        return {
-          readyState: 0,
-          onopen: null,
-          onmessage: null,
-          onclose: null,
-          onerror: null,
-          close: vi.fn(),
-          send: vi.fn(),
-        }
-      }))
+      vi.stubGlobal(
+        'WebSocket',
+        vi.fn().mockImplementation((url: string) => {
+          capturedUrl = url
+          return {
+            readyState: 0,
+            onopen: null,
+            onmessage: null,
+            onclose: null,
+            onerror: null,
+            close: vi.fn(),
+            send: vi.fn(),
+          }
+        }),
+      )
 
       const rt = new RealtimeManager({ apiKey: 'hl_test_123' })
       rt.connect()

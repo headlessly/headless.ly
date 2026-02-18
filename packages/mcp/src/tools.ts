@@ -16,8 +16,7 @@ export function getTools(context?: MCPContext): MCPTool[] {
   return [
     {
       name: 'search',
-      description:
-        `Search for entities across the headless.ly graph. Find contacts, deals, subscriptions, projects, and more. Returns matching entities with their current state.${contextSuffix}`,
+      description: `Search for entities across the headless.ly graph. Find contacts, deals, subscriptions, projects, and more. Returns matching entities with their current state.${contextSuffix}`,
       inputSchema: {
         type: 'object',
         properties: {

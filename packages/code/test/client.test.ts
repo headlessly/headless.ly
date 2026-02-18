@@ -85,7 +85,13 @@ describe('createSandbox', () => {
 describe('exec', () => {
   it('calls POST /exec with sandboxId and command', async () => {
     fetchResponder = () =>
-      new Response(JSON.stringify({ success: true, data: { exitCode: 0, stdout: 'hello', stderr: '', command: 'echo hello', success: true, duration: 10, timestamp: new Date().toISOString() } }), { status: 200 })
+      new Response(
+        JSON.stringify({
+          success: true,
+          data: { exitCode: 0, stdout: 'hello', stderr: '', command: 'echo hello', success: true, duration: 10, timestamp: new Date().toISOString() },
+        }),
+        { status: 200 },
+      )
 
     const client = createCodeClient({ apiKey: 'key_test' })
     const result = await client.exec('sb_123', 'echo hello')
@@ -113,7 +119,13 @@ describe('getSandbox error recovery', () => {
 describe('listFiles normalization', () => {
   it('handles { files: [...] } wrapped format', async () => {
     fetchResponder = () =>
-      new Response(JSON.stringify({ success: true, data: { files: [{ name: 'a.txt', absolutePath: '/a.txt', type: 'file', size: 10, modifiedAt: '', permissions: '' }] } }), { status: 200 })
+      new Response(
+        JSON.stringify({
+          success: true,
+          data: { files: [{ name: 'a.txt', absolutePath: '/a.txt', type: 'file', size: 10, modifiedAt: '', permissions: '' }] },
+        }),
+        { status: 200 },
+      )
 
     const client = createCodeClient({ apiKey: 'key_test' })
     const files = await client.listFiles('sb_123', '/')
@@ -123,7 +135,10 @@ describe('listFiles normalization', () => {
 
   it('handles direct array format', async () => {
     fetchResponder = () =>
-      new Response(JSON.stringify({ success: true, data: [{ name: 'b.txt', absolutePath: '/b.txt', type: 'file', size: 20, modifiedAt: '', permissions: '' }] }), { status: 200 })
+      new Response(
+        JSON.stringify({ success: true, data: [{ name: 'b.txt', absolutePath: '/b.txt', type: 'file', size: 20, modifiedAt: '', permissions: '' }] }),
+        { status: 200 },
+      )
 
     const client = createCodeClient({ apiKey: 'key_test' })
     const files = await client.listFiles('sb_123', '/')
@@ -152,7 +167,9 @@ describe('Request body structure', () => {
 
   it('runCode sends correct body', async () => {
     fetchResponder = () =>
-      new Response(JSON.stringify({ success: true, data: { code: 'console.log(1)', language: 'javascript', logs: ['1'], results: [], duration: 5 } }), { status: 200 })
+      new Response(JSON.stringify({ success: true, data: { code: 'console.log(1)', language: 'javascript', logs: ['1'], results: [], duration: 5 } }), {
+        status: 200,
+      })
 
     const client = createCodeClient({ apiKey: 'key_test' })
     const result = await client.runCode('sb_123', 'console.log(1)', { language: 'javascript' })

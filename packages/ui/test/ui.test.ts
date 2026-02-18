@@ -1,15 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { clearRegistry, Noun } from 'digital-objects'
-import {
-  deriveColumns,
-  deriveFormFields,
-  deriveVerbs,
-  deriveAllVerbs,
-  fieldInputType,
-  isRequired,
-  formatLabel,
-  formatCellValue,
-} from '../src/schema-utils'
+import { deriveColumns, deriveFormFields, deriveVerbs, deriveAllVerbs, fieldInputType, isRequired, formatLabel, formatCellValue } from '../src/schema-utils'
 
 describe('@headlessly/ui — component & schema tests (RED)', () => {
   beforeEach(() => {
@@ -598,11 +589,20 @@ describe('@headlessly/ui — component & schema tests (RED)', () => {
   // ---------------------------------------------------------------------------
   describe('isRequired', () => {
     it('returns true for required fields (modifiers.required === true)', () => {
-      expect(isRequired({ name: 'name', kind: 'field', type: 'string', modifiers: { required: true, optional: false, indexed: false, unique: false, array: false } })).toBe(true)
+      expect(
+        isRequired({
+          name: 'name',
+          kind: 'field',
+          type: 'string',
+          modifiers: { required: true, optional: false, indexed: false, unique: false, array: false },
+        }),
+      ).toBe(true)
     })
 
     it('returns false for optional fields', () => {
-      expect(isRequired({ name: 'bio', kind: 'field', type: 'string', modifiers: { required: false, optional: true, indexed: false, unique: false, array: false } })).toBe(false)
+      expect(
+        isRequired({ name: 'bio', kind: 'field', type: 'string', modifiers: { required: false, optional: true, indexed: false, unique: false, array: false } }),
+      ).toBe(false)
     })
 
     it('returns false when modifiers is undefined', () => {
@@ -763,9 +763,9 @@ describe('@headlessly/ui — component & schema tests (RED)', () => {
         publish: 'Published',
       })
       const counts = schemaFieldCount(Entity.$schema)
-      expect(counts.fields).toBe(3)  // name, email, status
-      expect(counts.relationships).toBe(1)  // other
-      expect(counts.verbs).toBeGreaterThanOrEqual(1)  // publish (plus CRUD)
+      expect(counts.fields).toBe(3) // name, email, status
+      expect(counts.relationships).toBe(1) // other
+      expect(counts.verbs).toBeGreaterThanOrEqual(1) // publish (plus CRUD)
     })
   })
 

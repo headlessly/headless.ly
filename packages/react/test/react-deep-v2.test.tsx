@@ -97,7 +97,7 @@ afterEach(() => {
 })
 
 function Wrapper({ children }: { children: React.ReactNode }) {
-  return <HeadlessProvider apiKey="deep_test_key">{children}</HeadlessProvider>
+  return <HeadlessProvider apiKey='deep_test_key'>{children}</HeadlessProvider>
 }
 
 // ============================================================================
@@ -140,21 +140,19 @@ describe('HeadlessProvider — initialization', () => {
   it('calls headless.init with the apiKey config', async () => {
     await act(async () => {
       render(
-        <HeadlessProvider apiKey="init_test_key">
+        <HeadlessProvider apiKey='init_test_key'>
           <div>child</div>
         </HeadlessProvider>,
       )
     })
 
-    expect(spies.init).toHaveBeenCalledWith(
-      expect.objectContaining({ apiKey: 'init_test_key' }),
-    )
+    expect(spies.init).toHaveBeenCalledWith(expect.objectContaining({ apiKey: 'init_test_key' }))
   })
 
   it('calls headless.shutdown on unmount', async () => {
     const { unmount } = await act(async () =>
       render(
-        <HeadlessProvider apiKey="shutdown_test">
+        <HeadlessProvider apiKey='shutdown_test'>
           <div>child</div>
         </HeadlessProvider>,
       ),
@@ -194,15 +192,15 @@ describe('HeadlessProvider — initialization', () => {
       const ctx = useHeadless()
       return (
         <div>
-          <span data-testid="did">{ctx.distinctId}</span>
-          <span data-testid="sid">{ctx.sessionId}</span>
+          <span data-testid='did'>{ctx.distinctId}</span>
+          <span data-testid='sid'>{ctx.sessionId}</span>
         </div>
       )
     }
 
     await act(async () => {
       render(
-        <HeadlessProvider apiKey="ctx_test">
+        <HeadlessProvider apiKey='ctx_test'>
           <ContextConsumer />
         </HeadlessProvider>,
       )
@@ -320,7 +318,7 @@ describe('useFeatureFlag — deep', () => {
 
     function FlagDisplay() {
       const value = useFeatureFlag('my-flag')
-      return <div data-testid="flag">{String(value)}</div>
+      return <div data-testid='flag'>{String(value)}</div>
     }
 
     await act(async () => {
@@ -335,7 +333,7 @@ describe('useFeatureFlag — deep', () => {
 
     function FlagDisplay() {
       const value = useFeatureFlag('nonexistent-flag')
-      return <div data-testid="flag">{value === undefined ? 'undefined' : String(value)}</div>
+      return <div data-testid='flag'>{value === undefined ? 'undefined' : String(value)}</div>
     }
 
     await act(async () => {
@@ -357,7 +355,7 @@ describe('useFeatureFlag — deep', () => {
       const value = useFeatureFlag(flagKey)
       return (
         <div>
-          <span data-testid="val">{String(value)}</span>
+          <span data-testid='val'>{String(value)}</span>
           <button onClick={() => setFlagKey('flag-b')}>switch</button>
         </div>
       )
@@ -387,10 +385,12 @@ describe('useFeatureEnabled — boolean conversion', () => {
 
     function FE() {
       const v = useFeatureEnabled('f')
-      return <div data-testid="e">{String(v)}</div>
+      return <div data-testid='e'>{String(v)}</div>
     }
 
-    await act(async () => { render(<FE />, { wrapper: Wrapper }) })
+    await act(async () => {
+      render(<FE />, { wrapper: Wrapper })
+    })
     expect(screen.getByTestId('e').textContent).toBe('true')
   })
 
@@ -399,10 +399,12 @@ describe('useFeatureEnabled — boolean conversion', () => {
 
     function FE() {
       const v = useFeatureEnabled('f')
-      return <div data-testid="e">{String(v)}</div>
+      return <div data-testid='e'>{String(v)}</div>
     }
 
-    await act(async () => { render(<FE />, { wrapper: Wrapper }) })
+    await act(async () => {
+      render(<FE />, { wrapper: Wrapper })
+    })
     expect(screen.getByTestId('e').textContent).toBe('true')
   })
 
@@ -411,10 +413,12 @@ describe('useFeatureEnabled — boolean conversion', () => {
 
     function FE() {
       const v = useFeatureEnabled('f')
-      return <div data-testid="e">{String(v)}</div>
+      return <div data-testid='e'>{String(v)}</div>
     }
 
-    await act(async () => { render(<FE />, { wrapper: Wrapper }) })
+    await act(async () => {
+      render(<FE />, { wrapper: Wrapper })
+    })
     expect(screen.getByTestId('e').textContent).toBe('false')
   })
 
@@ -423,10 +427,12 @@ describe('useFeatureEnabled — boolean conversion', () => {
 
     function FE() {
       const v = useFeatureEnabled('f')
-      return <div data-testid="e">{String(v)}</div>
+      return <div data-testid='e'>{String(v)}</div>
     }
 
-    await act(async () => { render(<FE />, { wrapper: Wrapper }) })
+    await act(async () => {
+      render(<FE />, { wrapper: Wrapper })
+    })
     expect(screen.getByTestId('e').textContent).toBe('false')
   })
 
@@ -435,10 +441,12 @@ describe('useFeatureEnabled — boolean conversion', () => {
 
     function FE() {
       const v = useFeatureEnabled('f')
-      return <div data-testid="e">{String(v)}</div>
+      return <div data-testid='e'>{String(v)}</div>
     }
 
-    await act(async () => { render(<FE />, { wrapper: Wrapper }) })
+    await act(async () => {
+      render(<FE />, { wrapper: Wrapper })
+    })
     expect(screen.getByTestId('e').textContent).toBe('false')
   })
 
@@ -447,10 +455,12 @@ describe('useFeatureEnabled — boolean conversion', () => {
 
     function FE() {
       const v = useFeatureEnabled('f')
-      return <div data-testid="e">{String(v)}</div>
+      return <div data-testid='e'>{String(v)}</div>
     }
 
-    await act(async () => { render(<FE />, { wrapper: Wrapper }) })
+    await act(async () => {
+      render(<FE />, { wrapper: Wrapper })
+    })
     expect(screen.getByTestId('e').textContent).toBe('false')
   })
 
@@ -459,10 +469,12 @@ describe('useFeatureEnabled — boolean conversion', () => {
 
     function FE() {
       const v = useFeatureEnabled('f')
-      return <div data-testid="e">{String(v)}</div>
+      return <div data-testid='e'>{String(v)}</div>
     }
 
-    await act(async () => { render(<FE />, { wrapper: Wrapper }) })
+    await act(async () => {
+      render(<FE />, { wrapper: Wrapper })
+    })
     expect(screen.getByTestId('e').textContent).toBe('true')
   })
 })
@@ -478,11 +490,7 @@ describe('Experiment component', () => {
     await act(async () => {
       render(
         <Wrapper>
-          <Experiment
-            flag="exp-flag"
-            variants={{ variant_a: <span>Version A</span>, variant_b: <span>Version B</span> }}
-            fallback={<span>Fallback</span>}
-          />
+          <Experiment flag='exp-flag' variants={{ variant_a: <span>Version A</span>, variant_b: <span>Version B</span> }} fallback={<span>Fallback</span>} />
         </Wrapper>,
       )
     })
@@ -496,11 +504,7 @@ describe('Experiment component', () => {
     await act(async () => {
       render(
         <Wrapper>
-          <Experiment
-            flag="exp-flag"
-            variants={{ variant_a: <span>A</span> }}
-            fallback={<span>Fallback</span>}
-          />
+          <Experiment flag='exp-flag' variants={{ variant_a: <span>A</span> }} fallback={<span>Fallback</span>} />
         </Wrapper>,
       )
     })
@@ -514,11 +518,7 @@ describe('Experiment component', () => {
     await act(async () => {
       render(
         <Wrapper>
-          <Experiment
-            flag="exp-flag"
-            variants={{ variant_a: <span>A</span>, variant_b: <span>B</span> }}
-            fallback={<span>No match</span>}
-          />
+          <Experiment flag='exp-flag' variants={{ variant_a: <span>A</span>, variant_b: <span>B</span> }} fallback={<span>No match</span>} />
         </Wrapper>,
       )
     })
@@ -532,7 +532,7 @@ describe('Experiment component', () => {
     const { container } = await act(async () =>
       render(
         <Wrapper>
-          <Experiment flag="exp-flag" variants={{ a: <span>A</span> }} />
+          <Experiment flag='exp-flag' variants={{ a: <span>A</span> }} />
         </Wrapper>,
       ),
     )
@@ -560,7 +560,7 @@ describe('ErrorBoundary — deep', () => {
           <ErrorBoundary
             fallback={(error, reset) => (
               <div>
-                <span data-testid="err">{error.message}</span>
+                <span data-testid='err'>{error.message}</span>
                 <button onClick={reset}>reset</button>
               </div>
             )}
@@ -639,7 +639,7 @@ describe('PageView — deep', () => {
     await act(async () => {
       render(
         <Wrapper>
-          <PageView name="pricing" properties={{ referrer: 'google' }} />
+          <PageView name='pricing' properties={{ referrer: 'google' }} />
         </Wrapper>,
       )
     })
@@ -736,8 +736,8 @@ describe('useEntity — deep', () => {
   it('sets error for unknown entity type', async () => {
     function TestComponent() {
       const { error, loading } = useEntity('NonExistentType', 'id_123')
-      if (loading) return <div data-testid="s">loading</div>
-      return <div data-testid="s">{error?.message ?? 'no error'}</div>
+      if (loading) return <div data-testid='s'>loading</div>
+      return <div data-testid='s'>{error?.message ?? 'no error'}</div>
     }
 
     await act(async () => {
@@ -755,13 +755,11 @@ describe('useEntity — deep', () => {
 
     function TestComponent() {
       const { data, loading } = useEntity('Contact', created.$id)
-      if (loading) return <div data-testid="s">loading</div>
-      return <div data-testid="s">{(data as Record<string, unknown>)?.name as string}</div>
+      if (loading) return <div data-testid='s'>loading</div>
+      return <div data-testid='s'>{(data as Record<string, unknown>)?.name as string}</div>
     }
 
-    const { unmount } = await act(async () =>
-      render(<TestComponent />, { wrapper: Wrapper }),
-    )
+    const { unmount } = await act(async () => render(<TestComponent />, { wrapper: Wrapper }))
 
     // Unmount immediately — should not cause React warnings
     unmount()
@@ -778,9 +776,7 @@ describe('useEntity — deep', () => {
       const { data, loading } = useEntity('Contact', id)
       return (
         <div>
-          <div data-testid="s">
-            {loading ? 'loading' : (data as Record<string, unknown>)?.name as string}
-          </div>
+          <div data-testid='s'>{loading ? 'loading' : ((data as Record<string, unknown>)?.name as string)}</div>
           <button onClick={() => setId(c2.$id)}>switch</button>
         </div>
       )
@@ -806,8 +802,8 @@ describe('useEntity — deep', () => {
   it('reports error when entity.get returns null (not found)', async () => {
     function TestComponent() {
       const { error, loading } = useEntity('Contact', 'contact_ghost')
-      if (loading) return <div data-testid="s">loading</div>
-      return <div data-testid="s">{error?.message ?? 'ok'}</div>
+      if (loading) return <div data-testid='s'>loading</div>
+      return <div data-testid='s'>{error?.message ?? 'ok'}</div>
     }
 
     await act(async () => {
@@ -828,8 +824,8 @@ describe('useEntities — deep', () => {
   it('sets error for unknown entity type', async () => {
     function TestComponent() {
       const { error, loading } = useEntities('BogusType')
-      if (loading) return <div data-testid="s">loading</div>
-      return <div data-testid="s">{error?.message ?? 'no error'}</div>
+      if (loading) return <div data-testid='s'>loading</div>
+      return <div data-testid='s'>{error?.message ?? 'no error'}</div>
     }
 
     await act(async () => {
@@ -848,9 +844,9 @@ describe('useEntities — deep', () => {
 
     function TestComponent() {
       const { data, loading } = useEntities('Lead', undefined, { sort: { name: 1 } })
-      if (loading) return <div data-testid="s">loading</div>
+      if (loading) return <div data-testid='s'>loading</div>
       const names = data.map((d: unknown) => (d as Record<string, unknown>).name as string)
-      return <div data-testid="s">{names.join(',')}</div>
+      return <div data-testid='s'>{names.join(',')}</div>
     }
 
     await act(async () => {
@@ -873,9 +869,9 @@ describe('useEntities — deep', () => {
 
     function TestComponent() {
       const { data, loading } = useEntities('Lead', { stage: 'New' }, { sort: { name: -1 } })
-      if (loading) return <div data-testid="s">loading</div>
+      if (loading) return <div data-testid='s'>loading</div>
       const names = data.map((d: unknown) => (d as Record<string, unknown>).name as string)
-      return <div data-testid="s">{names.join(',')}</div>
+      return <div data-testid='s'>{names.join(',')}</div>
     }
 
     await act(async () => {
@@ -903,8 +899,12 @@ describe('useEntities — deep', () => {
     function TestComponent() {
       const { data, loading, hasMore, loadMore } = useEntities('Campaign', undefined, { limit: 2 })
       loadMoreFn = loadMore
-      if (loading) return <div data-testid="s">loading</div>
-      return <div data-testid="s">count: {data.length}, hasMore: {String(hasMore)}</div>
+      if (loading) return <div data-testid='s'>loading</div>
+      return (
+        <div data-testid='s'>
+          count: {data.length}, hasMore: {String(hasMore)}
+        </div>
+      )
     }
 
     await act(async () => {
@@ -938,8 +938,8 @@ describe('useEntities — deep', () => {
     function TestComponent() {
       const { data, loading, refetch } = useEntities('Segment', undefined, { limit: 2 })
       refetchFn = refetch
-      if (loading) return <div data-testid="s">loading</div>
-      return <div data-testid="s">count: {data.length}</div>
+      if (loading) return <div data-testid='s'>loading</div>
+      return <div data-testid='s'>count: {data.length}</div>
     }
 
     await act(async () => {
@@ -963,8 +963,8 @@ describe('useEntities — deep', () => {
   it('returns empty data array on unknown type', async () => {
     function TestComponent() {
       const { data, loading } = useEntities('FakeType')
-      if (loading) return <div data-testid="s">loading</div>
-      return <div data-testid="s">len: {data.length}</div>
+      if (loading) return <div data-testid='s'>loading</div>
+      return <div data-testid='s'>len: {data.length}</div>
     }
 
     await act(async () => {
@@ -990,7 +990,7 @@ describe('useMutation — deep', () => {
     function TestComponent() {
       const { execute, loading } = useMutation('Contact')
       executeFn = execute
-      return <div data-testid="s">{loading ? 'loading' : 'idle'}</div>
+      return <div data-testid='s'>{loading ? 'loading' : 'idle'}</div>
     }
 
     await act(async () => {
@@ -1014,7 +1014,7 @@ describe('useMutation — deep', () => {
     function TestComponent() {
       const { execute, error } = useMutation('Contact')
       executeFn = execute
-      return <div data-testid="s">{error?.message ?? 'none'}</div>
+      return <div data-testid='s'>{error?.message ?? 'none'}</div>
     }
 
     await act(async () => {
@@ -1040,7 +1040,7 @@ describe('useMutation — deep', () => {
     function TestComponent() {
       const { create, error } = useMutation('GhostType')
       createFn = create
-      return <div data-testid="s">{error?.message ?? 'none'}</div>
+      return <div data-testid='s'>{error?.message ?? 'none'}</div>
     }
 
     await act(async () => {
@@ -1048,7 +1048,11 @@ describe('useMutation — deep', () => {
     })
 
     await act(async () => {
-      try { await createFn!({ name: 'test' }) } catch { /* expected */ }
+      try {
+        await createFn!({ name: 'test' })
+      } catch {
+        /* expected */
+      }
     })
 
     await waitFor(() => {
@@ -1062,7 +1066,7 @@ describe('useMutation — deep', () => {
     function TestComponent() {
       const { update, error } = useMutation('GhostType')
       updateFn = update
-      return <div data-testid="s">{error?.message ?? 'none'}</div>
+      return <div data-testid='s'>{error?.message ?? 'none'}</div>
     }
 
     await act(async () => {
@@ -1070,7 +1074,11 @@ describe('useMutation — deep', () => {
     })
 
     await act(async () => {
-      try { await updateFn!('id_1', { name: 'test' }) } catch { /* expected */ }
+      try {
+        await updateFn!('id_1', { name: 'test' })
+      } catch {
+        /* expected */
+      }
     })
 
     await waitFor(() => {
@@ -1084,7 +1092,7 @@ describe('useMutation — deep', () => {
     function TestComponent() {
       const { remove, error } = useMutation('GhostType')
       removeFn = remove
-      return <div data-testid="s">{error?.message ?? 'none'}</div>
+      return <div data-testid='s'>{error?.message ?? 'none'}</div>
     }
 
     await act(async () => {
@@ -1092,7 +1100,11 @@ describe('useMutation — deep', () => {
     })
 
     await act(async () => {
-      try { await removeFn!('id_1') } catch { /* expected */ }
+      try {
+        await removeFn!('id_1')
+      } catch {
+        /* expected */
+      }
     })
 
     await waitFor(() => {
@@ -1106,7 +1118,7 @@ describe('useMutation — deep', () => {
     function TestComponent() {
       const { execute, error } = useMutation('GhostType')
       executeFn = execute
-      return <div data-testid="s">{error?.message ?? 'none'}</div>
+      return <div data-testid='s'>{error?.message ?? 'none'}</div>
     }
 
     await act(async () => {
@@ -1114,7 +1126,11 @@ describe('useMutation — deep', () => {
     })
 
     await act(async () => {
-      try { await executeFn!('someVerb', 'id_1') } catch { /* expected */ }
+      try {
+        await executeFn!('someVerb', 'id_1')
+      } catch {
+        /* expected */
+      }
     })
 
     await waitFor(() => {
@@ -1136,8 +1152,8 @@ describe('useSearch — deep', () => {
 
     function TestComponent() {
       const { results, loading } = useSearch('SearchLimit', { types: ['Contact'], limit: 2, debounce: 10 })
-      if (loading) return <div data-testid="s">searching</div>
-      return <div data-testid="s">found: {results.length}</div>
+      if (loading) return <div data-testid='s'>searching</div>
+      return <div data-testid='s'>found: {results.length}</div>
     }
 
     await act(async () => {
@@ -1160,12 +1176,10 @@ describe('useSearch — deep', () => {
   it('clears debounce on unmount', async () => {
     function TestComponent() {
       const { results, loading } = useSearch('cleanup', { debounce: 500 })
-      return <div data-testid="s">{loading ? 'searching' : `found: ${results.length}`}</div>
+      return <div data-testid='s'>{loading ? 'searching' : `found: ${results.length}`}</div>
     }
 
-    const { unmount } = await act(async () =>
-      render(<TestComponent />, { wrapper: Wrapper }),
-    )
+    const { unmount } = await act(async () => render(<TestComponent />, { wrapper: Wrapper }))
 
     // Unmount before debounce fires — should not throw or warn
     unmount()
@@ -1184,11 +1198,7 @@ describe('useRealtime — deep', () => {
   it('sets error for unknown entity type', async () => {
     function TestComponent() {
       const { error, connected } = useRealtime('FakeType', 'id_1', 1000)
-      return (
-        <div data-testid="s">
-          {error ? error.message : connected ? 'connected' : 'waiting'}
-        </div>
-      )
+      return <div data-testid='s'>{error ? error.message : connected ? 'connected' : 'waiting'}</div>
     }
 
     await act(async () => {
@@ -1206,12 +1216,10 @@ describe('useRealtime — deep', () => {
 
     function TestComponent() {
       const { connected } = useRealtime('Contact', created.$id, 500)
-      return <div data-testid="s">{connected ? 'yes' : 'no'}</div>
+      return <div data-testid='s'>{connected ? 'yes' : 'no'}</div>
     }
 
-    const { unmount } = await act(async () =>
-      render(<TestComponent />, { wrapper: Wrapper }),
-    )
+    const { unmount } = await act(async () => render(<TestComponent />, { wrapper: Wrapper }))
 
     await waitFor(() => {
       expect(screen.getByTestId('s').textContent).toBe('yes')
@@ -1233,10 +1241,15 @@ describe('useRealtime — deep', () => {
 
       return (
         <div>
-          <div data-testid="s">
-            {connected ? JSON.stringify(data) : 'loading'}
-          </div>
-          <button onClick={() => { setType('Deal'); setId(deal.$id) }}>switch</button>
+          <div data-testid='s'>{connected ? JSON.stringify(data) : 'loading'}</div>
+          <button
+            onClick={() => {
+              setType('Deal')
+              setId(deal.$id)
+            }}
+          >
+            switch
+          </button>
         </div>
       )
     }
@@ -1270,7 +1283,7 @@ describe('useAction — deep', () => {
     function TestComponent() {
       const { execute, error } = useAction('NoSuchType', 'qualify')
       executeFn = execute
-      return <div data-testid="s">{error?.message ?? 'none'}</div>
+      return <div data-testid='s'>{error?.message ?? 'none'}</div>
     }
 
     await act(async () => {
@@ -1278,7 +1291,11 @@ describe('useAction — deep', () => {
     })
 
     await act(async () => {
-      try { await executeFn!('id_1') } catch { /* expected */ }
+      try {
+        await executeFn!('id_1')
+      } catch {
+        /* expected */
+      }
     })
 
     await waitFor(() => {
@@ -1321,7 +1338,7 @@ describe('useAction — deep', () => {
 
       return (
         <div>
-          <div data-testid="s">{loading ? 'busy' : 'idle'}</div>
+          <div data-testid='s'>{loading ? 'busy' : 'idle'}</div>
           <button onClick={() => execute(created.$id)}>go</button>
         </div>
       )
@@ -1353,8 +1370,8 @@ describe('useEvents — deep', () => {
 
     function TestComponent() {
       const { events, loading } = useEvents('Ticket')
-      if (loading) return <div data-testid="s">loading</div>
-      return <div data-testid="s">events: {events.length}</div>
+      if (loading) return <div data-testid='s'>loading</div>
+      return <div data-testid='s'>events: {events.length}</div>
     }
 
     await act(async () => {
@@ -1371,8 +1388,12 @@ describe('useEvents — deep', () => {
 
     function TestComponent() {
       const { events, loading, error } = useEvents('Contact', created.$id)
-      if (loading) return <div data-testid="s">loading</div>
-      return <div data-testid="s">events: {events.length}, error: {error ? error.message : 'none'}</div>
+      if (loading) return <div data-testid='s'>loading</div>
+      return (
+        <div data-testid='s'>
+          events: {events.length}, error: {error ? error.message : 'none'}
+        </div>
+      )
     }
 
     await act(async () => {
@@ -1398,7 +1419,7 @@ describe('Feature component — deep', () => {
     await act(async () => {
       render(
         <Wrapper>
-          <Feature flag="my-flag" fallback={<span>off</span>}>
+          <Feature flag='my-flag' fallback={<span>off</span>}>
             <span>on</span>
           </Feature>
         </Wrapper>,
@@ -1414,7 +1435,7 @@ describe('Feature component — deep', () => {
     await act(async () => {
       render(
         <Wrapper>
-          <Feature flag="missing-flag" fallback={<span>hidden</span>}>
+          <Feature flag='missing-flag' fallback={<span>hidden</span>}>
             <span>shown</span>
           </Feature>
         </Wrapper>,
@@ -1430,7 +1451,7 @@ describe('Feature component — deep', () => {
     const { container } = await act(async () =>
       render(
         <Wrapper>
-          <Feature flag="off-flag">
+          <Feature flag='off-flag'>
             <span>content</span>
           </Feature>
         </Wrapper>,
@@ -1459,10 +1480,7 @@ describe('useCaptureException — deep', () => {
     })
 
     const result = captureFn!(new Error('test error'), { tags: { env: 'test' } })
-    expect(spies.captureException).toHaveBeenCalledWith(
-      expect.any(Error),
-      { tags: { env: 'test' } },
-    )
+    expect(spies.captureException).toHaveBeenCalledWith(expect.any(Error), { tags: { env: 'test' } })
     // Real captureException returns a hex event ID string
     expect(typeof result).toBe('string')
     expect((result as string).length).toBeGreaterThan(0)
@@ -1507,11 +1525,11 @@ describe('EntityDetail — dynamic id', () => {
       const [id, setId] = useState(t1.$id)
       return (
         <div>
-          <EntityDetail type="Ticket" id={id}>
+          <EntityDetail type='Ticket' id={id}>
             {({ data, loading }) => {
-              if (loading) return <div data-testid="s">loading</div>
-              if (!data) return <div data-testid="s">not found</div>
-              return <div data-testid="s">{(data as Record<string, unknown>).title as string}</div>
+              if (loading) return <div data-testid='s'>loading</div>
+              if (!data) return <div data-testid='s'>not found</div>
+              return <div data-testid='s'>{(data as Record<string, unknown>).title as string}</div>
             }}
           </EntityDetail>
           <button onClick={() => setId(t2.$id)}>switch</button>
@@ -1549,11 +1567,11 @@ describe('EntityList — with filter', () => {
     await act(async () => {
       render(
         <Wrapper>
-          <EntityList type="Ticket" filter={{ status: 'Open' }}>
+          <EntityList type='Ticket' filter={{ status: 'Open' }}>
             {({ data, loading }) => {
-              if (loading) return <div data-testid="s">loading</div>
+              if (loading) return <div data-testid='s'>loading</div>
               const titles = data.map((d: unknown) => (d as Record<string, unknown>).title as string)
-              return <div data-testid="s">{titles.join(',')}</div>
+              return <div data-testid='s'>{titles.join(',')}</div>
             }}
           </EntityList>
         </Wrapper>,

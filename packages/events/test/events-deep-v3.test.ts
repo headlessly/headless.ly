@@ -9,13 +9,7 @@ import type { NounEvent, NounEventInput } from '../src/types'
 // Helpers
 // =============================================================================
 
-function eventInput(
-  entityType: string,
-  entityId: string,
-  verb: string,
-  after?: Record<string, unknown>,
-  before?: Record<string, unknown>,
-): NounEventInput {
+function eventInput(entityType: string, entityId: string, verb: string, after?: Record<string, unknown>, before?: Record<string, unknown>): NounEventInput {
   const eventForm = verb.endsWith('e') ? `${verb}d` : `${verb}ed`
   return {
     $type: `${entityType}.${eventForm}`,
@@ -764,17 +758,13 @@ describe('@headlessly/events — deep coverage v3', () => {
     })
 
     it('before state is preserved in appended events', async () => {
-      const event = await log.append(
-        eventInput('Contact', 'c1', 'update', { stage: 'Qualified' }, { stage: 'Lead' }),
-      )
+      const event = await log.append(eventInput('Contact', 'c1', 'update', { stage: 'Qualified' }, { stage: 'Lead' }))
       expect(event.before).toEqual({ stage: 'Lead' })
       expect(event.after).toEqual({ stage: 'Qualified' })
     })
 
     it('before state is retrievable via get()', async () => {
-      const event = await log.append(
-        eventInput('Contact', 'c1', 'update', { stage: 'Customer' }, { stage: 'Qualified' }),
-      )
+      const event = await log.append(eventInput('Contact', 'c1', 'update', { stage: 'Customer' }, { stage: 'Qualified' }))
       const retrieved = await log.get(event.$id)
       expect(retrieved!.before).toEqual({ stage: 'Qualified' })
     })
