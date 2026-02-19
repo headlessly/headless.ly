@@ -79,5 +79,8 @@ export {
 } from '@headlessly/react'
 
 // Re-export digital-objects types for convenience
-export type { NounSchema, NounInstance, ParsedProperty, VerbConjugation, FieldModifiers } from 'digital-objects'
+export type { NounSchema, NounInstance, VerbConjugation } from 'digital-objects'
 export { getNounSchema, getAllNouns } from 'digital-objects'
+
+// Re-export local type definitions (matching digital-objects internal types)
+export type { ParsedProperty, FieldModifiers } from './schema-utils.js'

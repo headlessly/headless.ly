@@ -6,7 +6,8 @@
  * - @mdxui/admin: Supabase-style database editor components
  */
 
-import type { NounSchema, ParsedProperty } from 'digital-objects'
+import type { NounSchema } from 'digital-objects'
+import type { ParsedProperty } from './schema-utils.js'
 import { getNounSchema, getAllNouns } from 'digital-objects'
 import type { DatabaseColumnDef, DatabaseSchema, DatabaseTable } from '@mdxui/admin'
 import { formatLabel } from './schema-utils.js'

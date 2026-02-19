@@ -116,7 +116,7 @@ export function EntityForm({ noun, id, onSubmit, onCancel, className }: EntityFo
             {inputType === 'select' && field.enumValues ? (
               <select value={String(value)} onChange={(e) => handleChange(field.name, e.target.value)} className='w-full rounded-md border px-3 py-2 text-sm'>
                 {!required && <option value=''>—</option>}
-                {field.enumValues.map((v) => (
+                {field.enumValues.map((v: string) => (
                   <option key={v} value={v}>
                     {v}
                   </option>

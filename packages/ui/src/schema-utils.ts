@@ -5,7 +5,36 @@
  * and the column/field definitions the UI components need.
  */
 
-import type { NounSchema, ParsedProperty, VerbConjugation, FieldModifiers } from 'digital-objects'
+import type { NounSchema, VerbConjugation } from 'digital-objects'
+
+/**
+ * Local type definitions matching digital-objects internal types.
+ * These are not exported from digital-objects, so we define them here.
+ */
+export interface FieldModifiers {
+  required: boolean
+  optional: boolean
+  indexed: boolean
+  unique: boolean
+  array: boolean
+}
+
+export type PropertyKind = 'field' | 'relationship' | 'enum' | 'verb' | 'disabled'
+
+export interface ParsedProperty {
+  name: string
+  kind: PropertyKind
+  type?: string | undefined
+  modifiers?: FieldModifiers | undefined
+  defaultValue?: string | undefined
+  enumValues?: string[] | undefined
+  operator?: string | undefined
+  targetType?: string | undefined
+  backref?: string | undefined
+  isArray?: boolean | undefined
+  verbAction?: string | undefined
+  verbConjugation?: VerbConjugation | undefined
+}
 
 /**
  * Column definition derived from schema fields.

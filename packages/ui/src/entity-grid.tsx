@@ -37,7 +37,7 @@ export function EntityGrid({ noun, filter, editable = true, rowHeight = 'default
 
   const handleCellUpdate = useCallback(
     (rowIndex: number, columnId: string, value: unknown) => {
-      const row = data[rowIndex]
+      const row = data[rowIndex] as Record<string, unknown> | undefined
       if (!row?.$id) return
       update(String(row.$id), { [columnId]: value })
     },

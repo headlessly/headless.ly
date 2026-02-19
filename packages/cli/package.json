@@ -1,19 +1,32 @@
 {
   "name": "@headlessly/cli",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "CLI tool for headless.ly developers and agents",
   "type": "module",
-  "main": "src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "bin": {
     "headlessly": "./dist/bin.js"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./dist/index.js"
+    }
   },
   "files": [
     "dist",
     "README.md"
   ],
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      }
+    }
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
@@ -21,7 +34,8 @@
     "test:e2e": "vitest run --config ../vitest.e2e.config.ts",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "prepublishOnly": "pnpm build"
   },
   "dependencies": {
     "digital-objects": "workspace:*",
@@ -42,13 +56,10 @@
   ],
   "author": "headless.ly",
   "license": "MIT",
-  "publishConfig": {
-    "access": "public",
-    "exports": {
-      ".": {
-        "types": "./dist/index.d.ts",
-        "import": "./dist/index.js"
-      }
-    }
-  }
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/headlessly/headless.ly",
+    "directory": "public/packages/cli"
+  },
+  "homepage": "https://headless.ly"
 }
