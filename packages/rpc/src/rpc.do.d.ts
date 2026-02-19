@@ -115,8 +115,5 @@ declare module 'rpc.do/transports' {
 
 declare module 'rpc.do/middleware' {
   import type { Transport } from 'rpc.do'
-  export function withBatching(
-    transport: Transport,
-    opts?: { windowMs?: number; maxBatchSize?: number },
-  ): Transport
+  export function withBatching(transport: Transport, opts?: { windowMs?: number; maxBatchSize?: number }): Transport
 }

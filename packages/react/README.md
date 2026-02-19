@@ -132,7 +132,6 @@ Flag evaluations are automatically tracked as analytics events. No manual `track
 
 ```tsx
 import { ErrorBoundary } from '@headlessly/react'
-
 ;<ErrorBoundary
   fallback={(error, reset) => (
     <div>

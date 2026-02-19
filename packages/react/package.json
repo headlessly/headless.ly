@@ -53,9 +53,14 @@
   "keywords": [
     "headlessly",
     "react",
+    "hooks",
+    "provider",
     "analytics",
     "errors",
-    "hooks"
+    "error-boundary",
+    "feature-flags",
+    "experiments",
+    "sdk"
   ],
   "author": "headless.ly",
   "license": "MIT",

@@ -4,7 +4,6 @@
 
 ```tsx
 import { HeadlessUIProvider, EntityTable, EntityForm, VerbButton } from '@headlessly/ui'
-
 ;<HeadlessUIProvider config={{ baseUrl: 'https://db.headless.ly' }}>
   <EntityTable noun='Contact' />
   <EntityForm noun='Deal' onSubmit={(data) => console.log(data)} />
@@ -90,7 +89,6 @@ Read-only detail view with all fields and relationships.
 
 ```tsx
 import { EntityDetail } from '@headlessly/ui'
-
 ;<EntityDetail noun='Contact' entityId='contact_fX9bL5nRd' />
 ```
 
@@ -118,7 +116,6 @@ Event timeline showing the full history of an entity -- every mutation, every ve
 
 ```tsx
 import { EntityTimeline } from '@headlessly/ui'
-
 ;<EntityTimeline noun='Contact' entityId='contact_fX9bL5nRd' />
 ```
 
@@ -130,7 +127,6 @@ Visual graph of entity relationships -- follow links across the typed graph.
 
 ```tsx
 import { RelationshipGraph } from '@headlessly/ui'
-
 ;<RelationshipGraph rootNoun='Contact' rootId='contact_fX9bL5nRd' depth={2} />
 ```
 
@@ -142,7 +138,6 @@ Composable dashboard cards from entity aggregations.
 
 ```tsx
 import { Dashboard } from '@headlessly/ui'
-
 ;<Dashboard
   cards={[
     { type: 'metric', noun: 'Contact', aggregate: 'count' },
@@ -158,7 +153,6 @@ Cross-entity search with typeahead, searching across all entity types.
 
 ```tsx
 import { SearchBar } from '@headlessly/ui'
-
 ;<SearchBar nouns={['Contact', 'Deal', 'Company']} onSelect={(entity) => navigate(`/${entity.$type}/${entity.$id}`)} />
 ```
 
