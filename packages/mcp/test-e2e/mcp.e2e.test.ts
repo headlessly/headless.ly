@@ -8,8 +8,8 @@
  * Run: vitest run public/packages/mcp/test-e2e/mcp.e2e.test.ts
  */
 
-import { describe, it, expect, beforeAll } from 'vitest'
-import { setup, CRM_URL, writeHeaders, readHeaders, generateTestId } from '../../test-e2e-helpers'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { setup, CRM_URL, writeHeaders, readHeaders, generateTestId, getSessionToken } from '../../test-e2e-helpers'
 import { MCPServer, MCPClient, getTools, createHandlers } from '../src/index.js'
 import { MemoryNounProvider } from 'digital-objects'
 
@@ -17,22 +17,8 @@ import { MemoryNounProvider } from 'digital-objects'
 // Setup — provision an authenticated session for live API access
 // ---------------------------------------------------------------------------
 
-let isCRMReachable = false
-
 beforeAll(async () => {
-  try {
-    await setup()
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 3000)
-    const res = await fetch(CRM_URL, {
-      signal: controller.signal,
-    }).catch(() => null)
-    clearTimeout(timeout)
-    if (res && (res.ok || res.status === 401 || res.status === 403)) isCRMReachable = true
-  } catch {
-    // provision or network failure
-  }
-  if (!isCRMReachable) console.log(`Skipping live MCP tests: ${CRM_URL} not reachable`)
+  await setup()
 })
 
 // =============================================================================
@@ -214,14 +200,42 @@ describe('@headlessly/mcp — MCPServer', () => {
 // Live MCP endpoint — POST to crm.headless.ly/mcp
 // =============================================================================
 
-describe.skipIf(!isCRMReachable)('@headlessly/mcp — live MCP endpoint', () => {
-  it('POST to /mcp with search request returns results', async () => {
+describe('@headlessly/mcp — live MCP endpoint', () => {
+  it('POST to /mcp with tools/list returns 3 tools', async () => {
     const res = await fetch(`${CRM_URL}/mcp`, {
       method: 'POST',
       headers: writeHeaders(),
       body: JSON.stringify({
         jsonrpc: '2.0',
         id: 1,
+        method: 'tools/list',
+        params: {},
+      }),
+    })
+
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      jsonrpc: string
+      id: number
+      result?: { tools?: Array<{ name: string; description: string }> }
+    }
+    expect(body.jsonrpc).toBe('2.0')
+    expect(body.result?.tools).toBeDefined()
+    expect(Array.isArray(body.result!.tools)).toBe(true)
+
+    const toolNames = body.result!.tools!.map((t) => t.name)
+    expect(toolNames).toContain('search')
+    expect(toolNames).toContain('fetch')
+    expect(toolNames).toContain('do')
+  }, 15_000)
+
+  it('POST to /mcp with search returns valid JSON-RPC response', async () => {
+    const res = await fetch(`${CRM_URL}/mcp`, {
+      method: 'POST',
+      headers: writeHeaders(),
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 2,
         method: 'tools/call',
         params: {
           name: 'search',
@@ -233,30 +247,24 @@ describe.skipIf(!isCRMReachable)('@headlessly/mcp — live MCP endpoint', () => 
       }),
     })
 
-    // MCP endpoint should exist
-    expect(res.status).not.toBe(404)
-
-    // Accept 200 (success) or 401/403 (auth required) or 400 (malformed)
-    expect([200, 400, 401, 403]).toContain(res.status)
-
-    if (res.status === 200) {
-      const body = (await res.json()) as {
-        jsonrpc: string
-        id: number
-        result?: { content?: unknown[] }
-      }
-      expect(body.jsonrpc).toBe('2.0')
-      expect(body.id).toBe(1)
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      jsonrpc: string
+      id: number
+      result?: { content?: unknown[] }
     }
-  }, 15000)
+    expect(body.jsonrpc).toBe('2.0')
+    expect(body.id).toBe(2)
+    expect(body.result).toBeDefined()
+  }, 15_000)
 
-  it('POST to /mcp with fetch request for schema', async () => {
+  it('POST to /mcp with fetch schema returns schema content', async () => {
     const res = await fetch(`${CRM_URL}/mcp`, {
       method: 'POST',
       headers: writeHeaders(),
       body: JSON.stringify({
         jsonrpc: '2.0',
-        id: 2,
+        id: 3,
         method: 'tools/call',
         params: {
           name: 'fetch',
@@ -268,114 +276,191 @@ describe.skipIf(!isCRMReachable)('@headlessly/mcp — live MCP endpoint', () => 
       }),
     })
 
-    expect(res.status).not.toBe(404)
-    expect([200, 400, 401, 403]).toContain(res.status)
-
-    if (res.status === 200) {
-      const body = (await res.json()) as {
-        jsonrpc: string
-        result?: { content?: unknown[] }
-      }
-      expect(body.jsonrpc).toBe('2.0')
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      jsonrpc: string
+      id: number
+      result?: { content?: unknown[] }
     }
-  }, 15000)
-
-  it('POST to /mcp with tools/list returns available tools', async () => {
-    const res = await fetch(`${CRM_URL}/mcp`, {
-      method: 'POST',
-      headers: writeHeaders(),
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 3,
-        method: 'tools/list',
-        params: {},
-      }),
-    })
-
-    expect(res.status).not.toBe(404)
-    expect([200, 400, 401, 403]).toContain(res.status)
-
-    if (res.status === 200) {
-      const body = (await res.json()) as {
-        jsonrpc: string
-        id: number
-        result?: { tools?: Array<{ name: string; description: string }> }
-      }
-      expect(body.jsonrpc).toBe('2.0')
-
-      if (body.result?.tools) {
-        expect(Array.isArray(body.result.tools)).toBe(true)
-        const toolNames = body.result.tools.map((t) => t.name)
-        expect(toolNames).toContain('search')
-        expect(toolNames).toContain('fetch')
-        expect(toolNames).toContain('do')
-      }
-    }
-  }, 15000)
-
-  it('GET /mcp returns MCP server info or SSE stream', async () => {
-    const res = await fetch(`${CRM_URL}/mcp`, {
-      method: 'GET',
-      headers: readHeaders(),
-    })
-
-    // GET on MCP can return SSE (200 with text/event-stream) or JSON info or redirect
-    expect(res.status).not.toBe(404)
-    expect([200, 301, 302, 400, 401, 403, 405]).toContain(res.status)
-  }, 15000)
+    expect(body.jsonrpc).toBe('2.0')
+    expect(body.result).toBeDefined()
+  }, 15_000)
 })
 
 // =============================================================================
 // Live OpenAPI endpoint — fetch crm.headless.ly/openapi
 // =============================================================================
 
-describe.skipIf(!isCRMReachable)('@headlessly/mcp — live OpenAPI endpoint', () => {
-  it('GET /openapi returns a valid OpenAPI spec', async () => {
+describe('@headlessly/mcp — live OpenAPI endpoint', () => {
+  it('GET /openapi returns a valid OpenAPI 3.x spec', async () => {
     const res = await fetch(`${CRM_URL}/openapi`, {
       headers: { Accept: 'application/json', ...readHeaders() },
     })
 
-    // OpenAPI endpoint should exist
-    expect([200, 401, 403]).toContain(res.status)
+    expect(res.status).toBe(200)
+    const ct = res.headers.get('content-type') || ''
+    expect(ct).toContain('json')
 
-    if (res.status === 200) {
-      const ct = res.headers.get('content-type') || ''
-      expect(ct).toContain('json')
-
-      const spec = (await res.json()) as {
-        openapi?: string
-        info?: { title?: string; version?: string }
-        paths?: Record<string, unknown>
-      }
-
-      expect(spec.openapi).toBeDefined()
-      expect(spec.openapi).toMatch(/^3\./)
-      expect(spec.info).toBeDefined()
-      expect(spec.info!.title).toBeDefined()
-      expect(spec.paths).toBeDefined()
-      expect(typeof spec.paths).toBe('object')
+    const spec = (await res.json()) as {
+      openapi?: string
+      info?: { title?: string; version?: string }
+      paths?: Record<string, unknown>
     }
-  }, 15000)
 
-  it('OpenAPI spec includes entity CRUD paths', async () => {
+    expect(spec.openapi).toBeDefined()
+    expect(spec.openapi).toMatch(/^3\./)
+    expect(spec.info).toBeDefined()
+    expect(spec.info!.title).toBeDefined()
+    expect(spec.paths).toBeDefined()
+    expect(typeof spec.paths).toBe('object')
+  }, 15_000)
+
+  it('OpenAPI spec includes CRM entity CRUD paths', async () => {
     const res = await fetch(`${CRM_URL}/openapi`, {
       headers: { Accept: 'application/json', ...readHeaders() },
     })
 
-    if (res.status === 200) {
-      const spec = (await res.json()) as {
-        paths?: Record<string, unknown>
-      }
+    expect(res.status).toBe(200)
+    const spec = (await res.json()) as { paths?: Record<string, unknown> }
+    expect(spec.paths).toBeDefined()
 
-      if (spec.paths) {
-        const paths = Object.keys(spec.paths)
-        // Should include at least some entity paths
-        expect(paths.length).toBeGreaterThan(0)
+    const paths = Object.keys(spec.paths!)
+    expect(paths.length).toBeGreaterThan(0)
 
-        // Look for CRM-related paths
-        const hasCRMPaths = paths.some((p) => p.includes('contact') || p.includes('deal') || p.includes('organization'))
-        expect(hasCRMPaths).toBe(true)
-      }
+    const hasCRMPaths = paths.some((p) => p.includes('contact') || p.includes('deal') || p.includes('organization'))
+    expect(hasCRMPaths).toBe(true)
+  }, 15_000)
+})
+
+// =============================================================================
+// MCP tool execution — search finds created entities
+// =============================================================================
+
+describe('@headlessly/mcp — search finds created entities', () => {
+  const uniqueName = `MCP E2E ${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+  let createdId: string
+
+  beforeAll(async () => {
+    // Create a Contact via REST so we can search for it via MCP
+    const res = await fetch(`${CRM_URL}/api/contacts`, {
+      method: 'POST',
+      headers: writeHeaders(),
+      body: JSON.stringify({ name: uniqueName, email: `mcp-e2e-${Date.now()}@test.headless.ly`, stage: 'Lead' }),
+    })
+    expect(res.status).toBe(201)
+    const body = (await res.json()) as { data: { $id: string } }
+    createdId = body.data.$id
+  })
+
+  afterAll(async () => {
+    if (createdId) {
+      await fetch(`${CRM_URL}/api/contacts/${createdId}`, {
+        method: 'DELETE',
+        headers: readHeaders(),
+      })
     }
-  }, 15000)
+  })
+
+  it('MCP search for Contact returns results', async () => {
+    const res = await fetch(`${CRM_URL}/mcp`, {
+      method: 'POST',
+      headers: writeHeaders(),
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 10,
+        method: 'tools/call',
+        params: {
+          name: 'search',
+          arguments: { type: 'Contact', limit: 50 },
+        },
+      }),
+    })
+
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      jsonrpc: string
+      id: number
+      result?: { content?: Array<{ type: string; text: string }> }
+    }
+    expect(body.jsonrpc).toBe('2.0')
+    expect(body.result).toBeDefined()
+    expect(body.result!.content).toBeDefined()
+    expect(body.result!.content!.length).toBeGreaterThan(0)
+
+    // The content should contain text mentioning our created entity
+    const textContent = body.result!.content!.map((c) => c.text).join('\n')
+    expect(textContent.length).toBeGreaterThan(0)
+  }, 15_000)
+
+  it('MCP fetch for Contact by $id returns matching entity', async () => {
+    const res = await fetch(`${CRM_URL}/mcp`, {
+      method: 'POST',
+      headers: writeHeaders(),
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 11,
+        method: 'tools/call',
+        params: {
+          name: 'fetch',
+          arguments: { resource: 'entity', type: 'Contact', id: createdId },
+        },
+      }),
+    })
+
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      jsonrpc: string
+      result?: { content?: Array<{ type: string; text: string }> }
+    }
+    expect(body.jsonrpc).toBe('2.0')
+    expect(body.result).toBeDefined()
+    expect(body.result!.content).toBeDefined()
+    expect(body.result!.content!.length).toBeGreaterThan(0)
+
+    // Response text should reference our entity ID or name
+    const textContent = body.result!.content!.map((c) => c.text).join('\n')
+    expect(textContent).toContain(createdId)
+  }, 15_000)
+})
+
+// =============================================================================
+// MCPClient against live endpoint
+// =============================================================================
+
+describe('@headlessly/mcp — MCPClient live', () => {
+  let client: MCPClient
+
+  beforeAll(() => {
+    client = new MCPClient(`${CRM_URL}/mcp`, {
+      headers: { Authorization: `Bearer ${getSessionToken()}` },
+    })
+  })
+
+  afterAll(async () => {
+    await client.close()
+  })
+
+  it('client.listTools() returns 3 tools', async () => {
+    const tools = await client.listTools()
+    expect(Array.isArray(tools)).toBe(true)
+    expect(tools.length).toBe(3)
+    const names = tools.map((t) => t.name)
+    expect(names).toContain('search')
+    expect(names).toContain('fetch')
+    expect(names).toContain('do')
+  }, 15_000)
+
+  it('client.search() returns results for Contact', async () => {
+    const result = await client.search({ type: 'Contact', limit: 5 })
+    expect(result).toBeDefined()
+    expect(result.content).toBeDefined()
+    expect(Array.isArray(result.content)).toBe(true)
+  }, 15_000)
+
+  it('client.fetch() returns schema for Contact', async () => {
+    const result = await client.fetch({ resource: 'schema', noun: 'Contact' })
+    expect(result).toBeDefined()
+    expect(result.content).toBeDefined()
+    expect(result.content.length).toBeGreaterThan(0)
+  }, 15_000)
 })

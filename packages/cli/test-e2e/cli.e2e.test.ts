@@ -1,13 +1,16 @@
 /**
  * E2E Tests for @headlessly/cli — CLI tool
  *
- * Validates exports, argument parsing, and config loading.
- * No interactive CLI execution — tests the programmatic API surface.
+ * Validates exports, argument parsing, config loading,
+ * and live binary execution against real endpoints.
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeAll } from 'vitest'
+import { execFile } from 'node:child_process'
+import { resolve } from 'node:path'
 import { run, parseArgs, loadConfig } from '../src/index.js'
 import type { ParsedArgs, CLIConfig } from '../src/index.js'
+import { setup, CRM_URL, getSessionToken } from '../../test-e2e-helpers'
 
 // =============================================================================
 // 1. Exports exist
@@ -204,4 +207,95 @@ describe('run()', () => {
       console.log = origLog
     }
   })
+})
+
+// =============================================================================
+// 5. Live binary execution against real endpoints
+// =============================================================================
+
+const BIN_PATH = resolve(import.meta.dirname, '../dist/bin.js')
+
+function execCli(args: string[], env?: Record<string, string>): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  return new Promise((resolve) => {
+    execFile(
+      process.execPath,
+      [BIN_PATH, ...args],
+      {
+        env: { ...process.env, ...env },
+        timeout: 15_000,
+      },
+      (error, stdout, stderr) => {
+        resolve({
+          stdout: stdout?.toString() ?? '',
+          stderr: stderr?.toString() ?? '',
+          exitCode: error?.code ? Number(error.code) : error ? 1 : 0,
+        })
+      },
+    )
+  })
+}
+
+describe('CLI live binary execution', () => {
+  beforeAll(async () => {
+    await setup()
+  })
+
+  const liveEnv = () => ({
+    HEADLESSLY_ENDPOINT: CRM_URL,
+    HEADLESSLY_TOKEN: getSessionToken(),
+  })
+
+  it('headlessly help exits 0 and shows usage', async () => {
+    const { stdout, exitCode } = await execCli(['help'], liveEnv())
+    expect(exitCode).toBe(0)
+    expect(stdout.toLowerCase()).toContain('usage')
+  }, 15_000)
+
+  it('headlessly --help exits 0', async () => {
+    const { exitCode } = await execCli(['--help'], liveEnv())
+    expect(exitCode).toBe(0)
+  }, 15_000)
+
+  it('headlessly nonexistent exits 1 with error', async () => {
+    const { stderr, exitCode } = await execCli(['nonexistent'], liveEnv())
+    expect(exitCode).toBe(1)
+    expect(stderr.toLowerCase()).toContain('unknown command')
+  }, 15_000)
+
+  it('headlessly search Contact --json returns valid JSON', async () => {
+    const { stdout, exitCode } = await execCli(['search', 'Contact', '--json'], liveEnv())
+    expect(exitCode).toBe(0)
+    const parsed = JSON.parse(stdout)
+    expect(Array.isArray(parsed) || typeof parsed === 'object').toBe(true)
+  }, 15_000)
+
+  it('headlessly search Contact --limit 3 --json returns at most 3 results', async () => {
+    const { stdout, exitCode } = await execCli(['search', 'Contact', '--limit', '3', '--json'], liveEnv())
+    expect(exitCode).toBe(0)
+    const parsed = JSON.parse(stdout)
+    const items = Array.isArray(parsed) ? parsed : parsed.data ?? parsed.items ?? []
+    expect(items.length).toBeLessThanOrEqual(3)
+  }, 15_000)
+
+  it('headlessly fetch --type Contact --json returns JSON', async () => {
+    const { stdout, exitCode } = await execCli(['fetch', '--type', 'Contact', '--json'], liveEnv())
+    expect(exitCode).toBe(0)
+    const parsed = JSON.parse(stdout)
+    expect(parsed).toBeDefined()
+  }, 15_000)
+
+  it('headlessly schema Contact --json returns schema with fields', async () => {
+    const { stdout, exitCode } = await execCli(['schema', 'Contact', '--json'], liveEnv())
+    expect(exitCode).toBe(0)
+    const parsed = JSON.parse(stdout)
+    expect(parsed).toBeDefined()
+    // Schema should contain some field definitions
+    expect(typeof parsed === 'object').toBe(true)
+  }, 15_000)
+
+  it('headlessly status exits 0', async () => {
+    const { stdout, exitCode } = await execCli(['status'], liveEnv())
+    expect(exitCode).toBe(0)
+    expect(stdout.length).toBeGreaterThan(0)
+  }, 15_000)
 })

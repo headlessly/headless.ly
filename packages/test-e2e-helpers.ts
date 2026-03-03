@@ -1,33 +1,60 @@
 /**
  * Shared E2E test helpers for @headlessly/* packages
  *
- * Tests hit live deployed endpoints — no mocks.
- * Auth via id-org-ai provision (programmatic, no interactive login).
+ * Tests hit live deployed endpoints — no mocks, no skips.
+ * Auth via TEST_API_KEY (sk_* WorkOS key) passed as Bearer token.
+ * If endpoints are unreachable, tests FAIL.
  */
 
-const AUTH_URL = process.env.AUTH_URL || 'https://id-org-ai.dotdo.workers.dev'
-const CRM_URL = process.env.CRM_URL || 'https://crm.headless.ly'
-const BILLING_URL = process.env.BILLING_URL || 'https://billing.headless.ly'
+import { config } from 'dotenv'
+import { resolve } from 'node:path'
 
-let sessionToken: string
+// Load TEST_API_KEY from .do/snippets/.env if not already in env
+config({ path: resolve(import.meta.dirname, '../../.do/snippets/.env') })
+
+const API_URL = process.env.API_URL || 'https://api.headless.ly'
+const CRM_URL = process.env.CRM_URL || API_URL
+const BILLING_URL = process.env.BILLING_URL || API_URL
+
+let apiKey: string
 let tenantId: string
 
-export { CRM_URL, BILLING_URL }
+export { API_URL, CRM_URL, BILLING_URL }
 
+export function getSessionToken(): string {
+  if (!apiKey) throw new Error('setup() must be called before getSessionToken()')
+  return apiKey
+}
+
+export function getTenantId(): string {
+  if (!tenantId) throw new Error('setup() must be called before getTenantId()')
+  return tenantId
+}
+
+/**
+ * Initialize auth for E2E tests. Call in beforeAll().
+ *
+ * Uses TEST_API_KEY from env (loaded from .do/snippets/.env).
+ * The sk_* key is a valid WorkOS API key that the auth middleware
+ * accepts via Authorization: Bearer header (grants L1 access).
+ */
 export async function setup(): Promise<void> {
-  const res = await fetch(`${AUTH_URL}/api/provision`, { method: 'POST' })
-  if (!res.ok) throw new Error(`Provision failed: ${res.status} ${await res.text()}`)
-  const body = (await res.json()) as { tenantId: string; sessionToken: string }
-  sessionToken = body.sessionToken
-  tenantId = body.tenantId
+  const key = process.env.TEST_API_KEY
+  if (!key) {
+    throw new Error(
+      'TEST_API_KEY not set. Expected sk_* key in process.env or .do/snippets/.env',
+    )
+  }
+  apiKey = key
+  tenantId = process.env.TEST_TENANT_ID || 'default'
 }
 
 export function writeHeaders(): Record<string, string> {
-  return { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` }
+  return { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` }
 }
 
 export function readHeaders(): Record<string, string> {
-  return { Authorization: `Bearer ${sessionToken}` }
+  return { Authorization: `Bearer ${apiKey}` }
 }
 
 export function generateTestId(): string {

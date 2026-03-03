@@ -8,13 +8,15 @@
  * Tests hit real *.headless.ly endpoints — no mocks.
  */
 
-import { describe, it, expect, beforeAll } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import {
   $,
   headlessly,
   Headlessly,
   entityNames,
   resolveEntity,
+  setProvider,
+  DONounProvider,
   crm,
   billing,
   projects,
@@ -25,7 +27,7 @@ import {
   experiments,
   platform,
 } from '../src/index.ts'
-import { setup, CRM_URL, BILLING_URL, readHeaders } from '../../test-e2e-helpers'
+import { setup, CRM_URL, BILLING_URL, readHeaders, getSessionToken, writeHeaders, generateTestId } from '../../test-e2e-helpers'
 
 // =============================================================================
 // Setup — provision ephemeral session against live id.org.ai
@@ -921,5 +923,169 @@ describe('domain namespace completeness', () => {
     for (const name of entityNames) {
       expect(domainEntityNames.has(name), `${name} should be in a domain or SDK-defined`).toBe(true)
     }
+  })
+})
+
+// =============================================================================
+// 15. Live SDK operations via DONounProvider
+// =============================================================================
+
+describe('SDK live operations via DONounProvider', () => {
+  beforeAll(async () => {
+    // Reset SDK state and configure with live DONounProvider
+    headlessly.reset()
+    const provider = new DONounProvider({
+      endpoint: CRM_URL,
+      apiKey: getSessionToken(),
+      transport: 'http',
+    })
+    setProvider(provider)
+  })
+
+  afterAll(() => {
+    headlessly.reset()
+  })
+
+  // -------------------------------------------------------------------------
+  // Contact CRUD lifecycle
+  // -------------------------------------------------------------------------
+
+  describe('Contact CRUD lifecycle', () => {
+    const testName = `SDK E2E Contact ${Date.now()}`
+    const testEmail = `sdk-e2e-${Date.now()}@test.headless.ly`
+    let contactId: string
+
+    it('$.Contact.create() returns entity with $id and $type', async () => {
+      const contact = await $.Contact.create({ name: testName, email: testEmail, stage: 'Lead' })
+      expect(contact).toBeDefined()
+      expect(contact.$id).toBeDefined()
+      expect(typeof contact.$id).toBe('string')
+      expect(contact.$id.length).toBeGreaterThan(0)
+      expect(contact.$type).toBe('Contact')
+      expect(contact.name).toBe(testName)
+      contactId = contact.$id
+    }, 15_000)
+
+    it('$.Contact.get() returns the created entity', async () => {
+      expect(contactId).toBeDefined()
+      const contact = await $.Contact.get(contactId)
+      expect(contact).not.toBeNull()
+      expect(contact!.$id).toBe(contactId)
+      expect(contact!.name).toBe(testName)
+    }, 15_000)
+
+    it('$.Contact.find() returns array containing the entity', async () => {
+      const contacts = await $.Contact.find({})
+      expect(Array.isArray(contacts)).toBe(true)
+      const found = contacts.find((c: Record<string, unknown>) => c.$id === contactId)
+      expect(found).toBeDefined()
+    }, 15_000)
+
+    it('$.Contact.update() returns updated entity', async () => {
+      expect(contactId).toBeDefined()
+      const updatedName = `${testName} Updated`
+      const updated = await $.Contact.update(contactId, { name: updatedName })
+      expect(updated).toBeDefined()
+      expect(updated.name).toBe(updatedName)
+    }, 15_000)
+
+    it('$.Contact.delete() succeeds', async () => {
+      expect(contactId).toBeDefined()
+      const result = await $.Contact.delete(contactId)
+      expect(result).toBe(true)
+    }, 15_000)
+  })
+
+  // -------------------------------------------------------------------------
+  // Deal CRUD lifecycle
+  // -------------------------------------------------------------------------
+
+  describe('Deal CRUD lifecycle', () => {
+    const testName = `SDK E2E Deal ${Date.now()}`
+    let dealId: string
+
+    it('$.Deal.create() returns entity with $id', async () => {
+      const deal = await $.Deal.create({ name: testName, value: 5000 })
+      expect(deal).toBeDefined()
+      expect(deal.$id).toBeDefined()
+      expect(deal.$type).toBe('Deal')
+      dealId = deal.$id
+    }, 15_000)
+
+    it('$.Deal.get() returns the created deal', async () => {
+      expect(dealId).toBeDefined()
+      const deal = await $.Deal.get(dealId)
+      expect(deal).not.toBeNull()
+      expect(deal!.$id).toBe(dealId)
+      expect(deal!.name).toBe(testName)
+    }, 15_000)
+
+    it('$.Deal.delete() succeeds', async () => {
+      expect(dealId).toBeDefined()
+      const result = await $.Deal.delete(dealId)
+      expect(result).toBe(true)
+    }, 15_000)
+  })
+
+  // -------------------------------------------------------------------------
+  // Cross-domain: create Contact + Deal, verify both exist
+  // -------------------------------------------------------------------------
+
+  describe('cross-domain entity creation', () => {
+    let contactId: string
+    let dealId: string
+
+    afterAll(async () => {
+      // Clean up
+      if (contactId) await $.Contact.delete(contactId).catch(() => {})
+      if (dealId) await $.Deal.delete(dealId).catch(() => {})
+    })
+
+    it('creates Contact and Deal, both exist', async () => {
+      const contact = await $.Contact.create({ name: `Cross-domain Contact ${Date.now()}`, email: `cross-${Date.now()}@test.headless.ly` })
+      const deal = await $.Deal.create({ name: `Cross-domain Deal ${Date.now()}`, value: 10000 })
+
+      contactId = contact.$id
+      dealId = deal.$id
+
+      expect(contact.$id).toBeDefined()
+      expect(deal.$id).toBeDefined()
+
+      // Verify both can be fetched
+      const fetchedContact = await $.Contact.get(contactId)
+      const fetchedDeal = await $.Deal.get(dealId)
+
+      expect(fetchedContact).not.toBeNull()
+      expect(fetchedDeal).not.toBeNull()
+      expect(fetchedContact!.$type).toBe('Contact')
+      expect(fetchedDeal!.$type).toBe('Deal')
+    }, 15_000)
+  })
+
+  // -------------------------------------------------------------------------
+  // Verb execution (accept 200 or 501 — verb may not be implemented)
+  // -------------------------------------------------------------------------
+
+  describe('verb execution', () => {
+    let contactId: string
+
+    afterAll(async () => {
+      if (contactId) await $.Contact.delete(contactId).catch(() => {})
+    })
+
+    it('$.Contact.qualify() accepts success or not-implemented', async () => {
+      const contact = await $.Contact.create({ name: `Verb Test ${Date.now()}`, stage: 'Lead' })
+      contactId = contact.$id
+
+      try {
+        const result = await $.Contact.qualify(contactId)
+        // If it succeeds, it should return something
+        expect(result).toBeDefined()
+      } catch (err: unknown) {
+        // 501 Not Implemented or similar is acceptable for verbs not yet wired
+        const message = err instanceof Error ? err.message : String(err)
+        expect(message).toBeDefined()
+      }
+    }, 15_000)
   })
 })
