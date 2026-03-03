@@ -63,15 +63,27 @@ function isPublished(name: string, version: string): boolean {
   }
 }
 
+function getNpmVersion(name: string): string | null {
+  try {
+    return execSync(`npm view "${name}" version`, { stdio: 'pipe' }).toString().trim()
+  } catch {
+    return null
+  }
+}
+
 function replaceWorkspaceProtocol(deps: Record<string, string> | undefined, versionMap: Map<string, string>): Record<string, string> | undefined {
   if (!deps) return deps
 
   const result: Record<string, string> = {}
   for (const [name, version] of Object.entries(deps)) {
     if (version.startsWith('workspace:')) {
-      const actualVersion = versionMap.get(name)
+      let actualVersion = versionMap.get(name)
+      // Workspace dep might be outside public/ (e.g. digital-objects) — check npm
       if (!actualVersion) {
-        throw new Error(`Could not find version for workspace dependency: ${name}`)
+        actualVersion = getNpmVersion(name) ?? undefined
+      }
+      if (!actualVersion) {
+        throw new Error(`Could not find version for workspace dependency: ${name} (not in local packages or npm)`)
       }
       const prefix = version.replace('workspace:', '').replace('*', '')
       result[name] = prefix + actualVersion
