@@ -8,7 +8,9 @@
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
-    "clean": "pnpm -r clean"
+    "clean": "pnpm -r clean",
+    "publish-packages": "npx tsx scripts/publish.ts",
+    "publish-packages:dry": "npx tsx scripts/publish.ts --dry-run"
   },
   "devDependencies": {
     "typescript": "^5.7.0"

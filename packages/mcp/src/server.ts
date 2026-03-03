@@ -1,7 +1,10 @@
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 import type { MCPTool, MCPToolCall, MCPToolResult, MCPContext, MCPSchemaProperty } from './types.js'
 import type { NounProvider } from 'digital-objects'
 import { getTools } from './tools.js'
 import { createHandlers } from './handlers.js'
+import { inputSchemaToZod } from './schema-to-zod.js'
 
 export interface MCPServerOptions {
   provider: NounProvider
@@ -31,10 +34,37 @@ export class MCPServer {
   private handlers: ReturnType<typeof createHandlers>
   private context?: MCPContext
   private customTools: Map<string, RegisteredTool> = new Map()
+  private _server: McpServer
 
   constructor(options: MCPServerOptions) {
     this.handlers = createHandlers(options)
     this.context = options.context
+
+    this._server = new McpServer({
+      name: 'headless.ly',
+      version: '0.0.1',
+    })
+
+    // Register the three builtin tools on the SDK server
+    const tools = getTools(this.context)
+    for (const tool of tools) {
+      const zodSchema = inputSchemaToZod(tool.inputSchema)
+      const toolName = tool.name
+      this._server.tool(toolName, tool.description, zodSchema.shape, async (args) => {
+        const result = await this.executeTool(toolName, args as Record<string, unknown>)
+        return toSdkResult(result)
+      })
+    }
+  }
+
+  /** Access the underlying @modelcontextprotocol/sdk McpServer instance */
+  get server(): McpServer {
+    return this._server
+  }
+
+  /** Connect this server to an MCP SDK transport (e.g. StdioServerTransport) */
+  async connect(transport: Transport): Promise<void> {
+    await this._server.connect(transport)
   }
 
   /**
@@ -57,6 +87,19 @@ export class MCPServer {
       inputSchema: schema,
       handler,
     })
+
+    // Also register on the SDK server (may fail if overriding a builtin — that's OK,
+    // handleRequest() checks customTools first so the override still works for HTTP path)
+    try {
+      const zodSchema = inputSchemaToZod(schema)
+      this._server.tool(name, `Custom tool: ${name}`, zodSchema.shape, async (args) => {
+        const result = await handler(args as Record<string, unknown>)
+        return toSdkResult(result)
+      })
+    } catch {
+      // SDK throws if tool name already registered — custom tool still works via handleRequest()
+    }
+
     return this
   }
 
@@ -201,5 +244,18 @@ export class MCPServer {
   private jsonrpc(id: unknown, result: unknown, error?: { code: number; message: string }) {
     if (error) return { jsonrpc: '2.0', id, error }
     return { jsonrpc: '2.0', id, result }
+  }
+}
+
+/** Convert our MCPToolResult to the SDK's expected CallToolResult shape */
+function toSdkResult(result: MCPToolResult) {
+  return {
+    content: result.content.map((item) => {
+      if (item.type === 'resource' && item.resource) {
+        return { type: 'resource' as const, resource: item.resource }
+      }
+      return { type: 'text' as const, text: item.text ?? '' }
+    }),
+    isError: result.isError,
   }
 }
