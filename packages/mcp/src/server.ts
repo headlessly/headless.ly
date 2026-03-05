@@ -2,6 +2,8 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 import type { MCPTool, MCPToolCall, MCPToolResult, MCPContext, MCPSchemaProperty } from './types.js'
 import type { NounProvider } from 'digital-objects'
+import type { AuthContext } from '@dotdo/mcp'
+import { ANONYMOUS_CONTEXT } from '@dotdo/mcp'
 import { getTools } from './tools.js'
 import { createHandlers } from './handlers.js'
 import { inputSchemaToZod } from './schema-to-zod.js'
@@ -35,6 +37,7 @@ export class MCPServer {
   private context?: MCPContext
   private customTools: Map<string, RegisteredTool> = new Map()
   private _server: McpServer
+  private authContext: AuthContext = ANONYMOUS_CONTEXT
 
   constructor(options: MCPServerOptions) {
     this.handlers = createHandlers(options)
@@ -65,6 +68,16 @@ export class MCPServer {
   /** Connect this server to an MCP SDK transport (e.g. StdioServerTransport) */
   async connect(transport: Transport): Promise<void> {
     await this._server.connect(transport)
+  }
+
+  /** Set the current auth context (e.g. after oauth.do device-flow login) */
+  setAuthContext(ctx: AuthContext): void {
+    this.authContext = ctx
+  }
+
+  /** Get the current auth context */
+  getAuthContext(): AuthContext {
+    return this.authContext
   }
 
   /**
