@@ -36,6 +36,7 @@
   "dependencies": {
     "digital-objects": "workspace:*",
     "rpc.do": "^0.2.4",
+    "@headlessly/events": "workspace:*",
     "@headlessly/objects": "workspace:*",
     "@headlessly/crm": "workspace:*",
     "@headlessly/billing": "workspace:*",

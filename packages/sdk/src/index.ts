@@ -6,6 +6,28 @@ import type { RPCProxy, RPCOptions } from 'rpc.do'
 import { LocalNounProvider, DONounProvider } from '@headlessly/objects'
 import type { DONounProviderOptions } from '@headlessly/objects'
 
+// Re-export the discriminated union types from @headlessly/events
+export type {
+  EntityEvent as TypedEntityEvent,
+  EntityTypeName,
+  EntityEventType,
+  EventsFor,
+  EventByType,
+  TypedEventHandler,
+  EntityEventHandler,
+  AnyEventHandler,
+  TypedSubscribe,
+  BaseEntityEvent,
+  CreatedEvent,
+  UpdatedEvent,
+  DeletedEvent,
+  CustomVerbEvent,
+  ContactEvent,
+  DealEvent,
+  SubscriptionEvent as SubscriptionEntityEvent,
+  EventTypeDescriptor,
+} from '@headlessly/events'
+
 // =============================================================================
 // Entity Event Types
 // =============================================================================
@@ -79,10 +101,74 @@ function _subscribe(callbackOrOptions: ((event: EntityEvent) => void) | EventFil
   return wrappedUnsub
 }
 
+/**
+ * Pattern-based typed subscription.
+ *
+ * Subscribes to events matching a pattern string using the digital-objects
+ * global event bus. Patterns follow the `{EntityType}.{verbEvent}` format.
+ *
+ * @example
+ * ```typescript
+ * // Subscribe to a specific event type
+ * $.events.$subscribe('Contact.qualified', (event) => {
+ *   // event is narrowed to Contact.qualified event
+ * })
+ *
+ * // Subscribe to all events for an entity
+ * $.events.$subscribe('Contact.*', (event) => { ... })
+ *
+ * // Subscribe to all events
+ * $.events.$subscribe('*', (event) => { ... })
+ * ```
+ */
+function _patternSubscribe(pattern: string, handler: (event: EntityEvent) => void): () => void {
+  const unsub = subscribeToEvents((event: DOEntityEvent) => {
+    const eventType = `${event.type}.${event.action === 'performed' && event.verb ? event.verb : event.action}`
+
+    // Match against pattern
+    if (pattern === '*') {
+      // Match all
+    } else if (pattern.endsWith('.*')) {
+      // Entity wildcard: 'Contact.*'
+      const entityType = pattern.slice(0, -2)
+      if (event.type !== entityType) return
+    } else if (pattern.startsWith('*.')) {
+      // Verb wildcard: '*.created'
+      const verbEvent = pattern.slice(2)
+      if (event.action !== verbEvent && event.verb !== verbEvent) return
+    } else {
+      // Exact match: 'Contact.qualified'
+      const [entityType, verbEvent] = pattern.split('.')
+      if (event.type !== entityType) return
+      if (event.action !== verbEvent && event.verb !== verbEvent) return
+    }
+
+    try {
+      handler(event as EntityEvent)
+    } catch {
+      // Subscriber errors are silently ignored
+    }
+  })
+
+  _activeUnsubscribes.push(unsub)
+
+  const wrappedUnsub = () => {
+    unsub()
+    const idx = _activeUnsubscribes.indexOf(unsub)
+    if (idx >= 0) _activeUnsubscribes.splice(idx, 1)
+  }
+  return wrappedUnsub
+}
+
 const _eventsNamespace = {
   subscribe: _subscribe as {
     (callback: (event: EntityEvent) => void): () => void
     (options: { type?: string; action?: string }, callback: (event: EntityEvent) => void): () => void
+  },
+  /** Pattern-based typed event subscription (discriminated union narrowing) */
+  $subscribe: _patternSubscribe as {
+    <T extends string>(pattern: T, handler: (event: EntityEvent) => void): () => void
+    (pattern: string, handler: (event: EntityEvent) => void): () => void
   },
 }
 
@@ -697,6 +783,11 @@ export interface HeadlessContext {
     subscribe: {
       (callback: (event: EntityEvent) => void): () => void
       (options: { type?: string; action?: string }, callback: (event: EntityEvent) => void): () => void
+    }
+    /** Pattern-based typed event subscription with discriminated union narrowing */
+    $subscribe: {
+      <T extends string>(pattern: T, handler: (event: EntityEvent) => void): () => void
+      (pattern: string, handler: (event: EntityEvent) => void): () => void
     }
   }
 
