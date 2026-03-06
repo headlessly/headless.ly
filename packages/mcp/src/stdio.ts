@@ -10,7 +10,7 @@ export interface ConnectStdioOptions {
   noBrowser?: boolean
   /** Force re-authentication even if token exists */
   forceLogin?: boolean
-  /** Explicit auth context (skips oauth.do flow) */
+  /** Explicit auth context (skips the id.org.ai-backed device flow) */
   authContext?: AuthContext
 }
 
@@ -18,8 +18,8 @@ export interface ConnectStdioOptions {
  * Connect an MCPServer to stdin/stdout using the MCP SDK's StdioServerTransport.
  * Node.js only — isolated in `@headlessly/mcp/stdio` to keep the main bundle clean for Workers/browsers.
  *
- * Authenticates via oauth.do device flow (from mcp.do). Default mode is 'anon+auth':
- * uses existing token if available, falls back to anonymous.
+ * Authenticates via the id.org.ai-backed device flow exposed by mcp.do.
+ * Default mode is 'anon+auth': uses existing token if available, falls back to anonymous.
  *
  * ```typescript
  * import { MCPServer } from '@headlessly/mcp'

@@ -3,7 +3,7 @@ title: Identity
 description: User, ApiKey — authentication and tenancy.
 ---
 
-Identity is backed by WorkOS via [oauth.do](https://oauth.do). Users authenticate, ApiKeys enable programmatic access. Organization is defined in the [CRM](/entities/crm) domain.
+Identity is backed by WorkOS through [id.org.ai](https://id.org.ai). The legacy [oauth.do](https://oauth.do) domain remains available as a compatibility wrapper. Users authenticate, ApiKeys enable programmatic access. Organization is defined in the [CRM](/entities/crm) domain.
 
 ## User
 
@@ -24,11 +24,11 @@ export const User = Noun('User', {
 })
 ```
 
-| Verb | Event | Description |
-|------|-------|-------------|
-| `invite` | `Invited` | Send invite to join organization |
-| `suspend` | `Suspended` | Temporarily disable access |
-| `activate` | `Activated` | Activate a user account |
+| Verb       | Event       | Description                      |
+| ---------- | ----------- | -------------------------------- |
+| `invite`   | `Invited`   | Send invite to join organization |
+| `suspend`  | `Suspended` | Temporarily disable access       |
+| `activate` | `Activated` | Activate a user account          |
 
 ## ApiKey
 
@@ -44,6 +44,6 @@ export const ApiKey = Noun('ApiKey', {
 })
 ```
 
-| Verb | Event | Description |
-|------|-------|-------------|
+| Verb     | Event     | Description                 |
+| -------- | --------- | --------------------------- |
 | `revoke` | `Revoked` | Permanently disable the key |

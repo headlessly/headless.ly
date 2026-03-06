@@ -5,12 +5,12 @@ description: User and ApiKey -- authentication, authorization, and programmatic 
 
 The Identity domain manages who can access your headless.ly tenant and how. It contains two entities:
 
-| Entity | Description |
-|--------|-------------|
-| [User](/entities/identity/user) | Authenticated humans -- founders, team members, collaborators |
+| Entity                               | Description                                                         |
+| ------------------------------------ | ------------------------------------------------------------------- |
+| [User](/entities/identity/user)      | Authenticated humans -- founders, team members, collaborators       |
 | [ApiKey](/entities/identity/api-key) | Programmatic access tokens for SDK, CI/CD, and agent authentication |
 
-Identity is backed by WorkOS via [oauth.do](https://oauth.do). Users authenticate through SSO, magic links, or social login. ApiKeys enable machine-to-machine access with scoped permissions.
+Identity is backed by WorkOS through [id.org.ai](https://id.org.ai). The legacy [oauth.do](https://oauth.do) surface remains supported as a compatibility wrapper. Users authenticate through SSO, magic links, or social login. ApiKeys enable machine-to-machine access with scoped permissions.
 
 Organization -- the tenant itself -- lives in the [CRM](/entities/crm) domain. Identity answers "who are you?" while CRM answers "what org do you belong to?"
 

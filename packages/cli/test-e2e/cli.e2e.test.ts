@@ -150,6 +150,28 @@ describe('loadConfig()', () => {
     }
   })
 
+  it('accepts HEADLESSLY_TOKEN as a compatibility alias', async () => {
+    const prevToken = process.env.HEADLESSLY_TOKEN
+    const prevApiKey = process.env.HEADLESSLY_API_KEY
+    try {
+      delete process.env.HEADLESSLY_API_KEY
+      process.env.HEADLESSLY_TOKEN = 'hl_env_token_alias'
+      const config = await loadConfig()
+      expect(config.apiKey).toBe('hl_env_token_alias')
+    } finally {
+      if (prevToken !== undefined) {
+        process.env.HEADLESSLY_TOKEN = prevToken
+      } else {
+        delete process.env.HEADLESSLY_TOKEN
+      }
+      if (prevApiKey !== undefined) {
+        process.env.HEADLESSLY_API_KEY = prevApiKey
+      } else {
+        delete process.env.HEADLESSLY_API_KEY
+      }
+    }
+  })
+
   it('respects HEADLESSLY_ENDPOINT env var', async () => {
     const prev = process.env.HEADLESSLY_ENDPOINT
     try {
@@ -242,7 +264,7 @@ describe('CLI live binary execution', () => {
 
   const liveEnv = () => ({
     HEADLESSLY_ENDPOINT: CRM_URL,
-    HEADLESSLY_TOKEN: getSessionToken(),
+    HEADLESSLY_API_KEY: getSessionToken(),
   })
 
   it('headlessly help exits 0 and shows usage', async () => {
@@ -273,7 +295,7 @@ describe('CLI live binary execution', () => {
     const { stdout, exitCode } = await execCli(['search', 'Contact', '--limit', '3', '--json'], liveEnv())
     expect(exitCode).toBe(0)
     const parsed = JSON.parse(stdout)
-    const items = Array.isArray(parsed) ? parsed : parsed.data ?? parsed.items ?? []
+    const items = Array.isArray(parsed) ? parsed : (parsed.data ?? parsed.items ?? [])
     expect(items.length).toBeLessThanOrEqual(3)
   }, 15_000)
 

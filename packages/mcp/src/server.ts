@@ -70,7 +70,7 @@ export class MCPServer {
     await this._server.connect(transport)
   }
 
-  /** Set the current auth context (e.g. after oauth.do device-flow login) */
+  /** Set the current auth context (e.g. after id.org.ai-backed device-flow login) */
   setAuthContext(ctx: AuthContext): void {
     this.authContext = ctx
   }

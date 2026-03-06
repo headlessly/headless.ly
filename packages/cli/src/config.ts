@@ -33,6 +33,8 @@ export async function loadConfig(): Promise<CLIConfig> {
   // Env vars override file config
   if (process.env.HEADLESSLY_API_KEY) {
     config.apiKey = process.env.HEADLESSLY_API_KEY
+  } else if (process.env.HEADLESSLY_TOKEN) {
+    config.apiKey = process.env.HEADLESSLY_TOKEN
   }
   if (process.env.HEADLESSLY_ENDPOINT) {
     config.endpoint = process.env.HEADLESSLY_ENDPOINT

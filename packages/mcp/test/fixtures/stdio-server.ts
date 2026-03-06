@@ -28,6 +28,6 @@ Noun('Deal', {
 
 const server = new MCPServer({ provider })
 
-// Signal ready on stderr, then connect stdio (anon mode — no oauth.do needed for tests)
+// Signal ready on stderr, then connect stdio (anon mode — no auth login needed for tests)
 process.stderr.write('ready\n')
 await connectStdio(server, { authMode: 'anon' })

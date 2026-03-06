@@ -162,7 +162,7 @@ await saveConfig({ tenant: 'acme', apiKey: 'key_fX9bL5nRd' })
 The CLI reads configuration from three sources (in order of precedence):
 
 1. **Command-line flags**: `--tenant acme --api-key key_xxx`
-2. **Environment variables**: `HEADLESSLY_TENANT`, `HEADLESSLY_API_KEY`
+2. **Environment variables**: `HEADLESSLY_TENANT`, `HEADLESSLY_API_KEY` or `HEADLESSLY_TOKEN`
 3. **Config file**: `~/.headlessly/config.json` (created by `headlessly login`)
 
 ```bash
@@ -173,6 +173,9 @@ headlessly search Contact --tenant acme --stage Lead
 export HEADLESSLY_TENANT=acme
 export HEADLESSLY_API_KEY=key_fX9bL5nRd
 headlessly search Contact --stage Lead
+
+# HEADLESSLY_TOKEN is accepted as a compatibility alias for HEADLESSLY_API_KEY
+export HEADLESSLY_TOKEN=key_fX9bL5nRd
 ```
 
 ## License
