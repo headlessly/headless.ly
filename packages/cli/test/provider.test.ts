@@ -7,6 +7,9 @@ vi.mock('digital-objects', () => {
   let currentProvider: unknown
 
   return {
+    __resetProvider: () => {
+      currentProvider = undefined
+    },
     getProvider: () => currentProvider,
     setProvider: (provider: unknown) => {
       currentProvider = provider
@@ -48,6 +51,9 @@ describe('getProvider()', () => {
     delete process.env.HEADLESSLY_TOKEN
     delete process.env.HEADLESSLY_ENDPOINT
     delete process.env.HEADLESSLY_TENANT
+
+    const digitalObjects = (await import('digital-objects')) as { __resetProvider: () => void }
+    digitalObjects.__resetProvider()
   })
 
   afterEach(async () => {

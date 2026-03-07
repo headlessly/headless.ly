@@ -16,14 +16,20 @@ export interface CLIConfig {
   mode?: 'memory' | 'local' | 'remote'
 }
 
-const CONFIG_DIR = join(homedir(), '.headlessly')
-const CONFIG_FILE = join(CONFIG_DIR, 'config.json')
+function resolveConfigDir(): string {
+  return join(homedir(), '.headlessly')
+}
+
+function resolveConfigPath(): string {
+  return join(resolveConfigDir(), 'config.json')
+}
 
 export async function loadConfig(): Promise<CLIConfig> {
   let config: CLIConfig = {}
+  const configFile = resolveConfigPath()
   try {
-    if (existsSync(CONFIG_FILE)) {
-      const raw = await readFile(CONFIG_FILE, 'utf-8')
+    if (existsSync(configFile)) {
+      const raw = await readFile(configFile, 'utf-8')
       config = JSON.parse(raw) as CLIConfig
     }
   } catch {
@@ -47,16 +53,19 @@ export async function loadConfig(): Promise<CLIConfig> {
 }
 
 export async function saveConfig(config: CLIConfig): Promise<void> {
-  if (!existsSync(CONFIG_DIR)) {
-    await mkdir(CONFIG_DIR, { recursive: true })
+  const configDir = resolveConfigDir()
+  const configFile = resolveConfigPath()
+
+  if (!existsSync(configDir)) {
+    await mkdir(configDir, { recursive: true })
   }
-  await writeFile(CONFIG_FILE, JSON.stringify(config, null, 2) + '\n', 'utf-8')
+  await writeFile(configFile, JSON.stringify(config, null, 2) + '\n', 'utf-8')
 }
 
 export function getConfigDir(): string {
-  return CONFIG_DIR
+  return resolveConfigDir()
 }
 
 export function getConfigPath(): string {
-  return CONFIG_FILE
+  return resolveConfigPath()
 }
