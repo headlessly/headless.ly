@@ -79,6 +79,15 @@ export function parseArgs(args: string[]): ParsedArgs {
  * Returns MongoDB-style filter objects
  */
 export function parseFilter(expr: string): Record<string, unknown> {
+  // Handle JSON object syntax: {"value":{"$gte":10000}}
+  if (expr.startsWith('{')) {
+    try {
+      return JSON.parse(expr)
+    } catch {
+      // Fall through to operator parsing
+    }
+  }
+
   // Handle operator patterns: key>value, key<value, key>=value, key<=value, key!=value
   const operatorMatch = expr.match(/^(\w+)(>=|<=|!=|>|<|=)(.+)$/)
   if (!operatorMatch) return {}

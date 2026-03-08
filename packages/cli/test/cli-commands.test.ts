@@ -6,7 +6,7 @@ import '@headlessly/sdk'
 
 import { run } from '../src/index.js'
 import { printTable, printJSON, printCSV, printError, printSuccess } from '../src/output.js'
-import { parseSort } from '../src/args.js'
+import { parseSort, parseFilter } from '../src/args.js'
 
 // ============================================================================
 // Helpers
@@ -824,5 +824,30 @@ describe('parseSort', () => {
 
   it('handles bare field without direction as ascending', () => {
     expect(parseSort('value')).toEqual({ value: 'asc' })
+  })
+})
+
+// ============================================================================
+// 18. parseFilter — JSON object syntax (4 tests)
+// ============================================================================
+
+describe('parseFilter JSON', () => {
+  it('handles JSON object syntax', () => {
+    expect(parseFilter('{"value":{"$gte":10000}}')).toEqual({ value: { $gte: 10000 } })
+  })
+
+  it('handles JSON with multiple fields', () => {
+    expect(parseFilter('{"stage":"Lead","leadScore":{"$gt":50}}')).toEqual({
+      stage: 'Lead',
+      leadScore: { $gt: 50 },
+    })
+  })
+
+  it('still handles operator syntax', () => {
+    expect(parseFilter('value>=10000')).toEqual({ value: { $gte: 10000 } })
+  })
+
+  it('falls through invalid JSON to operator parsing', () => {
+    expect(parseFilter('{invalid')).toEqual({})
   })
 })
