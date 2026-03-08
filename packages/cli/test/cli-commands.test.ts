@@ -6,6 +6,7 @@ import '@headlessly/sdk'
 
 import { run } from '../src/index.js'
 import { printTable, printJSON, printCSV, printError, printSuccess } from '../src/output.js'
+import { parseSort } from '../src/args.js'
 
 // ============================================================================
 // Helpers
@@ -801,5 +802,27 @@ describe('Login Command — Edge Cases', () => {
     await run(['login', '--tenant', 'myorg', '--api-key', 'hly_key123'])
     const out = logOutput()
     expect(out).toContain('myorg')
+  })
+})
+
+// ============================================================================
+// 17. parseSort — dash shorthand and colon syntax (4 tests)
+// ============================================================================
+
+describe('parseSort', () => {
+  it('handles -field shorthand for descending', () => {
+    expect(parseSort('-value')).toEqual({ value: 'desc' })
+  })
+
+  it('handles bare field with colon syntax ascending', () => {
+    expect(parseSort('value:asc')).toEqual({ value: 'asc' })
+  })
+
+  it('handles field:desc explicit syntax', () => {
+    expect(parseSort('value:desc')).toEqual({ value: 'desc' })
+  })
+
+  it('handles bare field without direction as ascending', () => {
+    expect(parseSort('value')).toEqual({ value: 'asc' })
   })
 })

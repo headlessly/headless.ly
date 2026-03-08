@@ -123,6 +123,13 @@ function parseFilterValue(value: string): unknown {
  * Parse sort string like "field:asc" or "field:desc"
  */
 export function parseSort(sort: string): Record<string, 'asc' | 'desc'> {
+  // Handle -field shorthand (e.g., -value → value:desc)
+  if (sort.startsWith('-')) {
+    const field = sort.slice(1)
+    if (!field) return {}
+    return { [field]: 'desc' }
+  }
+  // Handle field:asc|desc explicit syntax
   const [field, dir] = sort.split(':')
   if (!field) return {}
   return { [field]: dir === 'desc' ? 'desc' : 'asc' }
