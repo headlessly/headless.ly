@@ -277,6 +277,32 @@ export class LocalNounProvider implements NounProvider {
     return null
   }
 
+  async getHistory(type: string, id: string): Promise<Array<{ operation: string; timestamp: string; version: number }>> {
+    const entity = await this.get(type, id)
+    if (!entity) return []
+
+    const events: Array<{ operation: string; timestamp: string; version: number }> = []
+
+    // At minimum, we know it was created
+    events.push({
+      operation: 'create',
+      timestamp: (entity as any).$createdAt || new Date().toISOString(),
+      version: 1,
+    })
+
+    // If version > 1, it was updated
+    const version = (entity as any).$version || 1
+    if (version > 1) {
+      events.push({
+        operation: 'update',
+        timestamp: (entity as any).$updatedAt || new Date().toISOString(),
+        version,
+      })
+    }
+
+    return events
+  }
+
   async rollback(type: string, id: string, toVersion: number): Promise<NounInstance> {
     // LocalNounProvider doesn't maintain event history, so rollback is not supported
     // in lightweight mode. If an EventLog is attached, delegate to it.

@@ -38,11 +38,13 @@ const COMMAND_HELP: Record<string, () => void> = {
     console.log('')
     console.log('Options:')
     console.log('  --include field1,field2   Include related entities (comma-separated)')
+    console.log('  --history                 Show entity event history')
     console.log('  --json                    Output as JSON')
     console.log('')
     console.log('Examples:')
     console.log('  headlessly fetch Contact contact_fX9bL5nRd')
     console.log('  headlessly fetch Contact contact_fX9bL5nRd --include deals')
+    console.log('  headlessly fetch Contact contact_fX9bL5nRd --history')
     console.log('  headlessly fetch schema Contact')
   },
   do: () => {

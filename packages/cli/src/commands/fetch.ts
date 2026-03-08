@@ -29,6 +29,7 @@ export async function fetchCommand(args: string[]): Promise<void> {
     console.log('')
     console.log('Options:')
     console.log('  --include field1,field2   Include related entities (comma-separated)')
+    console.log('  --history                 Show entity event history')
     console.log('  --json                    Output as JSON')
     return
   }
@@ -98,6 +99,52 @@ export async function fetchCommand(args: string[]): Promise<void> {
   if (first === 'events') {
     console.log('Event fetching is not yet implemented.')
     console.log('Events will be available when connected to a remote headless.ly instance.')
+    return
+  }
+
+  // History fetch: headlessly fetch <type> <id> --history
+  if (flags['history'] === true) {
+    const type = first
+    const id = positional[1]
+    if (!type || !id) {
+      printError('Usage: headlessly fetch <type> <id> --history')
+      process.exit(1)
+      return
+    }
+
+    try {
+      const provider = await getProvider()
+      if ('getHistory' in provider && typeof (provider as any).getHistory === 'function') {
+        const events = await (provider as any).getHistory(type, id)
+        if (json) {
+          printJSON(events)
+        } else {
+          printTable(events as Record<string, unknown>[])
+        }
+      } else {
+        // Fallback: show current version info as single snapshot
+        const entity = await provider.get(type, id)
+        if (!entity) {
+          printError(`${type} not found: ${id}`)
+          process.exit(1)
+          return
+        }
+        const snapshot = [{
+          operation: 'snapshot',
+          timestamp: (entity as any).$updatedAt || (entity as any).$createdAt || new Date().toISOString(),
+          version: (entity as any).$version || 1,
+        }]
+        if (json) {
+          printJSON(snapshot)
+        } else {
+          printTable(snapshot as Record<string, unknown>[])
+        }
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      printError(`History fetch failed: ${message}`)
+      process.exit(1)
+    }
     return
   }
 

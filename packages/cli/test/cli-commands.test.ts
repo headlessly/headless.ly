@@ -6,7 +6,7 @@ import '@headlessly/sdk'
 
 import { run } from '../src/index.js'
 import { printTable, printJSON, printCSV, printError, printSuccess } from '../src/output.js'
-import { parseSort, parseFilter } from '../src/args.js'
+import { parseArgs, parseSort, parseFilter } from '../src/args.js'
 
 // ============================================================================
 // Helpers
@@ -891,5 +891,33 @@ describe('parseFilter JSON', () => {
 
   it('falls through invalid JSON to operator parsing', () => {
     expect(parseFilter('{invalid')).toEqual({})
+  })
+})
+
+// ============================================================================
+// 19. Fetch --history flag (3 tests)
+// ============================================================================
+
+describe('Fetch Command — --history flag', () => {
+  beforeEach(setup)
+  afterEach(teardown)
+
+  it('parseArgs recognizes --history flag', () => {
+    const { flags } = parseArgs(['Contact', 'contact_abc', '--history'])
+    expect(flags['history']).toBe(true)
+  })
+
+  it('fetch --help mentions --history option', async () => {
+    await run(['fetch', '--help'])
+    const out = logOutput()
+    expect(out).toContain('--history')
+  })
+
+  it('fetch --history for nonexistent entity shows error', async () => {
+    await run(['fetch', 'Contact', 'contact_nope', '--history'])
+    // Should fall back to snapshot path but entity not found
+    const err = errorOutput()
+    expect(err).toContain('not found')
+    expect(exitSpy).toHaveBeenCalledWith(1)
   })
 })
