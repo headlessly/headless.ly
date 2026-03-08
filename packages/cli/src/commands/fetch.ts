@@ -104,7 +104,7 @@ export async function fetchCommand(args: string[]): Promise<void> {
   // Entity fetch: headlessly fetch <type> <id> [--include field1,field2]
   const type = first
   const id = positional[1]
-  const includeRaw = flags['include'] as string | undefined
+  const includeRaw = (flags['include'] ?? flags['populate']) as string | undefined
 
   if (!id) {
     if (json) {

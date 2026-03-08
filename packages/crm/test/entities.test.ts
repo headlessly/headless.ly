@@ -140,6 +140,16 @@ describe('@headlessly/crm', () => {
     })
   })
 
+  describe('populate alias', () => {
+    it('Contact.get accepts populate as alias for include', async () => {
+      const contact = await Contact.create({ name: 'Populate Test' })
+      // Should not throw — populate is accepted
+      const fetched = await Contact.get(contact.$id, { populate: ['organization'] })
+      expect(fetched).toBeDefined()
+      expect(fetched?.$id).toBe(contact.$id)
+    })
+  })
+
   describe('count', () => {
     it('Contact.count returns number of matching entities', async () => {
       await Contact.create({ name: 'Count Test A', stage: 'Lead' })
