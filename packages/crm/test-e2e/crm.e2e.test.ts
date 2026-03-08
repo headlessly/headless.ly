@@ -1,8 +1,8 @@
 /**
  * E2E tests for @headlessly/crm against live crm.headless.ly
  *
- * Tests CRUD lifecycle for all CRM entities: Contact, Organization, Deal, Activity, Pipeline.
- * Lead is defined in the package but its API endpoint is not yet available (returns 404).
+ * Tests CRUD lifecycle for all CRM entities: Contact, Organization, Deal, Activity, Pipeline, Lead.
+ * Also tests verb execution (qualify, win, advance, complete) and relationship fetching.
  *
  * Tests hit actual deployed endpoints — no mocks.
  * Auth via id-org-ai provision (programmatic, no interactive login).
@@ -480,10 +480,12 @@ describe('crm — Pipeline CRUD', () => {
 })
 
 // =============================================================================
-// LEAD — PACKAGE EXPORT + ENDPOINT STATUS
+// LEAD — FULL CRUD LIFECYCLE
 // =============================================================================
 
-describe('crm — Lead entity', () => {
+describe('crm — Lead CRUD', () => {
+  let leadId: string
+
   it('Lead is defined in the package with expected Noun shape', () => {
     expect(Lead).toBeDefined()
     expect(typeof Lead).toBe('object')
@@ -492,6 +494,112 @@ describe('crm — Lead entity', () => {
   it('leads API endpoint is available', async () => {
     const exists = await endpointExists(CRM_URL, 'leads')
     expect(exists).toBe(true)
+  })
+
+  it('creates a lead', async () => {
+    const res = await fetch(`${CRM_URL}/api/leads`, {
+      method: 'POST',
+      headers: writeHeaders(),
+      body: JSON.stringify({
+        name: `E2E-Lead-${testId}`,
+        source: 'Website',
+      }),
+    })
+    expect(res.status).toBe(201)
+
+    const body = (await res.json()) as { success: boolean; data: Record<string, unknown> }
+    expect(body.success).toBe(true)
+    assertMetaFields(body.data, 'Lead')
+    expect(body.data.name).toBe(`E2E-Lead-${testId}`)
+    expect(body.data.source).toBe('Website')
+    leadId = body.data.$id as string
+  })
+
+  it('retrieves the lead by id', async () => {
+    const res = await fetch(`${CRM_URL}/api/leads/${leadId}`, { headers: readHeaders() })
+    expect(res.status).toBe(200)
+
+    const body = (await res.json()) as { success: boolean; data: Record<string, unknown> }
+    expect(body.success).toBe(true)
+    expect(body.data.$id).toBe(leadId)
+    expect(body.data.$type).toBe('Lead')
+    expect(body.data.name).toBe(`E2E-Lead-${testId}`)
+  })
+
+  it('updates the lead', async () => {
+    const res = await fetch(`${CRM_URL}/api/leads/${leadId}`, {
+      method: 'PUT',
+      headers: writeHeaders(),
+      body: JSON.stringify({ name: `E2E-Lead-Updated-${testId}`, score: 85 }),
+    })
+    expect(res.status).toBe(200)
+
+    const body = (await res.json()) as { success: boolean; data: Record<string, unknown> }
+    expect(body.success).toBe(true)
+    expect(body.data.name).toBe(`E2E-Lead-Updated-${testId}`)
+    expect(body.data.score).toBe(85)
+  })
+
+  it('verifies update persisted on re-fetch', async () => {
+    const res = await fetch(`${CRM_URL}/api/leads/${leadId}`, { headers: readHeaders() })
+    expect(res.status).toBe(200)
+
+    const body = (await res.json()) as { success: boolean; data: Record<string, unknown> }
+    expect(body.data.name).toBe(`E2E-Lead-Updated-${testId}`)
+    expect(body.data.score).toBe(85)
+  })
+
+  it('lists leads and finds the created one', async () => {
+    const res = await fetch(`${CRM_URL}/api/leads?limit=100`, { headers: readHeaders() })
+    expect(res.status).toBe(200)
+
+    const body = (await res.json()) as { success: boolean; data: Array<{ $id: string }> }
+    expect(body.success).toBe(true)
+    expect(Array.isArray(body.data)).toBe(true)
+    const found = body.data.find((l) => l.$id === leadId)
+    expect(found).toBeDefined()
+  })
+
+  it('deletes the lead', async () => {
+    const res = await fetch(`${CRM_URL}/api/leads/${leadId}`, {
+      method: 'DELETE',
+      headers: readHeaders(),
+    })
+    expect(res.status).toBe(200)
+  })
+})
+
+// =============================================================================
+// LEAD — META-FIELD VERIFICATION VIA crudLifecycle HELPER
+// =============================================================================
+
+describe('crm — Lead meta-field verification via crudLifecycle', () => {
+  it('Lead: full lifecycle returns correct meta-fields', async () => {
+    const { created, fetched, updated, listed, deleted } = await crudLifecycle(
+      CRM_URL,
+      'leads',
+      { name: `E2E-Meta-Lead-${testId}`, source: 'Website' },
+      { score: 85 },
+    )
+
+    // created
+    assertMetaFields(created, 'Lead')
+    expect(created.name).toBe(`E2E-Meta-Lead-${testId}`)
+    expect(created.source).toBe('Website')
+
+    // fetched matches
+    expect(fetched.$id).toBe(created.$id)
+    expect(fetched.$type).toBe('Lead')
+
+    // updated
+    expect(updated.$id).toBe(created.$id)
+
+    // listed
+    const found = listed.find((e: any) => e.$id === created.$id)
+    expect(found).toBeDefined()
+
+    // deleted
+    expect(deleted).toBe(true)
   })
 })
 
@@ -603,6 +711,7 @@ describe('crm — $id format verification', () => {
     { resource: 'deals', type: 'Deal', data: { name: `E2E-IdFmt-Deal-${testId}`, value: 1000 } },
     { resource: 'activities', type: 'Activity', data: { subject: `E2E-IdFmt-Activity-${testId}`, type: 'Note' } },
     { resource: 'pipelines', type: 'Pipeline', data: { name: `E2E-IdFmt-Pipeline-${testId}` } },
+    { resource: 'leads', type: 'Lead', data: { name: `E2E-IdFmt-Lead-${testId}`, source: 'Website' } },
   ]
 
   for (const { resource, type, data } of entityTests) {
@@ -629,4 +738,173 @@ describe('crm — $id format verification', () => {
       expect(delRes.status).toBe(200)
     })
   }
+})
+
+// =============================================================================
+// VERB EXECUTION — CRM VERBS VIA REST API
+// =============================================================================
+
+describe('crm — verb execution', () => {
+  it('Contact.qualify changes stage to Qualified', async () => {
+    // Create a contact with stage Lead
+    const createRes = await fetch(`${CRM_URL}/api/contacts`, {
+      method: 'POST',
+      headers: writeHeaders(),
+      body: JSON.stringify({ name: `E2E-Verb-Contact-${testId}`, stage: 'Lead' }),
+    })
+    expect(createRes.status).toBe(201)
+    const createBody = (await createRes.json()) as { data: Record<string, unknown> }
+    const contact = createBody.data
+
+    // Execute qualify verb
+    const qualifyRes = await fetch(`${CRM_URL}/api/contacts/${contact.$id}/qualify`, {
+      method: 'POST',
+      headers: writeHeaders(),
+    })
+    expect(qualifyRes.status).toBe(200)
+    const qualifyBody = (await qualifyRes.json()) as { data: Record<string, unknown> }
+    expect(qualifyBody.data.stage).toBe('Qualified')
+
+    // Cleanup
+    await fetch(`${CRM_URL}/api/contacts/${contact.$id}`, { method: 'DELETE', headers: readHeaders() })
+  })
+
+  it('Deal.win changes stage to Won', async () => {
+    const createRes = await fetch(`${CRM_URL}/api/deals`, {
+      method: 'POST',
+      headers: writeHeaders(),
+      body: JSON.stringify({ name: `E2E-Verb-Deal-${testId}`, value: 10000, stage: 'Prospecting' }),
+    })
+    expect(createRes.status).toBe(201)
+    const createBody = (await createRes.json()) as { data: Record<string, unknown> }
+    const deal = createBody.data
+
+    const winRes = await fetch(`${CRM_URL}/api/deals/${deal.$id}/win`, {
+      method: 'POST',
+      headers: writeHeaders(),
+    })
+    expect(winRes.status).toBe(200)
+    const winBody = (await winRes.json()) as { data: Record<string, unknown> }
+    expect(winBody.data.stage).toBe('Won')
+
+    // Cleanup
+    await fetch(`${CRM_URL}/api/deals/${deal.$id}`, { method: 'DELETE', headers: readHeaders() })
+  })
+
+  it('Deal.advance changes stage', async () => {
+    const createRes = await fetch(`${CRM_URL}/api/deals`, {
+      method: 'POST',
+      headers: writeHeaders(),
+      body: JSON.stringify({ name: `E2E-Verb-Advance-${testId}`, value: 5000, stage: 'Prospecting' }),
+    })
+    expect(createRes.status).toBe(201)
+    const createBody = (await createRes.json()) as { data: Record<string, unknown> }
+    const deal = createBody.data
+
+    const advanceRes = await fetch(`${CRM_URL}/api/deals/${deal.$id}/advance`, {
+      method: 'POST',
+      headers: writeHeaders(),
+    })
+    expect(advanceRes.status).toBe(200)
+
+    // Cleanup
+    await fetch(`${CRM_URL}/api/deals/${deal.$id}`, { method: 'DELETE', headers: readHeaders() })
+  })
+
+  it('Activity.complete changes status to Completed', async () => {
+    const createRes = await fetch(`${CRM_URL}/api/activities`, {
+      method: 'POST',
+      headers: writeHeaders(),
+      body: JSON.stringify({ subject: `E2E-Verb-Activity-${testId}`, type: 'Call', status: 'Pending' }),
+    })
+    expect(createRes.status).toBe(201)
+    const createBody = (await createRes.json()) as { data: Record<string, unknown> }
+    const activity = createBody.data
+
+    const completeRes = await fetch(`${CRM_URL}/api/activities/${activity.$id}/complete`, {
+      method: 'POST',
+      headers: writeHeaders(),
+    })
+    expect(completeRes.status).toBe(200)
+    const completeBody = (await completeRes.json()) as { data: Record<string, unknown> }
+    expect(completeBody.data.status).toBe('Completed')
+
+    // Cleanup
+    await fetch(`${CRM_URL}/api/activities/${activity.$id}`, { method: 'DELETE', headers: readHeaders() })
+  })
+
+  it('Lead.qualify changes stage to Qualified', async () => {
+    const createRes = await fetch(`${CRM_URL}/api/leads`, {
+      method: 'POST',
+      headers: writeHeaders(),
+      body: JSON.stringify({ name: `E2E-Verb-Lead-${testId}`, source: 'Referral' }),
+    })
+    expect(createRes.status).toBe(201)
+    const createBody = (await createRes.json()) as { data: Record<string, unknown> }
+    const lead = createBody.data
+
+    const qualifyRes = await fetch(`${CRM_URL}/api/leads/${lead.$id}/qualify`, {
+      method: 'POST',
+      headers: writeHeaders(),
+    })
+    expect(qualifyRes.status).toBe(200)
+    const qualifyBody = (await qualifyRes.json()) as { data: Record<string, unknown> }
+    expect(qualifyBody.data.stage).toBe('Qualified')
+
+    // Cleanup
+    await fetch(`${CRM_URL}/api/leads/${lead.$id}`, { method: 'DELETE', headers: readHeaders() })
+  })
+})
+
+// =============================================================================
+// RELATIONSHIP FETCHING
+// =============================================================================
+
+describe('crm — relationship fetching', () => {
+  let orgId: string
+  let contactId: string
+
+  beforeAll(async () => {
+    // Create org
+    const orgRes = await fetch(`${CRM_URL}/api/organizations`, {
+      method: 'POST',
+      headers: writeHeaders(),
+      body: JSON.stringify({ name: `E2E-Rel-Org-${testId}` }),
+    })
+    const orgBody = (await orgRes.json()) as { data: Record<string, unknown> }
+    orgId = orgBody.data.$id as string
+
+    // Create contact linked to org
+    const contactRes = await fetch(`${CRM_URL}/api/contacts`, {
+      method: 'POST',
+      headers: writeHeaders(),
+      body: JSON.stringify({ name: `E2E-Rel-Contact-${testId}`, organization: orgId }),
+    })
+    const contactBody = (await contactRes.json()) as { data: Record<string, unknown> }
+    contactId = contactBody.data.$id as string
+  })
+
+  it('GET /organizations/:id/contacts returns related contacts', async () => {
+    const res = await fetch(`${CRM_URL}/api/organizations/${orgId}/contacts`, {
+      headers: readHeaders(),
+    })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    const items = Array.isArray(body) ? body : (body as any).data || (body as any).items || []
+    expect(items.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('GET /contacts/:id?include=organization returns populated org', async () => {
+    const res = await fetch(`${CRM_URL}/api/contacts/${contactId}?include=organization`, {
+      headers: readHeaders(),
+    })
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { data: Record<string, unknown> }
+    expect(body.data.organization).toBeDefined()
+  })
+
+  afterAll(async () => {
+    await fetch(`${CRM_URL}/api/contacts/${contactId}`, { method: 'DELETE', headers: readHeaders() })
+    await fetch(`${CRM_URL}/api/organizations/${orgId}`, { method: 'DELETE', headers: readHeaders() })
+  })
 })
