@@ -449,6 +449,48 @@ describe('Schema Command — Output Validation', () => {
 })
 
 // ============================================================================
+// 8b. Schema command — --verbs flag (3 tests)
+// ============================================================================
+
+describe('Schema Command — --verbs flag', () => {
+  beforeEach(setup)
+  afterEach(teardown)
+
+  it('schema Deal --verbs returns only name and verbs', async () => {
+    await run(['schema', 'Deal', '--verbs'])
+    const out = logOutput()
+    const parsed = JSON.parse(out)
+    expect(parsed.name).toBe('Deal')
+    expect(Array.isArray(parsed.verbs)).toBe(true)
+    expect(parsed.verbs.length).toBeGreaterThan(0)
+    expect(parsed).not.toHaveProperty('fields')
+    expect(parsed).not.toHaveProperty('relationships')
+    expect(parsed).not.toHaveProperty('disabledVerbs')
+  })
+
+  it('schema Deal --verbs includes verb conjugation properties', async () => {
+    await run(['schema', 'Deal', '--verbs'])
+    const out = logOutput()
+    const parsed = JSON.parse(out)
+    const verb = parsed.verbs[0]
+    expect(verb).toHaveProperty('name')
+    expect(verb).toHaveProperty('action')
+    expect(verb).toHaveProperty('activity')
+    expect(verb).toHaveProperty('event')
+  })
+
+  it('schema Contact without --verbs still includes all sections', async () => {
+    await run(['schema', 'Contact'])
+    const out = logOutput()
+    const parsed = JSON.parse(out)
+    expect(parsed).toHaveProperty('fields')
+    expect(parsed).toHaveProperty('relationships')
+    expect(parsed).toHaveProperty('verbs')
+    expect(parsed).toHaveProperty('disabledVerbs')
+  })
+})
+
+// ============================================================================
 // 9. Init command — full workflow (4 tests)
 // ============================================================================
 

@@ -88,10 +88,12 @@ const COMMAND_HELP: Record<string, () => void> = {
     console.log('')
     console.log('Options:')
     console.log('  --json    Output as JSON')
+    console.log('  --verbs   Show only verb conjugations')
     console.log('')
     console.log('Examples:')
     console.log('  headlessly schema')
     console.log('  headlessly schema Contact')
+    console.log('  headlessly schema Deal --verbs')
     console.log('  headlessly schema --json')
   },
   api: () => {

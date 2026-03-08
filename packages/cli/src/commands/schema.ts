@@ -14,6 +14,7 @@ import { printJSON, printError, printTable } from '../output.js'
 export async function schemaCommand(args: string[]): Promise<void> {
   const { positional, flags } = parseArgs(args)
   const json = flags['json'] === true
+  const verbsOnly = flags['verbs'] === true
   const nounName = positional[0]
 
   const { getNounSchema, getAllNouns } = await import('digital-objects')
@@ -32,36 +33,49 @@ export async function schemaCommand(args: string[]): Promise<void> {
       return
     }
 
-    const formatted = {
-      name: schema.name,
-      singular: schema.singular,
-      plural: schema.plural,
-      slug: schema.plural?.toLowerCase() ?? schema.slug,
-      fields: [...schema.fields.entries()].map(([k, v]) => ({
-        name: k,
-        kind: v.kind,
-        type: v.type,
-        required: v.modifiers?.required ?? false,
-        indexed: v.modifiers?.indexed ?? false,
-        unique: v.modifiers?.unique ?? false,
-      })),
-      relationships: [...schema.relationships.entries()].map(([k, v]) => ({
-        name: k,
-        operator: v.operator,
-        targetType: v.targetType,
-        backref: v.backref,
-        isArray: v.isArray,
-      })),
-      verbs: [...schema.verbs.entries()].map(([k, v]) => ({
-        name: k,
-        action: v.action,
-        activity: v.activity,
-        event: v.event,
-      })),
-      disabledVerbs: [...schema.disabledVerbs],
-    }
+    if (verbsOnly) {
+      const verbsFormatted = {
+        name: schema.name,
+        verbs: [...schema.verbs.entries()].map(([k, v]) => ({
+          name: k,
+          action: v.action,
+          activity: v.activity,
+          event: v.event,
+        })),
+      }
+      printJSON(verbsFormatted)
+    } else {
+      const formatted = {
+        name: schema.name,
+        singular: schema.singular,
+        plural: schema.plural,
+        slug: schema.plural?.toLowerCase() ?? schema.slug,
+        fields: [...schema.fields.entries()].map(([k, v]) => ({
+          name: k,
+          kind: v.kind,
+          type: v.type,
+          required: v.modifiers?.required ?? false,
+          indexed: v.modifiers?.indexed ?? false,
+          unique: v.modifiers?.unique ?? false,
+        })),
+        relationships: [...schema.relationships.entries()].map(([k, v]) => ({
+          name: k,
+          operator: v.operator,
+          targetType: v.targetType,
+          backref: v.backref,
+          isArray: v.isArray,
+        })),
+        verbs: [...schema.verbs.entries()].map(([k, v]) => ({
+          name: k,
+          action: v.action,
+          activity: v.activity,
+          event: v.event,
+        })),
+        disabledVerbs: [...schema.disabledVerbs],
+      }
 
-    printJSON(formatted)
+      printJSON(formatted)
+    }
   } else {
     const all = getAllNouns()
 
