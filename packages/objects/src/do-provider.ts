@@ -255,6 +255,11 @@ export class DONounProvider implements NounProvider {
     return results[0] ?? null
   }
 
+  async count(type: string, where?: Record<string, unknown>): Promise<number> {
+    const results = await this.find(type, where)
+    return results.length
+  }
+
   async rollback(type: string, id: string, toVersion: number): Promise<NounInstance> {
     await this.ensureReady()
     const collection = toCollectionName(type)

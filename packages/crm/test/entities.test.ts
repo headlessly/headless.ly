@@ -140,6 +140,21 @@ describe('@headlessly/crm', () => {
     })
   })
 
+  describe('count', () => {
+    it('Contact.count returns number of matching entities', async () => {
+      await Contact.create({ name: 'Count Test A', stage: 'Lead' })
+      await Contact.create({ name: 'Count Test B', stage: 'Lead' })
+      await Contact.create({ name: 'Count Test C', stage: 'Qualified' })
+
+      const leadCount = await Contact.count({ stage: 'Lead' })
+      expect(typeof leadCount).toBe('number')
+      expect(leadCount).toBeGreaterThanOrEqual(2)
+
+      const allCount = await Contact.count()
+      expect(allCount).toBeGreaterThanOrEqual(3)
+    })
+  })
+
   describe('full CRUD lifecycle', () => {
     it('Organization CRUD lifecycle', async () => {
       await testCrudLifecycle(Organization, 'Organization', { name: 'Acme Corp' }, { name: 'Acme Inc' })

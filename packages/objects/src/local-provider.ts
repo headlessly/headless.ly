@@ -248,16 +248,11 @@ export class LocalNounProvider implements NounProvider {
   }
 
   /**
-   * Count entities of a given type
+   * Count entities of a given type, optionally filtered
    */
-  async count(type: string): Promise<number> {
-    let count = 0
-    for (const instance of this.store.values()) {
-      if (instance.$type === type && instance.$context === this.context) {
-        count++
-      }
-    }
-    return count
+  async count(type: string, where?: Record<string, unknown>): Promise<number> {
+    const results = await this.find(type, where)
+    return results.length
   }
 
   /**
