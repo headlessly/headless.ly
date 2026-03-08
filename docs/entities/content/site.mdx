@@ -44,7 +44,7 @@ export const Site = Noun('Site', {
 | `status` | enum | No | Draft, Published, or Maintenance |
 | `visibility` | enum | No | Public, Private, or Password-protected |
 | `ogImage` | string | No | Default Open Graph image for social sharing |
-| `content` | <- Content[] | No | All content published to this site |
+| `content` | `<- Content[]` | No | All content published to this site |
 | `defaultLanguage` | string | No | Default language code (e.g., `en`) |
 | `supportedLanguages` | string | No | Comma-separated language codes (e.g., `en,es,fr`) |
 | `timezone` | string | No | IANA timezone for scheduled publishing (e.g., `America/New_York`) |
@@ -53,7 +53,7 @@ export const Site = Noun('Site', {
 
 | Field | Direction | Target | Description |
 |-------|-----------|--------|-------------|
-| `content` | <- | Content.site[] | All content items published to this site |
+| `content` | `<-` | Content.site[] | All content items published to this site |
 
 ## Verbs
 

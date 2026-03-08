@@ -39,7 +39,7 @@ export const Project = Noun('Project', {
 | `owner` | -> Contact | No | Primary responsible person |
 | `startDate` | date | No | When work begins |
 | `targetDate` | date | No | Target completion date |
-| `issues` | <- Issue[] | No | All issues in this project |
+| `issues` | `<- Issue[]` | No | All issues in this project |
 | `tags` | string | No | Comma-separated tags for categorization |
 
 ## Relationships
@@ -48,7 +48,7 @@ export const Project = Noun('Project', {
 |-------|-----------|--------|-------------|
 | `organization` | -> | Organization | The organization this project belongs to |
 | `owner` | -> | Contact | The person responsible for the project |
-| `issues` | <- | Issue.project[] | All issues filed under this project |
+| `issues` | `<-` | Issue.project[] | All issues filed under this project |
 
 ## Verbs
 

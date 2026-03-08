@@ -42,7 +42,7 @@ export const Issue = Noun('Issue', {
 | `labels` | string | No | Comma-separated labels for categorization |
 | `milestone` | string | No | Target milestone or release |
 | `dueDate` | date | No | Deadline for completion |
-| `comments` | <- Comment[] | No | Discussion thread on this issue |
+| `comments` | `<- Comment[]` | No | Discussion thread on this issue |
 
 ## Relationships
 
@@ -51,7 +51,7 @@ export const Issue = Noun('Issue', {
 | `project` | -> | Project.issues | The project this issue belongs to |
 | `assignee` | -> | Contact | The person working on this issue |
 | `reporter` | -> | Contact | The person who created the issue |
-| `comments` | <- | Comment.issue[] | All comments on this issue |
+| `comments` | `<-` | Comment.issue[] | All comments on this issue |
 
 ## Verbs
 

@@ -9,7 +9,7 @@
  * If the service is down, tests FAIL. That's the point.
  */
 
-import { describe, it, expect, beforeAll } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { Organization, Contact, Lead, Deal, Activity, Pipeline } from '../src/index.ts'
 import { setup, CRM_URL, writeHeaders, readHeaders, generateTestId, crudLifecycle, endpointExists } from '../../test-e2e-helpers'
 

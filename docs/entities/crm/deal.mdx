@@ -60,10 +60,10 @@ export const Deal = Noun('Deal', {
 | `competitorNotes` | string | No | Competitive intelligence |
 | `lostReason` | string | No | Why the deal was lost |
 | `wonReason` | string | No | Why the deal was won |
-| `leads` | <- Lead[] | No | Leads that fed into this deal |
+| `leads` | `<- Lead[]` | No | Leads that fed into this deal |
 | `source` | string | No | Acquisition source |
 | `campaign` | -> Campaign | No | Marketing campaign attribution |
-| `activities` | <- Activity[] | No | All activities on this deal |
+| `activities` | `<- Activity[]` | No | All activities on this deal |
 | `lastActivityAt` | datetime | No | Timestamp of the most recent activity |
 
 ## Relationships
@@ -74,8 +74,8 @@ export const Deal = Noun('Deal', {
 | `contact` | -> | Contact | Primary point of contact |
 | `owner` | -> | Contact | Sales rep or agent who owns this deal |
 | `campaign` | -> | Campaign | Marketing campaign that sourced this deal |
-| `leads` | <- | Lead.deal[] | Leads that converted into this deal |
-| `activities` | <- | Activity.deal[] | All logged activities (calls, emails, meetings) |
+| `leads` | `<-` | Lead.deal[] | Leads that converted into this deal |
+| `activities` | `<-` | Activity.deal[] | All logged activities (calls, emails, meetings) |
 
 ## Verbs
 

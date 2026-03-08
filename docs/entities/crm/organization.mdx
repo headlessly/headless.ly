@@ -73,10 +73,10 @@ export const Organization = Noun('Organization', {
 | `postalCode` | string | No | Postal or ZIP code |
 | `timezone` | string | No | IANA timezone identifier |
 | `parent` | -> Organization | No | Parent organization |
-| `subsidiaries` | <- Organization[] | No | Child organizations |
-| `contacts` | <- Contact[] | No | All contacts at this organization |
-| `deals` | <- Deal[] | No | All deals with this organization |
-| `subscriptions` | <- Subscription[] | No | Active subscriptions |
+| `subsidiaries` | `<- Organization[]` | No | Child organizations |
+| `contacts` | `<- Contact[]` | No | All contacts at this organization |
+| `deals` | `<- Deal[]` | No | All deals with this organization |
+| `subscriptions` | `<- Subscription[]` | No | Active subscriptions |
 | `lifetimeValue` | number | No | Total revenue from this organization |
 | `healthScore` | number | No | Computed account health (0-100) |
 | `npsScore` | number | No | Net promoter score |
@@ -88,10 +88,10 @@ export const Organization = Noun('Organization', {
 | Field | Direction | Target | Description |
 |-------|-----------|--------|-------------|
 | `parent` | -> | Organization.subsidiaries | Parent company in a corporate hierarchy |
-| `subsidiaries` | <- | Organization.parent[] | Child companies owned by this organization |
-| `contacts` | <- | Contact.organization[] | People who work at this organization |
-| `deals` | <- | Deal.organization[] | Sales opportunities with this organization |
-| `subscriptions` | <- | Subscription.organization[] | Active billing subscriptions |
+| `subsidiaries` | `<-` | Organization.parent[] | Child companies owned by this organization |
+| `contacts` | `<-` | Contact.organization[] | People who work at this organization |
+| `deals` | `<-` | Deal.organization[] | Sales opportunities with this organization |
+| `subscriptions` | `<-` | Subscription.organization[] | Active billing subscriptions |
 
 ## Verbs
 
