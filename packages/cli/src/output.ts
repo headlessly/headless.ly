@@ -132,22 +132,36 @@ export function printJSON(data: unknown): void {
   console.log(highlightJSON(json))
 }
 
+/** Pick only specified fields from entity objects */
+export function pickFields<T extends Record<string, unknown>>(entities: T[], fields: string[]): Partial<T>[] {
+  const fieldSet = new Set(fields)
+  return entities.map((entity) => {
+    const picked: Record<string, unknown> = {}
+    for (const field of fieldSet) {
+      if (field in entity) {
+        picked[field] = entity[field]
+      }
+    }
+    return picked as Partial<T>
+  })
+}
+
 /** Print error message */
 export function printError(message: string): void {
   console.error(`${red('error:')} ${message}`)
 }
 
-/** Print success message */
+/** Print success message (to stderr — stdout is for data only) */
 export function printSuccess(message: string): void {
-  console.log(`${green('ok:')} ${message}`)
+  console.error(`${green('ok:')} ${message}`)
 }
 
-/** Print a warning message */
+/** Print a warning message (to stderr) */
 export function printWarning(message: string): void {
-  console.log(`${yellow('warn:')} ${message}`)
+  console.error(`${yellow('warn:')} ${message}`)
 }
 
-/** Print a dim/muted info message */
+/** Print a dim/muted info message (to stderr) */
 export function printInfo(message: string): void {
-  console.log(dim(message))
+  console.error(dim(message))
 }

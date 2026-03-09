@@ -9,7 +9,7 @@
  */
 
 import { parseArgs, parseFilter, parseSort } from '../args.js'
-import { printTable, printJSON, printError, printCSV } from '../output.js'
+import { printTable, printJSON, printError, printCSV, pickFields } from '../output.js'
 import { getProvider } from '../provider.js'
 
 export async function searchCommand(args: string[]): Promise<void> {
@@ -31,6 +31,7 @@ export async function searchCommand(args: string[]): Promise<void> {
     console.log('  --output format       Output format: table, json, csv')
     console.log('  --no-header           Omit table headers (for piping)')
     console.log('  --json                Output as JSON (shortcut for --output json)')
+    console.log('  --fields f1,f2,...    Only include specified fields in output')
     return
   }
 
@@ -43,6 +44,8 @@ export async function searchCommand(args: string[]): Promise<void> {
   const outputFormat = flags['output'] as string | undefined
   const countOnly = flags['count'] === true
   const noHeader = flags['no-header'] === true
+  const fieldsRaw = flags['fields'] as string | undefined
+  const fields = fieldsRaw ? fieldsRaw.split(',').map((s) => s.trim()).filter(Boolean) : undefined
 
   const limit = limitStr ? parseInt(limitStr, 10) : 20
 
@@ -95,13 +98,14 @@ export async function searchCommand(args: string[]): Promise<void> {
       // Apply limit
       const total = results.length
       const limited = results.slice(0, limit)
+      const masked = fields ? pickFields(limited as Record<string, unknown>[], fields) : limited
 
       if (json || outputFormat === 'json') {
-        printJSON(limited)
+        printJSON(masked)
       } else if (outputFormat === 'csv') {
-        printCSV(limited as Record<string, unknown>[])
+        printCSV(masked as Record<string, unknown>[])
       } else {
-        printTable(limited as Record<string, unknown>[], { noHeader })
+        printTable(masked as Record<string, unknown>[], { noHeader })
       }
 
       if (total > limit && !json && outputFormat !== 'json') {
@@ -129,13 +133,14 @@ export async function searchCommand(args: string[]): Promise<void> {
       }
 
       const limited = allResults.slice(0, limit)
+      const masked = fields ? pickFields(limited, fields) : limited
 
       if (json || outputFormat === 'json') {
-        printJSON(limited)
+        printJSON(masked)
       } else if (outputFormat === 'csv') {
-        printCSV(limited)
+        printCSV(masked as Record<string, unknown>[])
       } else {
-        printTable(limited, { noHeader })
+        printTable(masked as Record<string, unknown>[], { noHeader })
       }
     }
   } catch (err) {

@@ -5,6 +5,7 @@
  *
  * Examples:
  *   headlessly do create Contact --name Alice --stage Lead --email alice@acme.co
+ *   headlessly do create Contact --data '{"name":"Alice","stage":"Lead"}'
  *   headlessly do qualify Contact contact_abc123
  *   headlessly do close Deal deal_xyz --reason "Won"
  *   headlessly do eval "$.Contact.find({ stage: 'Lead' })"
@@ -14,10 +15,43 @@ import { parseArgs } from '../args.js'
 import { printJSON, printError, printSuccess } from '../output.js'
 import { getProvider } from '../provider.js'
 
+const RESERVED_FLAGS = new Set(['json', 'quiet', 'data', 'dry-run', 'help'])
+
+export function buildData(flags: Record<string, string | boolean | string[]>): Record<string, unknown> {
+  const data: Record<string, unknown> = {}
+
+  // Parse --data JSON first
+  const rawData = flags['data']
+  if (typeof rawData === 'string') {
+    try {
+      const parsed = JSON.parse(rawData)
+      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+        Object.assign(data, parsed)
+      } else {
+        throw new Error('--data must be a JSON object')
+      }
+    } catch (err) {
+      if (err instanceof SyntaxError) {
+        throw new Error(`Invalid JSON in --data: ${err.message}`)
+      }
+      throw err
+    }
+  }
+
+  // Merge individual flags (override --data values)
+  for (const [key, value] of Object.entries(flags)) {
+    if (RESERVED_FLAGS.has(key)) continue
+    data[key] = value
+  }
+
+  return data
+}
+
 export async function doCommand(args: string[]): Promise<void> {
   const { positional, flags } = parseArgs(args)
   const json = flags['json'] === true
   const quiet = flags['quiet'] === true
+  const dryRun = flags['dry-run'] === true
 
   // Per-command --help
   if (flags['help'] === true) {
@@ -33,8 +67,10 @@ export async function doCommand(args: string[]): Promise<void> {
     console.log('  eval <code>                        Evaluate TypeScript code')
     console.log('')
     console.log('Options:')
-    console.log('  --json     Output as JSON')
-    console.log('  --quiet    Suppress "ok:" prefix output')
+    console.log('  --data JSON   Entity data as JSON (e.g. \'{"name":"Alice"}\')')
+    console.log('  --dry-run     Validate and preview without executing')
+    console.log('  --json        Output as JSON')
+    console.log('  --quiet       Suppress "ok:" prefix output')
     return
   }
 
@@ -75,11 +111,17 @@ export async function doCommand(args: string[]): Promise<void> {
         return
       }
 
-      // Build data from flags (all non-boolean flags become entity fields)
-      const data: Record<string, unknown> = {}
-      for (const [key, value] of Object.entries(flags)) {
-        if (key === 'json' || key === 'quiet') continue
-        data[key] = value
+      const data = buildData(flags)
+
+      if (dryRun) {
+        const preview = { 'dry-run': true, action: 'create', type, data }
+        if (json) {
+          printJSON(preview)
+        } else {
+          printSuccess(`[dry-run] Would create ${type}`)
+          printJSON(data)
+        }
+        return
       }
 
       const entity = await provider.create(type, data)
@@ -101,10 +143,17 @@ export async function doCommand(args: string[]): Promise<void> {
         return
       }
 
-      const data: Record<string, unknown> = {}
-      for (const [key, value] of Object.entries(flags)) {
-        if (key === 'json' || key === 'quiet') continue
-        data[key] = value
+      const data = buildData(flags)
+
+      if (dryRun) {
+        const preview = { 'dry-run': true, action: 'update', type, id, data }
+        if (json) {
+          printJSON(preview)
+        } else {
+          printSuccess(`[dry-run] Would update ${type}: ${id}`)
+          printJSON(data)
+        }
+        return
       }
 
       const entity = await provider.update(type, id, data)
@@ -123,6 +172,16 @@ export async function doCommand(args: string[]): Promise<void> {
         printError('Missing type or id')
         console.log('Usage: headlessly do delete <type> <id>')
         process.exit(1)
+        return
+      }
+
+      if (dryRun) {
+        const preview = { 'dry-run': true, action: 'delete', type, id }
+        if (json) {
+          printJSON(preview)
+        } else {
+          printSuccess(`[dry-run] Would delete ${type}: ${id}`)
+        }
         return
       }
 
@@ -150,10 +209,19 @@ export async function doCommand(args: string[]): Promise<void> {
       return
     }
 
-    const data: Record<string, unknown> = {}
-    for (const [key, value] of Object.entries(flags)) {
-      if (key === 'json' || key === 'quiet') continue
-      data[key] = value
+    const data = buildData(flags)
+
+    if (dryRun) {
+      const preview = { 'dry-run': true, action: verb, type, id, data: Object.keys(data).length > 0 ? data : undefined }
+      if (json) {
+        printJSON(preview)
+      } else {
+        printSuccess(`[dry-run] Would ${verb} ${type}: ${id}`)
+        if (Object.keys(data).length > 0) {
+          printJSON(data)
+        }
+      }
+      return
     }
 
     const entity = await provider.perform(type, verb, id, Object.keys(data).length > 0 ? data : undefined)

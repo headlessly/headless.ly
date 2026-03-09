@@ -12,7 +12,7 @@
  */
 
 import { parseArgs } from '../args.js'
-import { printJSON, printError, printTable } from '../output.js'
+import { printJSON, printError, printTable, pickFields } from '../output.js'
 import { getProvider } from '../provider.js'
 
 export async function fetchCommand(args: string[]): Promise<void> {
@@ -31,6 +31,7 @@ export async function fetchCommand(args: string[]): Promise<void> {
     console.log('  --include field1,field2   Include related entities (comma-separated)')
     console.log('  --history                 Show entity event history')
     console.log('  --json                    Output as JSON')
+    console.log('  --fields f1,f2,...        Only include specified fields in output')
     return
   }
 
@@ -152,6 +153,8 @@ export async function fetchCommand(args: string[]): Promise<void> {
   const type = first
   const id = positional[1]
   const includeRaw = (flags['include'] ?? flags['populate']) as string | undefined
+  const fieldsRaw = flags['fields'] as string | undefined
+  const fields = fieldsRaw ? fieldsRaw.split(',').map((s) => s.trim()).filter(Boolean) : undefined
 
   if (!id) {
     if (json) {
@@ -212,9 +215,11 @@ export async function fetchCommand(args: string[]): Promise<void> {
         }
       }
 
-      printJSON(result)
+      const masked = fields ? pickFields([result], fields)[0] : result
+      printJSON(masked)
     } else {
-      printJSON(entity)
+      const masked = fields ? pickFields([entity as Record<string, unknown>], fields)[0] : entity
+      printJSON(masked)
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)

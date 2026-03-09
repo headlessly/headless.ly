@@ -229,10 +229,10 @@ describe('printError', () => {
 })
 
 describe('printSuccess', () => {
-  it('prints with "ok:" prefix', () => {
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+  it('prints to stderr with "ok:" prefix', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     printSuccess('done')
-    expect(logSpy).toHaveBeenCalledWith('ok: done')
-    logSpy.mockRestore()
+    expect(errorSpy).toHaveBeenCalledWith('ok: done')
+    errorSpy.mockRestore()
   })
 })

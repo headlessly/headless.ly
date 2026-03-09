@@ -275,7 +275,7 @@ describe('Output Formatting — New Helpers', () => {
   })
 
   it('printSuccess outputs message with ok: prefix', () => {
-    const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
     printSuccess('it worked')
     const output = spy.mock.calls[0]![0]
     expect(output).toContain('ok:')
