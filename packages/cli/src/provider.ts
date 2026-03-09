@@ -19,7 +19,13 @@ import { LocalNounProvider } from '@headlessly/objects'
 import { loadConfig } from './config.js'
 
 let initialized = false
+let _isRemote = false
 const DEFAULT_REMOTE_ENDPOINT = 'https://db.headless.ly'
+
+/** Whether the CLI is configured in remote mode (DONounProvider). */
+export function isRemoteMode(): boolean {
+  return _isRemote
+}
 
 /**
  * Get the active NounProvider.
@@ -37,6 +43,7 @@ export async function getProvider(): Promise<NounProvider> {
     const endpoint = config.endpoint || (config.mode === 'remote' || token ? DEFAULT_REMOTE_ENDPOINT : undefined)
 
     if (endpoint) {
+      _isRemote = true
       const { DONounProvider } = await import('@headlessly/objects')
       const provider = new DONounProvider({
         endpoint,

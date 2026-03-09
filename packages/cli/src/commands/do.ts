@@ -14,8 +14,9 @@
 import { parseArgs } from '../args.js'
 import { ExitCode } from '../exit-codes.js'
 import { printJSON, printError, printSuccess } from '../output.js'
-import { getProvider } from '../provider.js'
+import { getProvider, isRemoteMode } from '../provider.js'
 import { validateInput, validateData, ValidationError } from '../validate.js'
+import { restCreate, restUpdate, restDelete } from '../api-client.js'
 
 const RESERVED_FLAGS = new Set(['json', 'quiet', 'data', 'dry-run', 'help'])
 
@@ -151,9 +152,10 @@ export async function doCommand(args: string[]): Promise<void> {
         return
       }
 
-      const entity = await provider.create(type, data)
+      const entity = isRemoteMode() ? await restCreate(type, data) : await provider.create(type, data)
+      const entityId = (entity as any).$id || (entity as any).id
       if (!json && !quiet) {
-        printSuccess(`Created ${type}: ${entity.$id}`)
+        printSuccess(`Created ${type}: ${entityId}`)
       }
       printJSON(entity)
       return
@@ -205,7 +207,7 @@ export async function doCommand(args: string[]): Promise<void> {
         return
       }
 
-      const entity = await provider.update(type, id, data)
+      const entity = isRemoteMode() ? await restUpdate(type, id, data) : await provider.update(type, id, data)
       if (!json && !quiet) {
         printSuccess(`Updated ${type}: ${id}`)
       }
@@ -245,14 +247,21 @@ export async function doCommand(args: string[]): Promise<void> {
         return
       }
 
-      const result = await provider.delete(type, id)
-      if (result) {
+      if (isRemoteMode()) {
+        await restDelete(type, id)
         if (!json && !quiet) {
           printSuccess(`Deleted ${type}: ${id}`)
         }
       } else {
-        printError(`${type} not found: ${id}`)
-        process.exit(1)
+        const result = await provider.delete(type, id)
+        if (result) {
+          if (!json && !quiet) {
+            printSuccess(`Deleted ${type}: ${id}`)
+          }
+        } else {
+          printError(`${type} not found: ${id}`)
+          process.exit(1)
+        }
       }
       return
     }

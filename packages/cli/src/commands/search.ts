@@ -10,8 +10,9 @@
 
 import { parseArgs, parseFilter, parseSort } from '../args.js'
 import { printTable, printJSON, printError, printCSV, pickFields } from '../output.js'
-import { getProvider } from '../provider.js'
+import { getProvider, isRemoteMode } from '../provider.js'
 import { validateInput, ValidationError } from '../validate.js'
+import { restFind } from '../api-client.js'
 
 export async function searchCommand(args: string[]): Promise<void> {
   const { positional, flags } = parseArgs(args)
@@ -79,8 +80,15 @@ export async function searchCommand(args: string[]): Promise<void> {
     const provider = await getProvider()
 
     if (type) {
-      // Search specific type
-      let results = await provider.find(type, Object.keys(filter).length > 0 ? filter : undefined)
+      // Search specific type — use REST API directly in remote mode (RPC/WebSocket hangs for anon tenants)
+      let results: Record<string, unknown>[]
+
+      if (isRemoteMode()) {
+        const rest = await restFind(type, { limit, where: Object.keys(filter).length > 0 ? filter : undefined })
+        results = rest.data
+      } else {
+        results = await provider.find(type, Object.keys(filter).length > 0 ? filter : undefined) as Record<string, unknown>[]
+      }
 
       // Apply text query
       if (query) {

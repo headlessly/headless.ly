@@ -14,8 +14,9 @@
 import { parseArgs } from '../args.js'
 import { ExitCode } from '../exit-codes.js'
 import { printJSON, printError, printTable, pickFields } from '../output.js'
-import { getProvider } from '../provider.js'
+import { getProvider, isRemoteMode } from '../provider.js'
 import { validateInput, ValidationError } from '../validate.js'
+import { restGet } from '../api-client.js'
 
 export async function fetchCommand(args: string[]): Promise<void> {
   const { positional, flags } = parseArgs(args)
@@ -34,6 +35,14 @@ export async function fetchCommand(args: string[]): Promise<void> {
     console.log('  --history                 Show entity event history')
     console.log('  --json                    Output as JSON')
     console.log('  --fields f1,f2,...        Only include specified fields in output')
+    console.log('')
+    console.log('Events options:')
+    console.log('  --type Type               Filter events by type')
+    console.log('  --event name              Filter by event name')
+    console.log('  --source name             Filter by source')
+    console.log('  --actor id                Filter by actor')
+    console.log('  --since timestamp         Events after this time (ISO 8601)')
+    console.log('  --limit N                 Max events (default: 20)')
     return
   }
 
@@ -100,8 +109,54 @@ export async function fetchCommand(args: string[]): Promise<void> {
 
   // Events fetch
   if (first === 'events') {
-    console.log('Event fetching is not yet implemented.')
-    console.log('Events will be available when connected to a remote headless.ly instance.')
+    const evtType = flags['type'] as string | undefined
+    const evtEvent = flags['event'] as string | undefined
+    const evtSource = flags['source'] as string | undefined
+    const evtActor = flags['actor'] as string | undefined
+    const evtSince = flags['since'] as string | undefined
+    const evtLimit = flags['limit'] as string | undefined
+    const fieldsRaw = flags['fields'] as string | undefined
+    const fields = fieldsRaw ? fieldsRaw.split(',').map((s) => s.trim()).filter(Boolean) : undefined
+
+    try {
+      const { fetchEvents } = await import('../api-client.js')
+      const result = await fetchEvents({
+        type: evtType,
+        event: evtEvent,
+        source: evtSource,
+        actor: evtActor,
+        since: evtSince,
+        limit: evtLimit ? parseInt(evtLimit, 10) : 20,
+        includeTotal: true,
+      })
+
+      if (!result) {
+        printError('No remote endpoint configured. Use `headlessly login` to connect.')
+        process.exit(1)
+        return
+      }
+
+      const data = fields ? pickFields(result.data, fields) : result.data
+
+      if (json) {
+        printJSON({ data, hasMore: result.hasMore, total: result.total, limit: result.limit })
+      } else if (data.length === 0) {
+        printTable([])
+      } else {
+        printTable(data as Record<string, unknown>[])
+        if (result.hasMore) {
+          console.log(`\n(Showing ${data.length} of ${result.total ?? '?'} events)`)
+        }
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      if (json) {
+        printJSON({ error: { code: 'SERVER', message } })
+        return
+      }
+      printError(`Events fetch failed: ${message}`)
+      process.exit(ExitCode.SERVER)
+    }
     return
   }
 
@@ -198,7 +253,14 @@ export async function fetchCommand(args: string[]): Promise<void> {
 
   try {
     const provider = await getProvider()
-    const entity = await provider.get(type, id)
+
+    // Use REST API directly in remote mode (RPC/WebSocket hangs for anon tenants)
+    let entity: Record<string, unknown> | null
+    if (isRemoteMode()) {
+      entity = await restGet(type, id)
+    } else {
+      entity = await provider.get(type, id) as Record<string, unknown> | null
+    }
 
     if (!entity) {
       if (json) {
@@ -223,10 +285,16 @@ export async function fetchCommand(args: string[]): Promise<void> {
           const typeName = singularGuess.charAt(0).toUpperCase() + singularGuess.slice(1)
 
           // Try to find entities of that type that reference this entity
-          const related = await provider.find(typeName)
+          let related: Record<string, unknown>[]
+          if (isRemoteMode()) {
+            const rest = await (await import('../api-client.js')).restFind(typeName)
+            related = rest.data
+          } else {
+            related = await provider.find(typeName) as Record<string, unknown>[]
+          }
           if (related.length > 0) {
             // Filter to those referencing this entity by any field matching our $id
-            const matching = related.filter((r) => Object.values(r).some((v) => v === entity.$id))
+            const matching = related.filter((r) => Object.values(r).some((v) => v === (entity as any).$id || v === (entity as any).id))
             result[field] = matching
           } else {
             result[field] = []
