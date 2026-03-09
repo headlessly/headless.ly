@@ -76,8 +76,11 @@ export async function run(args: string[]): Promise<void> {
     case undefined:
       return helpCommand(rest)
     case '--version':
-    case '-v':
-      return versionCommand()
+    case '-v': {
+      const { parseArgs } = await import('./args.js')
+      const { flags } = parseArgs(rest)
+      return versionCommand(flags)
+    }
     default: {
       const suggestion = suggestCommand(command)
       if (suggestion) {

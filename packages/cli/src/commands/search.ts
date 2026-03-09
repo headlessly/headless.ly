@@ -11,6 +11,7 @@
 import { parseArgs, parseFilter, parseSort } from '../args.js'
 import { printTable, printJSON, printError, printCSV, pickFields } from '../output.js'
 import { getProvider } from '../provider.js'
+import { validateInput, ValidationError } from '../validate.js'
 
 export async function searchCommand(args: string[]): Promise<void> {
   const { positional, flags } = parseArgs(args)
@@ -48,6 +49,19 @@ export async function searchCommand(args: string[]): Promise<void> {
   const fields = fieldsRaw ? fieldsRaw.split(',').map((s) => s.trim()).filter(Boolean) : undefined
 
   const limit = limitStr ? parseInt(limitStr, 10) : 20
+
+  if (query) {
+    try {
+      validateInput(query)
+    } catch (err) {
+      if (err instanceof ValidationError) {
+        printError(err.message)
+        process.exit(1)
+        return
+      }
+      throw err
+    }
+  }
 
   // Build filter from --filter flag(s) — supports multiple
   let filter: Record<string, unknown> = {}

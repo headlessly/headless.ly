@@ -12,8 +12,10 @@
  */
 
 import { parseArgs } from '../args.js'
+import { ExitCode } from '../exit-codes.js'
 import { printJSON, printError, printSuccess } from '../output.js'
 import { getProvider } from '../provider.js'
+import { validateInput, validateData, ValidationError } from '../validate.js'
 
 const RESERVED_FLAGS = new Set(['json', 'quiet', 'data', 'dry-run', 'help'])
 
@@ -85,6 +87,20 @@ export async function doCommand(args: string[]): Promise<void> {
 
   const action = positional[0]!
 
+  // Validate inputs
+  for (const arg of positional) {
+    try {
+      validateInput(arg)
+    } catch (err) {
+      if (err instanceof ValidationError) {
+        printError(err.message)
+        process.exit(ExitCode.USAGE)
+        return
+      }
+      throw err
+    }
+  }
+
   // Code evaluation
   if (action === 'eval') {
     const code = positional.slice(1).join(' ')
@@ -112,6 +128,17 @@ export async function doCommand(args: string[]): Promise<void> {
       }
 
       const data = buildData(flags)
+
+      try {
+        validateData(data)
+      } catch (err) {
+        if (err instanceof ValidationError) {
+          printError(err.message)
+          process.exit(ExitCode.USAGE)
+          return
+        }
+        throw err
+      }
 
       if (dryRun) {
         const preview = { 'dry-run': true, action: 'create', type, data }
@@ -143,7 +170,29 @@ export async function doCommand(args: string[]): Promise<void> {
         return
       }
 
+      try {
+        validateInput(id, 'id')
+      } catch (err) {
+        if (err instanceof ValidationError) {
+          printError(err.message)
+          process.exit(ExitCode.USAGE)
+          return
+        }
+        throw err
+      }
+
       const data = buildData(flags)
+
+      try {
+        validateData(data)
+      } catch (err) {
+        if (err instanceof ValidationError) {
+          printError(err.message)
+          process.exit(ExitCode.USAGE)
+          return
+        }
+        throw err
+      }
 
       if (dryRun) {
         const preview = { 'dry-run': true, action: 'update', type, id, data }
@@ -173,6 +222,17 @@ export async function doCommand(args: string[]): Promise<void> {
         console.log('Usage: headlessly do delete <type> <id>')
         process.exit(1)
         return
+      }
+
+      try {
+        validateInput(id, 'id')
+      } catch (err) {
+        if (err instanceof ValidationError) {
+          printError(err.message)
+          process.exit(ExitCode.USAGE)
+          return
+        }
+        throw err
       }
 
       if (dryRun) {
@@ -209,7 +269,29 @@ export async function doCommand(args: string[]): Promise<void> {
       return
     }
 
+    try {
+      validateInput(id, 'id')
+    } catch (err) {
+      if (err instanceof ValidationError) {
+        printError(err.message)
+        process.exit(ExitCode.USAGE)
+        return
+      }
+      throw err
+    }
+
     const data = buildData(flags)
+
+    try {
+      validateData(data)
+    } catch (err) {
+      if (err instanceof ValidationError) {
+        printError(err.message)
+        process.exit(ExitCode.USAGE)
+        return
+      }
+      throw err
+    }
 
     if (dryRun) {
       const preview = { 'dry-run': true, action: verb, type, id, data: Object.keys(data).length > 0 ? data : undefined }

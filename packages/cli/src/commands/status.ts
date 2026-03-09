@@ -7,11 +7,52 @@
 import { loadConfig, getConfigPath } from '../config.js'
 import { getProvider } from '../provider.js'
 import { existsSync } from 'fs'
+import { parseArgs } from '../args.js'
 
-export async function statusCommand(_args: string[]): Promise<void> {
+export async function statusCommand(args: string[]): Promise<void> {
+  const { flags } = parseArgs(args)
+  const json = flags.json === true || flags.output === 'json'
+
   const config = await loadConfig()
   const configPath = getConfigPath()
   const configExists = existsSync(configPath)
+
+  if (json) {
+    const { printJSON } = await import('../output.js')
+    let nouns: string[] = []
+    const counts: Record<string, number> = {}
+
+    try {
+      const { getAllNouns } = await import('digital-objects')
+      nouns = [...getAllNouns().keys()]
+
+      const provider = await getProvider()
+      for (const name of nouns) {
+        try {
+          const results = await provider.find(name)
+          if (results.length > 0) {
+            counts[name] = results.length
+          }
+        } catch {
+          // Skip types that fail to query
+        }
+      }
+    } catch {
+      // digital-objects not loaded yet
+    }
+
+    printJSON({
+      tenant: config.tenant ?? 'default',
+      mode: config.mode ?? 'local',
+      config: configPath,
+      configExists,
+      endpoint: config.endpoint,
+      apiKey: config.apiKey ? config.apiKey.slice(0, 8) + '...' : undefined,
+      nouns,
+      counts,
+    })
+    return
+  }
 
   console.log('headless.ly status')
   console.log('==================')

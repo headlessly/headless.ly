@@ -22,6 +22,7 @@ const COMMAND_HELP: Record<string, () => void> = {
     console.log('  --output format       Output format: table, json, csv')
     console.log('  --no-header           Omit table headers (for piping)')
     console.log('  --json                Output as JSON (shortcut for --output json)')
+    console.log('  --fields f1,f2        Limit output to specified fields (comma-separated)')
     console.log('')
     console.log('Examples:')
     console.log('  headlessly search Contact')
@@ -40,6 +41,7 @@ const COMMAND_HELP: Record<string, () => void> = {
     console.log('  --include field1,field2   Include related entities (comma-separated)')
     console.log('  --history                 Show entity event history')
     console.log('  --json                    Output as JSON')
+    console.log('  --fields f1,f2          Limit output to specified fields (comma-separated)')
     console.log('')
     console.log('Examples:')
     console.log('  headlessly fetch Contact contact_fX9bL5nRd')
@@ -60,13 +62,17 @@ const COMMAND_HELP: Record<string, () => void> = {
     console.log('  eval <code>                        Evaluate TypeScript code')
     console.log('')
     console.log('Options:')
-    console.log('  --json     Output as JSON')
-    console.log('  --quiet    Suppress "ok:" prefix output')
+    console.log('  --data JSON     Entity data as JSON object (e.g. \'{"name":"Alice"}\')')
+    console.log('  --dry-run       Validate and preview without executing')
+    console.log('  --json          Output as JSON')
+    console.log('  --quiet         Suppress status messages')
     console.log('')
     console.log('Examples:')
     console.log('  headlessly do create Contact --name Alice --stage Lead')
     console.log('  headlessly do qualify Contact contact_fX9bL5nRd')
     console.log('  headlessly do delete Contact contact_fX9bL5nRd')
+    console.log('  headlessly do create Contact --data \'{"name":"Alice","stage":"Lead"}\' --json')
+    console.log('  headlessly do create Contact --name Alice --dry-run')
   },
   init: () => {
     console.log('headlessly init — Initialize a new organization')
@@ -175,13 +181,14 @@ export async function helpCommand(args?: string[]): Promise<void> {
   console.log('    --limit N                 Max results (default: 20)')
   console.log('    --sort field:asc|desc     Sort results')
   console.log('    --json                    Output as JSON')
+  console.log('    --fields f1,f2            Limit output to specified fields')
   console.log('')
   console.log('  fetch <type> <id>         Fetch a specific entity')
   console.log('    --include fields          Include related entities')
   console.log('  fetch schema [noun]       Show schema for a noun or all nouns')
   console.log('  fetch events              Fetch event stream')
   console.log('')
-  console.log('  do create <type> [flags]  Create an entity (flags become fields)')
+  console.log('  do create <type> [flags]  Create an entity (flags become fields, or use --data)')
   console.log('  do update <type> <id>     Update an entity')
   console.log('  do delete <type> <id>     Delete an entity')
   console.log('  do <verb> <type> <id>     Execute a custom verb')
@@ -200,7 +207,9 @@ export async function helpCommand(args?: string[]): Promise<void> {
   console.log('Examples:')
   console.log('')
   console.log('  headlessly search Contact --filter stage=Lead')
+  console.log('  headlessly search Contact --fields name,stage --json')
   console.log('  headlessly do create Contact --name Alice --stage Lead')
+  console.log('  headlessly do create Contact --data \'{"name":"Alice"}\' --json')
   console.log('  headlessly fetch Contact contact_abc123')
   console.log('  headlessly do qualify Contact contact_abc123')
   console.log('  headlessly schema Contact')
@@ -210,6 +219,18 @@ export async function helpCommand(args?: string[]): Promise<void> {
   console.log('Docs: https://headless.ly/docs/cli')
 }
 
-export async function versionCommand(): Promise<void> {
-  console.log(VERSION)
+export async function versionCommand(flags?: Record<string, string | boolean | string[]>): Promise<void> {
+  if (flags?.json === true) {
+    const { loadConfig } = await import('../config.js')
+    const { printJSON } = await import('../output.js')
+    const config = await loadConfig()
+    printJSON({
+      version: VERSION,
+      tenant: config.tenant ?? 'default',
+      mode: config.mode ?? 'memory',
+      endpoint: config.endpoint,
+    })
+  } else {
+    console.log(VERSION)
+  }
 }

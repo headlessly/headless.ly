@@ -12,8 +12,10 @@
  */
 
 import { parseArgs } from '../args.js'
+import { ExitCode } from '../exit-codes.js'
 import { printJSON, printError, printTable, pickFields } from '../output.js'
 import { getProvider } from '../provider.js'
+import { validateInput, ValidationError } from '../validate.js'
 
 export async function fetchCommand(args: string[]): Promise<void> {
   const { positional, flags } = parseArgs(args)
@@ -101,6 +103,25 @@ export async function fetchCommand(args: string[]): Promise<void> {
     console.log('Event fetching is not yet implemented.')
     console.log('Events will be available when connected to a remote headless.ly instance.')
     return
+  }
+
+  // Validate ID if present
+  const idToValidate = positional[1]
+  if (idToValidate) {
+    try {
+      validateInput(idToValidate, 'id')
+    } catch (err) {
+      if (err instanceof ValidationError) {
+        if (json) {
+          printJSON({ error: { code: 'VALIDATION', message: err.message } })
+          return
+        }
+        printError(err.message)
+        process.exit(ExitCode.USAGE)
+        return
+      }
+      throw err
+    }
   }
 
   // History fetch: headlessly fetch <type> <id> --history
