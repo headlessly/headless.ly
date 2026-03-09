@@ -1,11 +1,11 @@
 #!/usr/bin/env npx tsx
 /**
- * Smart publish script for @headlessly/* packages.
+ * Smart publish script for @headlessly/* packages and their dependencies.
  *
- * 1. Discovers all publishable packages in packages/
+ * 1. Discovers all publishable packages (including external deps like digital-objects)
  * 2. Checks npm registry for already-published versions
  * 3. Replaces workspace:* with actual versions
- * 4. Publishes via npm with web auth (TouchID)
+ * 4. Publishes in dependency order via npm with web auth (TouchID)
  * 5. Restores original package.json files
  *
  * Usage:
@@ -15,13 +15,20 @@
  */
 
 import { execSync, spawnSync } from 'node:child_process'
-import { readdirSync, readFileSync, writeFileSync, statSync } from 'node:fs'
-import { join, dirname } from 'node:path'
+import { readdirSync, readFileSync, writeFileSync, statSync, existsSync } from 'node:fs'
+import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const rootDir = join(__dirname, '..')
 const packagesDir = join(rootDir, 'packages')
+
+// External workspace dependencies that must be published before @headlessly/* packages.
+// These live outside public/ but are referenced via workspace:* protocol.
+// Order matters — publish these first, in dependency order.
+const EXTERNAL_DEPS: { name: string; dir: string }[] = [
+  { name: 'digital-objects', dir: resolve(rootDir, '../.org.ai/primitives/packages/digital-objects') },
+]
 
 interface PackageJson {
   name: string
@@ -94,18 +101,59 @@ function replaceWorkspaceProtocol(deps: Record<string, string> | undefined, vers
   return result
 }
 
+function matchesFilter(pkg: PackageJson, dir: string, filterPackages: string[]): boolean {
+  if (filterPackages.length === 0) return true
+  const dirName = dir.split('/').pop()!
+  return filterPackages.some((f) => pkg.name === f || pkg.name === `@headlessly/${f}` || dirName === f)
+}
+
 async function main() {
   const args = process.argv.slice(2)
   const dryRun = args.includes('--dry-run')
   const filterPackages = args.filter((a) => !a.startsWith('--'))
 
-  const dirs = getPackageDirs()
   const versionMap = new Map<string, string>()
   const originalContents = new Map<string, string>()
   const toPublish: { dir: string; name: string; version: string }[] = []
 
-  // First pass: collect versions and check what needs publishing
   console.log('Checking which packages need publishing...\n')
+
+  // ── Phase 1: External dependencies (published first) ──────────────────
+  console.log('  External dependencies:')
+  for (const { name, dir } of EXTERNAL_DEPS) {
+    const pkgJsonPath = join(dir, 'package.json')
+    if (!existsSync(pkgJsonPath)) {
+      console.log(`  skip  ${name} (not found at ${dir})`)
+      continue
+    }
+
+    const pkg = readPackageJson(dir)
+    versionMap.set(pkg.name, pkg.version)
+
+    if (pkg.private) {
+      console.log(`  skip  ${pkg.name} (private)`)
+      continue
+    }
+
+    // External deps are always included unless filtering to specific @headlessly packages
+    const isExplicitlyFiltered = filterPackages.length > 0 && filterPackages.some(
+      (f) => pkg.name === f || dir.split('/').pop() === f,
+    )
+    // When filtering, only include external deps if explicitly named OR if
+    // any filtered @headlessly package depends on them
+    const neededByFilter = filterPackages.length === 0 || isExplicitlyFiltered
+
+    if (isPublished(pkg.name, pkg.version)) {
+      console.log(`  done  ${pkg.name}@${pkg.version} (already published)`)
+    } else if (neededByFilter) {
+      console.log(`  new   ${pkg.name}@${pkg.version}`)
+      toPublish.push({ dir, name: pkg.name, version: pkg.version })
+    }
+  }
+
+  // ── Phase 2: @headlessly/* packages ────────────────────────────────────
+  console.log('\n  @headlessly/* packages:')
+  const dirs = getPackageDirs()
 
   for (const dir of dirs) {
     const pkg = readPackageJson(dir)
@@ -116,12 +164,7 @@ async function main() {
       continue
     }
 
-    // Filter to specific packages if requested
-    if (filterPackages.length > 0) {
-      const dirName = dir.split('/').pop()!
-      const matches = filterPackages.some((f) => pkg.name === f || pkg.name === `@headlessly/${f}` || dirName === f)
-      if (!matches) continue
-    }
+    if (!matchesFilter(pkg, dir, filterPackages)) continue
 
     if (isPublished(pkg.name, pkg.version)) {
       console.log(`  done  ${pkg.name}@${pkg.version} (already published)`)
