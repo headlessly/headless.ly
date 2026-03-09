@@ -71,13 +71,20 @@ describe('parseArgs', () => {
     expect(result).toEqual({ positional: [], flags: { key: 'a>b' } })
   })
 
-  // Known bug: negative numbers treated as flags because of startsWith('-') check
-  it('BUG: treats negative numbers as flags', () => {
+  it('handles negative numbers as values', () => {
     const result = parseArgs(['--timeout', '-1'])
-    // Expected: { flags: { timeout: '-1' }, positional: [] }
-    // Actual: -1 starts with '-', so timeout becomes boolean true and -1 becomes flag '1'
-    expect(result.flags.timeout).toBe(true)
-    expect(result.flags['1']).toBe(true)
+    expect(result).toEqual({ flags: { timeout: '-1' }, positional: [] })
+  })
+
+  it('handles negative decimal numbers as values', () => {
+    const result = parseArgs(['--rate', '-3.14'])
+    expect(result).toEqual({ flags: { rate: '-3.14' }, positional: [] })
+  })
+
+  it('still treats real flags after flags as boolean', () => {
+    const result = parseArgs(['--verbose', '--json'])
+    expect(result.flags.verbose).toBe(true)
+    expect(result.flags.json).toBe(true)
   })
 
   it('handles -- followed by multiple positionals', () => {

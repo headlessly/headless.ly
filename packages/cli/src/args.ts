@@ -52,7 +52,7 @@ export function parseArgs(args: string[]): ParsedArgs {
 
     // Peek at next arg to see if it's a value
     const next = args[i + 1]
-    if (next !== undefined && !next.startsWith('-')) {
+    if (next !== undefined && (!next.startsWith('-') || /^-\d/.test(next))) {
       const existing = flags[key]
       if (existing !== undefined && existing !== true) {
         // Multiple values for same key — collect into array
