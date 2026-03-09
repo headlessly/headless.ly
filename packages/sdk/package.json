@@ -1,6 +1,6 @@
 {
   "name": "@headlessly/sdk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "The unified headless.ly SDK — all 35 entities + $ context",
   "type": "module",
   "main": "dist/index.js",

@@ -1,6 +1,6 @@
 {
   "name": "@headlessly/mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MCP protocol client for headless.ly — search, fetch, do",
   "type": "module",
   "main": "dist/index.js",

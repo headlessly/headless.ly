@@ -1,6 +1,6 @@
 {
   "name": "@headlessly/rpc",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Preconfigured rpc.do client for headless.ly — capnweb promise pipelining, magic .map(), automatic batching",
   "type": "module",
   "main": "dist/index.js",

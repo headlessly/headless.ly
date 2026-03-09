@@ -1,6 +1,6 @@
 {
   "name": "@headlessly/events",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Event system with time travel for headless.ly Digital Objects",
   "type": "module",
   "main": "dist/index.js",

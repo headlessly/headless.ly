@@ -1,6 +1,6 @@
 {
   "name": "@headlessly/analytics",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "headless.ly Analytics entities — Event, Metric, Funnel, Goal",
   "type": "module",
   "main": "dist/index.js",

@@ -1,6 +1,6 @@
 {
   "name": "@headlessly/crm",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "headless.ly CRM entities — Contact, Company, Deal",
   "type": "module",
   "main": "dist/index.js",
