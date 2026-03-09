@@ -1,6 +1,6 @@
 {
   "name": "@headlessly/experiments",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "headless.ly Experimentation entities — Experiment, FeatureFlag",
   "type": "module",
   "main": "dist/index.js",

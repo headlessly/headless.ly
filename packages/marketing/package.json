@@ -1,6 +1,6 @@
 {
   "name": "@headlessly/marketing",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "headless.ly Marketing entities — Campaign, Segment, Form",
   "type": "module",
   "main": "dist/index.js",

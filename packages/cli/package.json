@@ -1,6 +1,6 @@
 {
   "name": "@headlessly/cli",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "CLI tool for headless.ly developers and agents",
   "type": "module",
   "main": "./dist/index.js",

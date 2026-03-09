@@ -1,6 +1,6 @@
 {
   "name": "@headlessly/objects",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "DO-backed NounProvider for digital-objects — bridges Noun() to Durable Object storage",
   "type": "module",
   "main": "dist/index.js",
