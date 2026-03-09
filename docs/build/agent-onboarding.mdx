@@ -232,37 +232,19 @@ The entire journey happens inside a single MCP conversation. No browser tabs, no
 
 ## CLI Self-Service
 
-The same zero-auth self-service flow works via the CLI — ideal for autonomous agents with shell access (Claude Code, Codex, Devin, etc.):
+The same zero-auth self-service flow works via the CLI — ideal for autonomous agents with shell access (Claude Code, Codex, Devin, etc.). The CLI auto-provisions on first use — no manual setup:
 
-### 1. Provision
+### Just Run It
 
-```bash
-# Provision an anonymous tenant (no auth required)
-curl -sX POST https://api.headless.ly/provision | jq .
-```
-
-Returns a `tenantId`, `sessionToken`, and `claimToken`:
-
-```json
-{
-  "tenantId": "anon_abc123",
-  "sessionToken": "ses_xyz789",
-  "claimToken": "clm_def456",
-  "level": 1,
-  "limits": { "maxEntities": 1000, "ttlHours": 24, "maxRequestsPerMinute": 100 }
-}
-```
-
-### 2. Configure
+The first command auto-provisions an anonymous tenant and saves credentials to `~/.headlessly/config.json`:
 
 ```bash
-headlessly login --tenant anon_abc123 --api-key ses_xyz789 \
-  --endpoint https://api.headless.ly/~anon_abc123
-```
+# First run — auto-provisions, then returns results
+headlessly search Contact --json
+# => Auto-provisioned tenant: anon_abc123
+# => Claim this tenant permanently: https://id.org.ai/claim/clm_...
+# => []
 
-### 3. Operate
-
-```bash
 # Create entities
 headlessly do create Contact --data '{"name":"Alice Smith","email":"alice@example.com","stage":"Lead"}' --json
 
@@ -282,9 +264,9 @@ headlessly fetch events --json --limit 10 --fields id,type,event,ts
 headlessly do create Deal --data '{"name":"Big Deal","value":50000}' --dry-run --json
 ```
 
-All commands support `--json` for structured output, `--fields` for context window discipline, and `--dry-run` for safe previews.
+No curl. No login. No config. The agent just runs commands and it works. All commands support `--json` for structured output, `--fields` for context window discipline, and `--dry-run` for safe previews.
 
-### 4. Claim
+### Claim
 
 Commit `.github/workflows/headlessly.yml` to link the tenant to a GitHub identity:
 
@@ -308,7 +290,7 @@ Both interfaces support the full self-service flow:
 
 | Capability | MCP | CLI |
 |-----------|-----|-----|
-| Zero-auth start | L0 automatic | `curl /provision` + `login` |
+| Zero-auth start | L0 automatic | Auto-provisions on first command |
 | Read entities | `search` / `fetch` tools | `search` / `fetch` commands |
 | Write entities | `do` tool | `do create` / `do update` / `do delete` |
 | Preview mutations | `try` tool | `--dry-run` flag |

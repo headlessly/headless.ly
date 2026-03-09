@@ -16,26 +16,26 @@ npx @headlessly/cli
 
 ## Quick Start (Zero Auth)
 
-No signup required. Provision an anonymous tenant and start operating immediately:
+No signup, no API key, no configuration. Just run a command — the CLI auto-provisions an anonymous tenant on first use:
 
 ```bash
-# 1. Provision — get a tenant and session token
-curl -X POST https://api.headless.ly/provision
+# First run — auto-provisions and saves credentials
+headlessly search Contact --json
+# => Auto-provisioned tenant: anon_abc123
+# => Claim this tenant permanently: https://id.org.ai/claim/clm_...
+# => []
 
-# 2. Login with the provisioned credentials
-headlessly login --tenant anon_abc123 --api-key ses_xyz --endpoint https://api.headless.ly/~anon_abc123
-
-# 3. Create data
+# Create data
 headlessly do create Contact --data '{"name":"Alice","email":"alice@example.com","stage":"Lead"}' --json
 
-# 4. Search it
-headlessly search Contact --json
+# Search it
+headlessly search Contact --json --fields name,stage
 
-# 5. See the events
+# See the CDC events
 headlessly fetch events --json --limit 5
 ```
 
-Data persists for 24 hours. Claim the tenant via a GitHub commit to make it permanent.
+Credentials are saved to `~/.headlessly/config.json` automatically. Subsequent runs reuse the same tenant. Data persists for 24 hours — claim the tenant via a GitHub commit to make it permanent.
 
 ## Commands
 
