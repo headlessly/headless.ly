@@ -19,6 +19,15 @@ export async function schemaCommand(args: string[]): Promise<void> {
 
   const { getNounSchema, getAllNouns } = await import('digital-objects')
 
+  // Ensure nouns are registered (SDK import in bin.ts may have failed silently)
+  if (getAllNouns().size === 0) {
+    try {
+      await import('@headlessly/sdk')
+    } catch {
+      // SDK not available
+    }
+  }
+
   if (nounName) {
     const schema = getNounSchema(nounName)
     if (!schema) {

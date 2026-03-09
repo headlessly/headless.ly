@@ -4,7 +4,9 @@
  * Print usage info showing all commands, or help for a specific command
  */
 
-const VERSION = '0.0.1'
+import { createRequire } from 'module'
+const require = createRequire(import.meta.url)
+const { version: VERSION } = require('../../package.json')
 
 const COMMAND_HELP: Record<string, () => void> = {
   search: () => {

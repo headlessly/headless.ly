@@ -41,10 +41,25 @@ export function buildData(flags: Record<string, string | boolean | string[]>): R
     }
   }
 
-  // Merge individual flags (override --data values)
+  // Merge individual flags (override --data values), coercing types
   for (const [key, value] of Object.entries(flags)) {
     if (RESERVED_FLAGS.has(key)) continue
-    data[key] = value
+    if (typeof value === 'string') {
+      const num = Number(value)
+      if (!Number.isNaN(num) && value.trim() !== '') {
+        data[key] = num
+      } else if (value === 'true') {
+        data[key] = true
+      } else if (value === 'false') {
+        data[key] = false
+      } else if (value === 'null') {
+        data[key] = null
+      } else {
+        data[key] = value
+      }
+    } else {
+      data[key] = value
+    }
   }
 
   return data

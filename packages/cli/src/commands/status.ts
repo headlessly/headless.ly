@@ -48,6 +48,7 @@ export async function statusCommand(args: string[]): Promise<void> {
       configExists,
       endpoint: config.endpoint,
       apiKey: config.apiKey ? config.apiKey.slice(0, 8) + '...' : undefined,
+      claimUrl: config.claimToken ? `https://id.org.ai/claim/${config.claimToken}` : undefined,
       nouns,
       counts,
     })
@@ -73,6 +74,10 @@ export async function statusCommand(args: string[]): Promise<void> {
 
   if (config.apiKey) {
     console.log(`  API Key:  ${config.apiKey.slice(0, 8)}...`)
+  }
+
+  if (config.claimToken) {
+    console.log(`  Claim:    https://id.org.ai/claim/${config.claimToken}`)
   }
 
   console.log('')

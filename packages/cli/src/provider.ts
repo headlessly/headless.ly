@@ -45,6 +45,7 @@ async function autoProvision(): Promise<{ endpoint: string; apiKey: string; tena
     mode: 'remote' as const,
     endpoint,
     apiKey: data.sessionToken,
+    claimToken: data.claimToken,
   }
 
   await saveConfig(config)

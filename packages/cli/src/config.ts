@@ -14,6 +14,7 @@ export interface CLIConfig {
   apiKey?: string
   endpoint?: string
   mode?: 'memory' | 'local' | 'remote'
+  claimToken?: string
 }
 
 function resolveConfigDir(): string {
@@ -57,9 +58,9 @@ export async function saveConfig(config: CLIConfig): Promise<void> {
   const configFile = resolveConfigPath()
 
   if (!existsSync(configDir)) {
-    await mkdir(configDir, { recursive: true })
+    await mkdir(configDir, { recursive: true, mode: 0o700 })
   }
-  await writeFile(configFile, JSON.stringify(config, null, 2) + '\n', 'utf-8')
+  await writeFile(configFile, JSON.stringify(config, null, 2) + '\n', { encoding: 'utf-8', mode: 0o600 })
 }
 
 export function getConfigDir(): string {
