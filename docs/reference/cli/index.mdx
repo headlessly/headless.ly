@@ -1,10 +1,10 @@
 ---
 title: CLI
-description: Terminal interface mirroring the SDK — same verbs, same entities, same semantics.
+description: Agent-first terminal interface — structured JSON output, exit codes, field masking, events, and zero-auth self-service.
 icon: Terminal
 ---
 
-The CLI mirrors the SDK exactly. Same verbs, same entities, same output.
+The CLI is designed for AI agents first, humans second. Every command outputs structured JSON on stdout, errors on stderr, and uses semantic exit codes.
 
 ## Install
 
@@ -14,64 +14,218 @@ npm install -g @headlessly/cli
 npx @headlessly/cli
 ```
 
-## Auth
+## Quick Start (Zero Auth)
+
+No signup required. Provision an anonymous tenant and start operating immediately:
 
 ```bash
-npx @headlessly/cli login
-# Or if installed globally:
-headlessly login
+# 1. Provision — get a tenant and session token
+curl -X POST https://api.headless.ly/provision
+
+# 2. Login with the provisioned credentials
+headlessly login --tenant anon_abc123 --api-key ses_xyz --endpoint https://api.headless.ly/~anon_abc123
+
+# 3. Create data
+headlessly do create Contact --data '{"name":"Alice","email":"alice@example.com","stage":"Lead"}' --json
+
+# 4. Search it
+headlessly search Contact --json
+
+# 5. See the events
+headlessly fetch events --json --limit 5
 ```
 
-## Status
+Data persists for 24 hours. Claim the tenant via a GitHub commit to make it permanent.
+
+## Commands
+
+### `headlessly search`
+
+Search entities across the graph.
 
 ```bash
-headlessly status
+headlessly search Contact --json
+headlessly search Contact --filter stage=Lead --limit 10
+headlessly search Deal --filter "value>10000" --sort value:desc --json
+headlessly search Contact --fields name,email,stage --json
+headlessly search --query "alice" --json
+headlessly search Contact --count
+headlessly search Contact --output csv
 ```
 
-Returns the same structured data as `$.status()`.
+| Flag | Description |
+|------|-------------|
+| `--filter key=value` | Filter by field (supports `>`, `<`, `>=`, `<=`, `!=`). Repeatable. |
+| `--query text` | Full-text search across fields |
+| `--limit N` | Max results (default: 20) |
+| `--sort field:asc\|desc` | Sort results |
+| `--count` | Output only the count |
+| `--fields f1,f2,...` | Only include specified fields |
+| `--output table\|json\|csv` | Output format |
+| `--json` | Shortcut for `--output json` |
+| `--no-header` | Omit table headers (for piping) |
 
-## Entity Operations
+### `headlessly fetch`
+
+Fetch a specific entity, schema, or events.
+
+```bash
+# Entity by ID
+headlessly fetch Contact contact_fX9bL5nRd --json
+headlessly fetch Contact contact_fX9bL5nRd --fields name,email,stage --json
+headlessly fetch Contact contact_fX9bL5nRd --include deals --json
+
+# Schema
+headlessly fetch schema              # List all entity types
+headlessly fetch schema Contact      # Full schema for Contact
+
+# Events (ClickHouse CDC)
+headlessly fetch events --json --limit 10
+headlessly fetch events --type Contact --json
+headlessly fetch events --since 2026-01-01 --limit 50 --json
+headlessly fetch events --fields id,type,event,ts --json
+
+# Entity history
+headlessly fetch Contact contact_fX9bL5nRd --history --json
+```
+
+| Flag | Description |
+|------|-------------|
+| `--include field1,field2` | Include related entities (comma-separated) |
+| `--history` | Show entity event history |
+| `--fields f1,f2,...` | Only include specified fields |
+| `--json` | Output as JSON |
+
+**Events flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--type Type` | Filter events by entity type |
+| `--event name` | Filter by event name |
+| `--source name` | Filter by source |
+| `--actor id` | Filter by actor |
+| `--since timestamp` | Events after this time (ISO 8601) |
+| `--limit N` | Max events (default: 20) |
+
+### `headlessly do`
+
+Execute actions on entities — create, update, delete, or run custom verbs.
 
 ```bash
 # Create
-headlessly Contact.create --name "Alice" --email "alice@vc.com" --stage Lead
-
-# Get
-headlessly Contact.get contact_uLoSfycy
-
-# Find
-headlessly Contact.find --stage Lead --limit 25
+headlessly do create Contact --data '{"name":"Alice","stage":"Lead"}' --json
+headlessly do create Deal --name "Enterprise" --value 50000 --stage Prospecting --json
 
 # Update
-headlessly Contact.update contact_uLoSfycy --stage Qualified
+headlessly do update Contact contact_fX9bL5nRd --data '{"stage":"Qualified"}' --json
 
 # Delete
-headlessly Contact.delete contact_uLoSfycy
+headlessly do delete Contact contact_fX9bL5nRd --json
+
+# Custom verbs
+headlessly do qualify Contact contact_fX9bL5nRd --json
+headlessly do close Deal deal_k7TmPvQx --json
+
+# Dry run (preview without executing)
+headlessly do create Contact --data '{"name":"Test"}' --dry-run --json
 ```
 
-## Verb Execution
+| Flag | Description |
+|------|-------------|
+| `--data JSON` | Entity data as JSON object |
+| `--dry-run` | Validate and preview without executing |
+| `--json` | Output as JSON |
+| `--quiet` | Suppress status messages |
+
+Individual fields can also be passed as flags: `--name Alice --stage Lead`.
+
+### `headlessly login`
+
+Configure the CLI to connect to a remote instance.
 
 ```bash
-headlessly do Contact.qualify contact_uLoSfycy
-headlessly do Deal.close deal_k7TmPvQx --wonStageId stage_won
-headlessly do Issue.assign issue_pQ8xNfKm --assignee user_aK9dGtRw
-headlessly do FeatureFlag.rollout new-onboarding --percentage 100
+headlessly login --tenant my-startup --api-key hly_abc123
+headlessly login --tenant anon_abc123 --api-key ses_xyz --endpoint https://api.headless.ly/~anon_abc123
 ```
 
-## Metrics
+### `headlessly status`
+
+Show connection status and registered entity types.
 
 ```bash
-headlessly Metric.get mrr
-headlessly Metric.get churn_rate
-headlessly Metric.dashboard
+headlessly status
+headlessly status --json
 ```
 
-## MCP Server
+### `headlessly mcp`
 
-Start the MCP server for AI agents:
+Start the MCP server for AI agent connections.
 
 ```bash
 headlessly mcp
 ```
 
 Exposes three tools: `search`, `fetch`, `do`.
+
+## Agent-First Design
+
+### Structured Output
+
+All commands support `--json` for machine-readable output. JSON goes to stdout, status messages to stderr:
+
+```bash
+# Agent can parse stdout reliably
+result=$(headlessly search Contact --json --fields name,stage)
+echo "$result" | jq '.[].name'
+```
+
+### Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | Usage error (bad arguments) |
+| 2 | Authentication error |
+| 3 | Not found |
+| 4 | Server error |
+
+### Field Masking
+
+Use `--fields` to reduce output to only what the agent needs — keeps context windows small:
+
+```bash
+headlessly search Contact --json --fields name,stage
+# [{"name":"Alice","stage":"Qualified"}]
+
+headlessly fetch events --json --limit 3 --fields id,type,event,ts
+# Compact event summary without full data payloads
+```
+
+### Error Format
+
+Errors are structured JSON when `--json` is set:
+
+```json
+{
+  "error": {
+    "code": "VALIDATION",
+    "message": "Field 'stage' must be one of: Lead, Qualified, Customer"
+  }
+}
+```
+
+### Input Validation
+
+The CLI validates all inputs before sending to the API:
+- Entity IDs are checked for injection patterns
+- `--data` JSON is parsed and validated
+- Query strings are sanitized
+
+### Dry Run
+
+Preview any mutation before executing:
+
+```bash
+headlessly do create Contact --data '{"name":"Alice"}' --dry-run --json
+# {"dry-run":true,"action":"create","type":"Contact","data":{"name":"Alice"}}
+```

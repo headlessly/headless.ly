@@ -229,3 +229,92 @@ Here is a complete agent session from anonymous connection to claimed tenant:
 **Agent operates** -- full persistent access, webhooks, Stripe test mode, 1,000 req/min.
 
 The entire journey happens inside a single MCP conversation. No browser tabs, no signup forms, no API key management dashboards. The agent onboards itself.
+
+## CLI Self-Service
+
+The same zero-auth self-service flow works via the CLI — ideal for autonomous agents with shell access (Claude Code, Codex, Devin, etc.):
+
+### 1. Provision
+
+```bash
+# Provision an anonymous tenant (no auth required)
+curl -sX POST https://api.headless.ly/provision | jq .
+```
+
+Returns a `tenantId`, `sessionToken`, and `claimToken`:
+
+```json
+{
+  "tenantId": "anon_abc123",
+  "sessionToken": "ses_xyz789",
+  "claimToken": "clm_def456",
+  "level": 1,
+  "limits": { "maxEntities": 1000, "ttlHours": 24, "maxRequestsPerMinute": 100 }
+}
+```
+
+### 2. Configure
+
+```bash
+headlessly login --tenant anon_abc123 --api-key ses_xyz789 \
+  --endpoint https://api.headless.ly/~anon_abc123
+```
+
+### 3. Operate
+
+```bash
+# Create entities
+headlessly do create Contact --data '{"name":"Alice Smith","email":"alice@example.com","stage":"Lead"}' --json
+
+# Search
+headlessly search Contact --json --fields name,email,stage
+
+# Fetch by ID
+headlessly fetch Contact contact_fX9bL5nRd --json
+
+# Update
+headlessly do update Contact contact_fX9bL5nRd --data '{"stage":"Qualified"}' --json
+
+# Query CDC events
+headlessly fetch events --json --limit 10 --fields id,type,event,ts
+
+# Preview before executing
+headlessly do create Deal --data '{"name":"Big Deal","value":50000}' --dry-run --json
+```
+
+All commands support `--json` for structured output, `--fields` for context window discipline, and `--dry-run` for safe previews.
+
+### 4. Claim
+
+Commit `.github/workflows/headlessly.yml` to link the tenant to a GitHub identity:
+
+```yaml
+name: headlessly
+on: [push]
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: headlessly/action@v1
+        with:
+          claim: clm_def456
+```
+
+The push event verifies the commit author. Data migrates from sandbox to persistent storage. No OAuth, no browser, no signup form.
+
+### MCP vs CLI
+
+Both interfaces support the full self-service flow:
+
+| Capability | MCP | CLI |
+|-----------|-----|-----|
+| Zero-auth start | L0 automatic | `curl /provision` + `login` |
+| Read entities | `search` / `fetch` tools | `search` / `fetch` commands |
+| Write entities | `do` tool | `do create` / `do update` / `do delete` |
+| Preview mutations | `try` tool | `--dry-run` flag |
+| Query events | `fetch events` | `fetch events --json` |
+| Field masking | Response filtering | `--fields` flag |
+| Structured output | Always JSON | `--json` flag |
+| Claim tenant | `$.session.claim()` | Commit workflow file |
+
+MCP is for agents that speak the Model Context Protocol (Claude, GPT, etc.). CLI is for agents with shell access (Claude Code, Codex, Devin, terminal-based agents). Same data, same verbs, same tenant.

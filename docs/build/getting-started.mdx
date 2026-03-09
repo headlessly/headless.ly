@@ -100,9 +100,11 @@ await $.Contact.qualify({ id: 'contact_uLoSfycy' })
 ### CLI (Terminal)
 
 ```bash
-npx @headlessly/cli status
-headlessly Contact.create --name "Alice" --stage Lead
-headlessly Contact.qualify contact_uLoSfycy
+headlessly status
+headlessly do create Contact --data '{"name":"Alice","stage":"Lead"}' --json
+headlessly do qualify Contact contact_uLoSfycy --json
+headlessly search Contact --json --fields name,stage
+headlessly fetch events --json --limit 5
 ```
 
 ### REST (HTTP)
