@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import { configure, login, logout, getSession, getToken, onAuthChange, isAuthenticated, createKey, revokeKey, listKeys, reset, auth, AuthError } from '../src/index.ts'
+import { configure, login, logout, getSession, getToken, onAuthChange, isAuthenticated, createKey, revokeKey, listKeys, inviteMember, removeMember, listMembers, updateMemberRole, reset, auth, AuthError } from '../src/index.ts'
 
 describe('@headlessly/auth client', () => {
   beforeEach(() => {
@@ -130,6 +130,68 @@ describe('@headlessly/auth client', () => {
       await expect(createKey({ name: 'Test' })).rejects.toThrow('Authentication required')
       await expect(revokeKey('key_123')).rejects.toThrow('Authentication required')
       await expect(listKeys()).rejects.toThrow('Authentication required')
+    })
+  })
+
+  describe('team management', () => {
+    it('throws when not authenticated', async () => {
+      await expect(inviteMember({ email: 'bob@acme.co' })).rejects.toThrow('Authentication required')
+      await expect(removeMember('member_abc')).rejects.toThrow('Authentication required')
+      await expect(listMembers()).rejects.toThrow('Authentication required')
+      await expect(updateMemberRole('member_abc', 'Admin')).rejects.toThrow('Authentication required')
+    })
+
+    it('invites a member when authenticated', async () => {
+      vi.spyOn(globalThis, 'fetch')
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ user: { id: 'u1' }, access_token: 'tok' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+        )
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({ id: 'member_xYz', userId: 'user_bob', email: 'bob@acme.co', role: 'Member', status: 'Invited', joinedAt: '2026-03-10T00:00:00Z' }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ),
+        )
+
+      await login({ email: 'a@b.co', password: 'x' })
+      const member = await inviteMember({ email: 'bob@acme.co' })
+      expect(member.id).toBe('member_xYz')
+      expect(member.status).toBe('Invited')
+    })
+
+    it('lists members when authenticated', async () => {
+      vi.spyOn(globalThis, 'fetch')
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ user: { id: 'u1' }, access_token: 'tok' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+        )
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({ members: [{ id: 'member_xYz', userId: 'user_bob', role: 'Member', status: 'Active', joinedAt: '2026-03-10T00:00:00Z' }] }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ),
+        )
+
+      await login({ email: 'a@b.co', password: 'x' })
+      const members = await listMembers()
+      expect(members).toHaveLength(1)
+      expect(members[0].id).toBe('member_xYz')
+    })
+
+    it('updates member role when authenticated', async () => {
+      vi.spyOn(globalThis, 'fetch')
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ user: { id: 'u1' }, access_token: 'tok' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+        )
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({ id: 'member_xYz', userId: 'user_bob', role: 'Admin', status: 'Active', joinedAt: '2026-03-10T00:00:00Z' }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ),
+        )
+
+      await login({ email: 'a@b.co', password: 'x' })
+      const updated = await updateMemberRole('member_xYz', 'Admin')
+      expect(updated.role).toBe('Admin')
     })
   })
 })

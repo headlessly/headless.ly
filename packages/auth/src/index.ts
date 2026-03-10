@@ -15,6 +15,17 @@ export const User = Noun('User', {
   activate: 'Activated',
 })
 
+export const Member = Noun('Member', {
+  user: '-> User',
+  organization: 'string!#',
+  role: 'Owner | Admin | Member | Viewer | Agent',
+  status: 'Active | Invited | Suspended | Removed',
+  invite: 'Invited',
+  suspend: 'Suspended',
+  remove: 'Removed',
+  activate: 'Activated',
+})
+
 export const ApiKey = Noun('ApiKey', {
   name: 'string!',
   keyPrefix: 'string!##',
@@ -276,6 +287,86 @@ export async function listKeys(): Promise<Array<{ id: string; name: string; keyP
   if (!res.ok) return []
   const data = (await res.json()) as { keys?: Array<{ id: string; name: string; keyPrefix: string; scopes: string[]; status: string; createdAt: string }> }
   return data.keys || []
+}
+
+// ---------------------------------------------------------------------------
+// Team management
+// ---------------------------------------------------------------------------
+
+export interface TeamMember {
+  id: string
+  userId: string
+  email?: string
+  name?: string
+  role: string
+  status: string
+  joinedAt: string
+}
+
+/**
+ * Invite a user to the current organization.
+ */
+export async function inviteMember(options: { email: string; role?: string }): Promise<TeamMember> {
+  const token = _session?.accessToken
+  if (!token) throw new AuthError('Authentication required', 401)
+  const res = await fetch(`${_config.apiUrl}/members`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: options.email, role: options.role || 'Member' }),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new AuthError((body as { error?: { message?: string } }).error?.message || 'Failed to invite member', res.status)
+  }
+  return res.json() as Promise<TeamMember>
+}
+
+/**
+ * Remove a member from the organization.
+ */
+export async function removeMember(memberId: string): Promise<void> {
+  const token = _session?.accessToken
+  if (!token) throw new AuthError('Authentication required', 401)
+  const res = await fetch(`${_config.apiUrl}/members/${memberId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new AuthError((body as { error?: { message?: string } }).error?.message || 'Failed to remove member', res.status)
+  }
+}
+
+/**
+ * List members of the current organization.
+ */
+export async function listMembers(): Promise<TeamMember[]> {
+  const token = _session?.accessToken
+  if (!token) throw new AuthError('Authentication required', 401)
+  const res = await fetch(`${_config.apiUrl}/members`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) return []
+  const data = (await res.json()) as { members?: TeamMember[] }
+  return data.members || []
+}
+
+/**
+ * Update a member's role in the organization.
+ */
+export async function updateMemberRole(memberId: string, role: string): Promise<TeamMember> {
+  const token = _session?.accessToken
+  if (!token) throw new AuthError('Authentication required', 401)
+  const res = await fetch(`${_config.apiUrl}/members/${memberId}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ role }),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new AuthError((body as { error?: { message?: string } }).error?.message || 'Failed to update member role', res.status)
+  }
+  return res.json() as Promise<TeamMember>
 }
 
 // ---------------------------------------------------------------------------
