@@ -1,0 +1,228 @@
+---
+title: Token Taxonomy
+description: Complete reference for authentication token types, formats, issuers, and verification paths.
+icon: Key
+---
+
+## Token Types
+
+headless.ly uses seven token types across three categories: session tokens, API keys, and JWTs.
+
+| Token | Format | Issuer | Auth Level | Use Case |
+|-------|--------|--------|------------|----------|
+| `ses_*` | Opaque string | id.org.ai | L1-L2 | Browser sessions, SDK sessions |
+| `hly_sk_*` | Opaque string | headless.ly | L1 | Agent API keys (native) |
+| `sk_live_*` / `sk_test_*` | Opaque string | WorkOS | L1 | WorkOS-provisioned API keys |
+| `oai_*` | Opaque string | headless.ly | L1 | OpenAI-compatible API keys |
+| `agent_*` | Opaque string | headless.ly | L1 | Named agent identifiers |
+| `clm_*` | Opaque string | headless.ly | L0→L2 | One-time claim tokens (GitHub workflow) |
+| JWT | `header.payload.signature` | id.org.ai, oauth.do, WorkOS | L2-L4 | Authenticated user sessions |
+
+## Session Tokens (`ses_*`)
+
+Session tokens are the most common token type. They are issued by `id.org.ai` when a user or agent initiates a session.
+
+```bash
+# Session token in API request
+curl -H "Authorization: Bearer ses_tR8kJmNxPwL5vQrYbHdFc" \
+  https://crm.headless.ly/api/contacts
+```
+
+- **Created by**: `id.org.ai` AuthService (`createSession`)
+- **Verified by**: AUTH binding RPC (`verifyToken`)
+- **Lifetime**: Configurable per tenant, typically 24h-30d
+- **Contains**: No embedded claims — opaque reference to server-side session state
+
+## API Keys
+
+API keys are long-lived credentials for server-to-server and agent-to-agent communication. Four prefixes exist:
+
+### `hly_sk_*` — Native Keys
+
+headless.ly-issued API keys. The primary key format for production tenants.
+
+```typescript
+import { ApiKey } from '@headlessly/sdk'
+
+const key = await ApiKey.create({
+  name: 'Production Agent',
+  scopes: ['read', 'write'],
+})
+// key.$id = 'apikey_nT5xKpRmVw'
+// key.token = 'hly_sk_tR8kJmNxPwL5vQrYbHdFc'
+```
+
+### `sk_live_*` / `sk_test_*` — WorkOS Keys
+
+WorkOS-provisioned keys, used by tenants with WorkOS SSO integration.
+
+### `oai_*` — OpenAI-Compatible Keys
+
+Keys following the OpenAI key format, for compatibility with agents that expect `OPENAI_API_KEY`-style credentials.
+
+### `agent_*` — Agent Identifiers
+
+Named agent identifiers, typically short-lived and scoped to a specific workflow.
+
+## Claim Tokens (`clm_*`)
+
+One-time tokens used in the Connect → Operate → Claim flow. A claim token is embedded in a GitHub workflow file to promote a sandbox to a permanent tenant.
+
+```yaml title=".github/workflows/headlessly.yml"
+name: headlessly
+on:
+  workflow_dispatch:
+env:
+  HEADLESSLY_CLAIM_TOKEN: ${{ secrets.HEADLESSLY_CLAIM_TOKEN }}
+```
+
+Claim tokens are single-use. Once the GitHub commit is verified, the token is consumed and the sandbox is promoted from L0/L1 to L2.
+
+## JWTs
+
+JSON Web Tokens are used for authenticated user sessions. Three issuers mint JWTs for headless.ly:
+
+### id.org.ai (Primary)
+
+The canonical identity provider. Issues RS256-signed JWTs with standard claims:
+
+```json
+{
+  "sub": "user_fX9bL5nRd",
+  "name": "Alice Chen",
+  "email": "alice@acme.co",
+  "orgId": "acme",
+  "roles": ["admin"],
+  "iss": "https://id.org.ai",
+  "aud": "headless.ly"
+}
+```
+
+### oauth.do
+
+The OAuth 2.1 provider for the `.do` infrastructure. Issues JWTs for cross-service authentication.
+
+### WorkOS Direct
+
+For tenants using WorkOS AuthKit SSO. JWTs follow the WorkOS token format with `organizationId` instead of `orgId`.
+
+## Verification Paths
+
+Every token is verified through one of two paths before being trusted. **No token is ever trusted based on its format alone.**
+
+### Path 1: Edge Verification (cf.actor)
+
+The `auth-identity` snippet runs at the CDN edge before the request reaches the Worker. It verifies RS256 JWTs against known JWKS endpoints and sets `cf.actor` on the request — a tamper-proof channel that external clients cannot forge.
+
+```
+Client → CDN Edge (auth-identity snippet) → cf.actor set → Worker
+```
+
+When `cf.actor` is present, the Worker skips the AUTH binding call entirely, saving 5-10ms per request.
+
+### Path 2: AUTH Binding RPC
+
+For tokens that cannot be verified at the edge (session tokens, API keys, non-JWT tokens), the Worker calls the AUTH binding via Cloudflare Workers RPC:
+
+```
+Client → Worker → AUTH.verifyToken(token) → verified user
+```
+
+The AUTH service (`id.org.ai`) is the single source of truth. It handles all token types: session tokens, API keys, and JWTs.
+
+### Verification Flow
+
+```
+Request arrives
+├── cf.actor present? → Trust it (edge-verified) → classify level
+└── No cf.actor
+    ├── Has token? → AUTH.verifyToken(token)
+    │   ├── Valid → set verifiedUser → classify level
+    │   └── Invalid → L0 (anonymous) or 401 if auth required
+    └── No token → L0 (anonymous) or 401 if auth required
+```
+
+## Auth Level Classification
+
+After verification, every request is classified into one of five levels:
+
+| Level | Name | Condition |
+|-------|------|-----------|
+| **L0** | Anonymous | No token, or invalid token with optional auth |
+| **L1** | Agent | Valid API key with org context |
+| **L2** | User | Valid JWT/session with `sub` or `orgId` |
+| **L3** | Admin | L2 + `roles` includes `admin` or `owner` |
+| **L4** | Superadmin | L2 + `platformRole: 'superadmin'` (.do org only) |
+
+Classification happens in two functions depending on the verification path:
+
+- **`classifyVerifiedUser()`** — Trusted path. Called when `authMiddleware` has already verified the token via AUTH RPC. Inspects `roles`, `platformRole`, `orgId` from the verified user object.
+- **`detectAuth()`** — Fallback path. Handles `cf.actor` (edge-verified) and anonymous requests. Unverified JWTs are always classified as L0.
+
+## Token Lifecycle
+
+### Session Tokens
+
+```
+Create → Active → Revoked/Expired
+```
+
+Session tokens are created by `id.org.ai` and stored server-side. They can be explicitly revoked or expire naturally based on TTL.
+
+### API Keys
+
+```
+Create → Active → Rotated → Revoked
+```
+
+API keys support rotation (issue new key, grace period, revoke old key). Revocation propagates immediately via the Durable Object coordination layer.
+
+### JWTs
+
+```
+Issue → Active → Expired (no revocation)
+```
+
+JWTs are stateless and cannot be revoked individually. Short expiry times (15-60 minutes) limit the blast radius. The AUTH service can reject specific JWTs by maintaining a deny list, but this is an exceptional measure.
+
+### Claim Tokens
+
+```
+Issue → Pending → Consumed (one-time)
+```
+
+Claim tokens are single-use. They transition from pending to consumed when the GitHub commit verification succeeds.
+
+## Token Transport
+
+Tokens can be sent in three ways, checked in priority order:
+
+| Priority | Transport | Header | Example |
+|----------|-----------|--------|---------|
+| 1 | API key header | `x-api-key` | `x-api-key: hly_sk_tR8kJmNxPwL5vQrYbHdFc` |
+| 2 | Authorization header | `Authorization` | `Authorization: Bearer ses_...` |
+| 3 | Auth cookie | `Cookie` | `Cookie: __session=ses_...` |
+
+The `x-api-key` header takes precedence. If present, the `Authorization` header and auth cookie are ignored. The auth cookie is only checked when neither header is present.
+
+## Route Guards
+
+Routes can require a minimum auth level using the `requireAuth` middleware:
+
+```typescript
+import { requireAuth } from '@dotdo/api'
+
+// Any authenticated request (L1+)
+app.get('/api/data', requireAuth(), handler)
+
+// Verified user required (L2+)
+app.post('/api/settings', requireAuth('claimed'), handler)
+
+// Org admin required (L3+)
+app.delete('/api/team/:id', requireAuth('admin'), handler)
+
+// Platform superadmin only (L4)
+app.post('/api/admin/tenants', requireAuth('superadmin'), handler)
+```
+
+Insufficient auth level returns 401 (not authenticated) or 403 (authenticated but insufficient level), with contextual `links` pointing to login, upgrade, or claim flows.
