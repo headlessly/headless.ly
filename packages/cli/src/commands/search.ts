@@ -47,7 +47,12 @@ export async function searchCommand(args: string[]): Promise<void> {
   const countOnly = flags['count'] === true
   const noHeader = flags['no-header'] === true
   const fieldsRaw = flags['fields'] as string | undefined
-  const fields = fieldsRaw ? fieldsRaw.split(',').map((s) => s.trim()).filter(Boolean) : undefined
+  const fields = fieldsRaw
+    ? fieldsRaw
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : undefined
 
   const limit = limitStr ? parseInt(limitStr, 10) : 20
 
@@ -87,7 +92,7 @@ export async function searchCommand(args: string[]): Promise<void> {
         const rest = await restFind(type, { limit, where: Object.keys(filter).length > 0 ? filter : undefined })
         results = rest.data
       } else {
-        results = await provider.find(type, Object.keys(filter).length > 0 ? filter : undefined) as Record<string, unknown>[]
+        results = (await provider.find(type, Object.keys(filter).length > 0 ? filter : undefined)) as Record<string, unknown>[]
       }
 
       // Apply text query

@@ -41,9 +41,7 @@ export function getTenantId(): string {
 export async function setup(): Promise<void> {
   const key = process.env.TEST_API_KEY
   if (!key) {
-    throw new Error(
-      'TEST_API_KEY not set. Expected sk_* key in process.env or .do/snippets/.env',
-    )
+    throw new Error('TEST_API_KEY not set. Expected sk_* key in process.env or .do/snippets/.env')
   }
   apiKey = key
   tenantId = process.env.TEST_TENANT_ID || 'default'

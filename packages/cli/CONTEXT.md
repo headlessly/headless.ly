@@ -4,8 +4,8 @@ version: 0.1.0
 description: Agent skill for headless.ly CLI
 metadata:
   requires:
-    bins: ["headlessly"]
-    env: ["HEADLESSLY_API_KEY"]
+    bins: ['headlessly']
+    env: ['HEADLESSLY_API_KEY']
 ---
 
 # headlessly CLI — Agent Operating Guide

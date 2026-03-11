@@ -1,9 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import {
-  generateEventTypes,
-  generateEventTypeStrings,
-  isValidEventType,
-} from '../src/discriminated-union'
+import { generateEventTypes, generateEventTypeStrings, isValidEventType } from '../src/discriminated-union'
 import type {
   EntityEvent,
   ContactEvent,

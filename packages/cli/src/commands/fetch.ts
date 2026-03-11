@@ -116,7 +116,12 @@ export async function fetchCommand(args: string[]): Promise<void> {
     const evtSince = flags['since'] as string | undefined
     const evtLimit = flags['limit'] as string | undefined
     const fieldsRaw = flags['fields'] as string | undefined
-    const fields = fieldsRaw ? fieldsRaw.split(',').map((s) => s.trim()).filter(Boolean) : undefined
+    const fields = fieldsRaw
+      ? fieldsRaw
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : undefined
 
     try {
       const { fetchEvents } = await import('../api-client.js')
@@ -206,11 +211,13 @@ export async function fetchCommand(args: string[]): Promise<void> {
           process.exit(1)
           return
         }
-        const snapshot = [{
-          operation: 'snapshot',
-          timestamp: (entity as any).$updatedAt || (entity as any).$createdAt || new Date().toISOString(),
-          version: (entity as any).$version || 1,
-        }]
+        const snapshot = [
+          {
+            operation: 'snapshot',
+            timestamp: (entity as any).$updatedAt || (entity as any).$createdAt || new Date().toISOString(),
+            version: (entity as any).$version || 1,
+          },
+        ]
         if (json) {
           printJSON(snapshot)
         } else {
@@ -230,7 +237,12 @@ export async function fetchCommand(args: string[]): Promise<void> {
   const id = positional[1]
   const includeRaw = (flags['include'] ?? flags['populate']) as string | undefined
   const fieldsRaw = flags['fields'] as string | undefined
-  const fields = fieldsRaw ? fieldsRaw.split(',').map((s) => s.trim()).filter(Boolean) : undefined
+  const fields = fieldsRaw
+    ? fieldsRaw
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : undefined
 
   if (!id) {
     if (json) {
@@ -259,7 +271,7 @@ export async function fetchCommand(args: string[]): Promise<void> {
     if (isRemoteMode()) {
       entity = await restGet(type, id)
     } else {
-      entity = await provider.get(type, id) as Record<string, unknown> | null
+      entity = (await provider.get(type, id)) as Record<string, unknown> | null
     }
 
     if (!entity) {
@@ -290,7 +302,7 @@ export async function fetchCommand(args: string[]): Promise<void> {
             const rest = await (await import('../api-client.js')).restFind(typeName)
             related = rest.data
           } else {
-            related = await provider.find(typeName) as Record<string, unknown>[]
+            related = (await provider.find(typeName)) as Record<string, unknown>[]
           }
           if (related.length > 0) {
             // Filter to those referencing this entity by any field matching our $id

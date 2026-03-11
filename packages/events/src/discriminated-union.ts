@@ -83,11 +83,7 @@ export type UserEvent =
   | CustomVerbEvent<'User', 'suspended', 'suspend'>
   | CustomVerbEvent<'User', 'activated', 'activate'>
 
-export type ApiKeyEvent =
-  | CreatedEvent<'ApiKey'>
-  | UpdatedEvent<'ApiKey'>
-  | DeletedEvent<'ApiKey'>
-  | CustomVerbEvent<'ApiKey', 'revoked', 'revoke'>
+export type ApiKeyEvent = CreatedEvent<'ApiKey'> | UpdatedEvent<'ApiKey'> | DeletedEvent<'ApiKey'> | CustomVerbEvent<'ApiKey', 'revoked', 'revoke'>
 
 // --- CRM ---
 
@@ -133,32 +129,17 @@ export type ActivityEvent =
   | CustomVerbEvent<'Activity', 'cancelled', 'cancel'>
   | CustomVerbEvent<'Activity', 'logged', 'log'>
 
-export type PipelineEvent =
-  | CreatedEvent<'Pipeline'>
-  | UpdatedEvent<'Pipeline'>
-  | DeletedEvent<'Pipeline'>
+export type PipelineEvent = CreatedEvent<'Pipeline'> | UpdatedEvent<'Pipeline'> | DeletedEvent<'Pipeline'>
 
 // --- Billing ---
 
-export type CustomerEvent =
-  | CreatedEvent<'Customer'>
-  | UpdatedEvent<'Customer'>
-  | DeletedEvent<'Customer'>
+export type CustomerEvent = CreatedEvent<'Customer'> | UpdatedEvent<'Customer'> | DeletedEvent<'Customer'>
 
-export type ProductEvent =
-  | CreatedEvent<'Product'>
-  | UpdatedEvent<'Product'>
-  | DeletedEvent<'Product'>
+export type ProductEvent = CreatedEvent<'Product'> | UpdatedEvent<'Product'> | DeletedEvent<'Product'>
 
-export type PlanEvent =
-  | CreatedEvent<'Plan'>
-  | UpdatedEvent<'Plan'>
-  | DeletedEvent<'Plan'>
+export type PlanEvent = CreatedEvent<'Plan'> | UpdatedEvent<'Plan'> | DeletedEvent<'Plan'>
 
-export type PriceEvent =
-  | CreatedEvent<'Price'>
-  | UpdatedEvent<'Price'>
-  | DeletedEvent<'Price'>
+export type PriceEvent = CreatedEvent<'Price'> | UpdatedEvent<'Price'> | DeletedEvent<'Price'>
 
 export type SubscriptionEvent =
   | CreatedEvent<'Subscription'>
@@ -205,11 +186,7 @@ export type IssueEvent =
   | CustomVerbEvent<'Issue', 'closed', 'close'>
   | CustomVerbEvent<'Issue', 'reopened', 'reopen'>
 
-export type CommentEvent =
-  | CreatedEvent<'Comment'>
-  | UpdatedEvent<'Comment'>
-  | DeletedEvent<'Comment'>
-  | CustomVerbEvent<'Comment', 'resolved', 'resolve'>
+export type CommentEvent = CreatedEvent<'Comment'> | UpdatedEvent<'Comment'> | DeletedEvent<'Comment'> | CustomVerbEvent<'Comment', 'resolved', 'resolve'>
 
 // --- Content ---
 
@@ -221,16 +198,9 @@ export type ContentEvent =
   | CustomVerbEvent<'Content', 'archived', 'archive'>
   | CustomVerbEvent<'Content', 'scheduled', 'schedule'>
 
-export type AssetEvent =
-  | CreatedEvent<'Asset'>
-  | UpdatedEvent<'Asset'>
-  | DeletedEvent<'Asset'>
-  | CustomVerbEvent<'Asset', 'processed', 'process'>
+export type AssetEvent = CreatedEvent<'Asset'> | UpdatedEvent<'Asset'> | DeletedEvent<'Asset'> | CustomVerbEvent<'Asset', 'processed', 'process'>
 
-export type SiteEvent =
-  | CreatedEvent<'Site'>
-  | UpdatedEvent<'Site'>
-  | DeletedEvent<'Site'>
+export type SiteEvent = CreatedEvent<'Site'> | UpdatedEvent<'Site'> | DeletedEvent<'Site'>
 
 // --- Support ---
 
@@ -246,8 +216,7 @@ export type TicketEvent =
 
 // --- Analytics ---
 
-export type AnalyticsEventEvent =
-  | CreatedEvent<'Event'>
+export type AnalyticsEventEvent = CreatedEvent<'Event'>
 
 export type MetricEvent =
   | CreatedEvent<'Metric'>
@@ -283,11 +252,7 @@ export type CampaignEvent =
   | CustomVerbEvent<'Campaign', 'paused', 'pause'>
   | CustomVerbEvent<'Campaign', 'completed', 'complete'>
 
-export type SegmentEvent =
-  | CreatedEvent<'Segment'>
-  | UpdatedEvent<'Segment'>
-  | DeletedEvent<'Segment'>
-  | CustomVerbEvent<'Segment', 'refreshed', 'refresh'>
+export type SegmentEvent = CreatedEvent<'Segment'> | UpdatedEvent<'Segment'> | DeletedEvent<'Segment'> | CustomVerbEvent<'Segment', 'refreshed', 'refresh'>
 
 export type FormEvent =
   | CreatedEvent<'Form'>
@@ -441,16 +406,40 @@ export type EntityEvent =
 
 /** All entity type names */
 export type EntityTypeName =
-  | 'User' | 'ApiKey'
-  | 'Organization' | 'Contact' | 'Lead' | 'Deal' | 'Activity' | 'Pipeline'
-  | 'Customer' | 'Product' | 'Plan' | 'Price' | 'Subscription' | 'Invoice' | 'Payment'
-  | 'Project' | 'Issue' | 'Comment'
-  | 'Content' | 'Asset' | 'Site'
+  | 'User'
+  | 'ApiKey'
+  | 'Organization'
+  | 'Contact'
+  | 'Lead'
+  | 'Deal'
+  | 'Activity'
+  | 'Pipeline'
+  | 'Customer'
+  | 'Product'
+  | 'Plan'
+  | 'Price'
+  | 'Subscription'
+  | 'Invoice'
+  | 'Payment'
+  | 'Project'
+  | 'Issue'
+  | 'Comment'
+  | 'Content'
+  | 'Asset'
+  | 'Site'
   | 'Ticket'
-  | 'Event' | 'Metric' | 'Funnel' | 'Goal'
-  | 'Campaign' | 'Segment' | 'Form'
-  | 'Experiment' | 'FeatureFlag'
-  | 'Workflow' | 'Integration' | 'Agent'
+  | 'Event'
+  | 'Metric'
+  | 'Funnel'
+  | 'Goal'
+  | 'Campaign'
+  | 'Segment'
+  | 'Form'
+  | 'Experiment'
+  | 'FeatureFlag'
+  | 'Workflow'
+  | 'Integration'
+  | 'Agent'
   | 'Message'
 
 // =============================================================================
@@ -584,9 +573,7 @@ export interface EventTypeDescriptor {
  * // ]
  * ```
  */
-export function generateEventTypes(
-  nounRegistry: Map<string, { name: string; verbs: Map<string, { action: string; event: string }> }>,
-): EventTypeDescriptor[] {
+export function generateEventTypes(nounRegistry: Map<string, { name: string; verbs: Map<string, { action: string; event: string }> }>): EventTypeDescriptor[] {
   const CRUD_VERBS = new Set(['create', 'update', 'delete'])
   const descriptors: EventTypeDescriptor[] = []
 
@@ -611,9 +598,7 @@ export function generateEventTypes(
  * Convenience wrapper around generateEventTypes() that returns just the
  * type strings (e.g. 'Contact.qualified', 'Deal.closed').
  */
-export function generateEventTypeStrings(
-  nounRegistry: Map<string, { name: string; verbs: Map<string, { action: string; event: string }> }>,
-): string[] {
+export function generateEventTypeStrings(nounRegistry: Map<string, { name: string; verbs: Map<string, { action: string; event: string }> }>): string[] {
   return generateEventTypes(nounRegistry).map((d) => d.type)
 }
 
@@ -623,10 +608,7 @@ export function generateEventTypeStrings(
  * Uses the noun registry to check whether the type corresponds to
  * a registered entity + verb combination.
  */
-export function isValidEventType(
-  type: string,
-  nounRegistry: Map<string, { name: string; verbs: Map<string, { action: string; event: string }> }>,
-): boolean {
+export function isValidEventType(type: string, nounRegistry: Map<string, { name: string; verbs: Map<string, { action: string; event: string }> }>): boolean {
   const [entityType, verbEvent] = type.split('.')
   if (!entityType || !verbEvent) return false
 

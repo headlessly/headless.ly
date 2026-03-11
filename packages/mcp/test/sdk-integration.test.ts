@@ -102,11 +102,16 @@ describe('@headlessly/mcp — stdio integration (real child process)', () => {
     const proc = await spawnServer()
 
     // Must initialize first
-    await rpc(proc, 'initialize', {
-      protocolVersion: '2024-11-05',
-      capabilities: {},
-      clientInfo: { name: 'test', version: '0.1' },
-    }, 1)
+    await rpc(
+      proc,
+      'initialize',
+      {
+        protocolVersion: '2024-11-05',
+        capabilities: {},
+        clientInfo: { name: 'test', version: '0.1' },
+      },
+      1,
+    )
 
     // Send initialized notification (SDK requires this)
     proc.stdin!.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n')
@@ -122,25 +127,40 @@ describe('@headlessly/mcp — stdio integration (real child process)', () => {
   it('calls search tool and gets results over stdio', async () => {
     const proc = await spawnServer()
 
-    await rpc(proc, 'initialize', {
-      protocolVersion: '2024-11-05',
-      capabilities: {},
-      clientInfo: { name: 'test', version: '0.1' },
-    }, 1)
+    await rpc(
+      proc,
+      'initialize',
+      {
+        protocolVersion: '2024-11-05',
+        capabilities: {},
+        clientInfo: { name: 'test', version: '0.1' },
+      },
+      1,
+    )
 
     proc.stdin!.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n')
 
     // Create a contact first via do tool
-    await rpc(proc, 'tools/call', {
-      name: 'do',
-      arguments: { action: 'create', type: 'Contact', data: { name: 'Alice', stage: 'Lead' } },
-    }, 2)
+    await rpc(
+      proc,
+      'tools/call',
+      {
+        name: 'do',
+        arguments: { action: 'create', type: 'Contact', data: { name: 'Alice', stage: 'Lead' } },
+      },
+      2,
+    )
 
     // Now search for it
-    const response = await rpc(proc, 'tools/call', {
-      name: 'search',
-      arguments: { type: 'Contact' },
-    }, 3)
+    const response = await rpc(
+      proc,
+      'tools/call',
+      {
+        name: 'search',
+        arguments: { type: 'Contact' },
+      },
+      3,
+    )
 
     const result = response.result as { content: Array<{ type: string; text: string }> }
     expect(result.content).toHaveLength(1)
@@ -154,18 +174,28 @@ describe('@headlessly/mcp — stdio integration (real child process)', () => {
   it('calls fetch tool for schema over stdio', async () => {
     const proc = await spawnServer()
 
-    await rpc(proc, 'initialize', {
-      protocolVersion: '2024-11-05',
-      capabilities: {},
-      clientInfo: { name: 'test', version: '0.1' },
-    }, 1)
+    await rpc(
+      proc,
+      'initialize',
+      {
+        protocolVersion: '2024-11-05',
+        capabilities: {},
+        clientInfo: { name: 'test', version: '0.1' },
+      },
+      1,
+    )
 
     proc.stdin!.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n')
 
-    const response = await rpc(proc, 'tools/call', {
-      name: 'fetch',
-      arguments: { resource: 'schema' },
-    }, 2)
+    const response = await rpc(
+      proc,
+      'tools/call',
+      {
+        name: 'fetch',
+        arguments: { resource: 'schema' },
+      },
+      2,
+    )
 
     const result = response.result as { content: Array<{ type: string; text: string }> }
     const schemas = JSON.parse(result.content[0].text)
@@ -177,39 +207,64 @@ describe('@headlessly/mcp — stdio integration (real child process)', () => {
   it('handles multiple sequential requests over stdio', async () => {
     const proc = await spawnServer()
 
-    await rpc(proc, 'initialize', {
-      protocolVersion: '2024-11-05',
-      capabilities: {},
-      clientInfo: { name: 'test', version: '0.1' },
-    }, 1)
+    await rpc(
+      proc,
+      'initialize',
+      {
+        protocolVersion: '2024-11-05',
+        capabilities: {},
+        clientInfo: { name: 'test', version: '0.1' },
+      },
+      1,
+    )
 
     proc.stdin!.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n')
 
     // Create two contacts
-    await rpc(proc, 'tools/call', {
-      name: 'do',
-      arguments: { action: 'create', type: 'Contact', data: { name: 'Bob', stage: 'Lead' } },
-    }, 2)
+    await rpc(
+      proc,
+      'tools/call',
+      {
+        name: 'do',
+        arguments: { action: 'create', type: 'Contact', data: { name: 'Bob', stage: 'Lead' } },
+      },
+      2,
+    )
 
-    await rpc(proc, 'tools/call', {
-      name: 'do',
-      arguments: { action: 'create', type: 'Deal', data: { title: 'Big Deal', value: 50000, stage: 'Open' } },
-    }, 3)
+    await rpc(
+      proc,
+      'tools/call',
+      {
+        name: 'do',
+        arguments: { action: 'create', type: 'Deal', data: { title: 'Big Deal', value: 50000, stage: 'Open' } },
+      },
+      3,
+    )
 
     // Search contacts
-    const contactRes = await rpc(proc, 'tools/call', {
-      name: 'search',
-      arguments: { type: 'Contact' },
-    }, 4)
+    const contactRes = await rpc(
+      proc,
+      'tools/call',
+      {
+        name: 'search',
+        arguments: { type: 'Contact' },
+      },
+      4,
+    )
     const contacts = JSON.parse((contactRes.result as { content: Array<{ text: string }> }).content[0].text)
     expect(contacts).toHaveLength(1)
     expect(contacts[0].name).toBe('Bob')
 
     // Search deals
-    const dealRes = await rpc(proc, 'tools/call', {
-      name: 'search',
-      arguments: { type: 'Deal' },
-    }, 5)
+    const dealRes = await rpc(
+      proc,
+      'tools/call',
+      {
+        name: 'search',
+        arguments: { type: 'Deal' },
+      },
+      5,
+    )
     const deals = JSON.parse((dealRes.result as { content: Array<{ text: string }> }).content[0].text)
     expect(deals).toHaveLength(1)
     expect(deals[0].title).toBe('Big Deal')

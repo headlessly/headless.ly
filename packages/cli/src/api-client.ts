@@ -74,10 +74,13 @@ export async function fetchEvents(options?: {
 /**
  * Search entities via the REST API (bypasses capnweb RPC).
  */
-export async function restFind(type: string, options?: {
-  limit?: number
-  where?: Record<string, unknown>
-}): Promise<{ data: Record<string, unknown>[]; total?: number }> {
+export async function restFind(
+  type: string,
+  options?: {
+    limit?: number
+    where?: Record<string, unknown>
+  },
+): Promise<{ data: Record<string, unknown>[]; total?: number }> {
   const config = await getApiConfig()
   if (!config) throw new Error('No remote endpoint configured')
 
@@ -106,7 +109,7 @@ export async function restFind(type: string, options?: {
     throw new Error(`API error (${resp.status}): ${body}`)
   }
 
-  const result = await resp.json() as Record<string, unknown>
+  const result = (await resp.json()) as Record<string, unknown>
   const data = (result.data ?? result.docs ?? []) as Record<string, unknown>[]
   const total = (result.total ?? result.totalDocs) as number | undefined
 
@@ -130,7 +133,7 @@ export async function restGet(type: string, id: string): Promise<Record<string, 
     throw new Error(`API error (${resp.status}): ${body}`)
   }
 
-  const result = await resp.json() as Record<string, unknown>
+  const result = (await resp.json()) as Record<string, unknown>
   // REST API wraps in { data: ... } — unwrap whether array or object
   if (result.data && Array.isArray(result.data) && result.data.length > 0) {
     return result.data[0] as Record<string, unknown>
@@ -157,7 +160,7 @@ export async function restCreate(type: string, data: Record<string, unknown>): P
     throw new Error(`API error (${resp.status}): ${body}`)
   }
 
-  const result = await resp.json() as Record<string, unknown>
+  const result = (await resp.json()) as Record<string, unknown>
   if (result.data && typeof result.data === 'object' && !Array.isArray(result.data)) {
     return result.data as Record<string, unknown>
   }
@@ -180,7 +183,7 @@ export async function restUpdate(type: string, id: string, data: Record<string, 
     throw new Error(`API error (${resp.status}): ${body}`)
   }
 
-  const result = await resp.json() as Record<string, unknown>
+  const result = (await resp.json()) as Record<string, unknown>
   if (result.data && typeof result.data === 'object' && !Array.isArray(result.data)) {
     return result.data as Record<string, unknown>
   }

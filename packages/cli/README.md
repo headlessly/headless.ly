@@ -117,21 +117,21 @@ Individual fields can also be passed as flags: `--name Alice --stage Lead`.
 **Structured errors**:
 
 ```json
-{"error":{"code":"VALIDATION","message":"Field 'stage' must be one of: Lead, Qualified, Customer"}}
+{ "error": { "code": "VALIDATION", "message": "Field 'stage' must be one of: Lead, Qualified, Customer" } }
 ```
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `search [type]` | Search entities with filters, sorting, field masking |
-| `fetch <type> <id>` | Fetch entity, schema, or events |
-| `do <action> [type] [id]` | Create, update, delete, or execute custom verbs |
-| `login` | Configure remote endpoint and credentials |
-| `status` | Show connection status and registered entities |
-| `mcp` | Start MCP server for AI agent connections |
-| `help` | Show usage information |
-| `--version` | Show version |
+| Command                   | Description                                          |
+| ------------------------- | ---------------------------------------------------- |
+| `search [type]`           | Search entities with filters, sorting, field masking |
+| `fetch <type> <id>`       | Fetch entity, schema, or events                      |
+| `do <action> [type] [id]` | Create, update, delete, or execute custom verbs      |
+| `login`                   | Configure remote endpoint and credentials            |
+| `status`                  | Show connection status and registered entities       |
+| `mcp`                     | Start MCP server for AI agent connections            |
+| `help`                    | Show usage information                               |
+| `--version`               | Show version                                         |
 
 ## Configuration
 

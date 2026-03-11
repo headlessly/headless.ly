@@ -15,7 +15,7 @@ export async function mcpCommand(args: string[]): Promise<void> {
   const provider = await getProvider()
   const server = new MCPServer({ provider })
 
-  const authMode = args.includes('--auth') ? 'auth-required' as const : 'anon+auth' as const
+  const authMode = args.includes('--auth') ? ('auth-required' as const) : ('anon+auth' as const)
   const noBrowser = args.includes('--no-browser')
   const forceLogin = args.includes('--force-login')
 

@@ -27,7 +27,7 @@
  * ```
  */
 
-const DEFAULT_ENDPOINT = 'https://headless.ly/e'
+const DEFAULT_ENDPOINT = 'https://headless.ly/api/e'
 const DEFAULT_FLAG_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
 // =============================================================================

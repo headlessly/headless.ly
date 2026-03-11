@@ -16,7 +16,7 @@ import { RealtimeManager } from './realtime.js'
 import type { SubscriptionHandler, SubscriptionMessage, RealtimeState } from './realtime.js'
 import { AutoCaptureManager } from './autocapture.js'
 
-const DEFAULT_ENDPOINT = 'https://headless.ly/e'
+const DEFAULT_ENDPOINT = 'https://headless.ly/api/e'
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
 const eventId = () => {
